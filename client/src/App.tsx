@@ -5,7 +5,8 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useStore } from './store/useStore'
-import { restaurantApi } from './services/api'
+import { authApi } from './services/api'
+import { liffService } from './services/liff'
 import Layout from './components/Layout'
 import VegetableList from './pages/VegetableList'
 import History from './pages/History'
@@ -28,18 +29,42 @@ function App() {
 
   const initializeApp = async () => {
     try {
-      // Mock LINE User ID for development
-      const mockLineUserId = 'U' + Math.random().toString(36).substring(2, 15)
-      setLineUserId(mockLineUserId)
+      // Initialize LIFF SDK
+      await liffService.init()
 
-      // Try to fetch restaurant by LINE User ID
-      try {
-        const response = await restaurantApi.getByLineUserId(mockLineUserId)
-        setRestaurant(response.data)
-      } catch (err: any) {
-        if (err.response?.status === 404) {
-          // Restaurant not found - would normally redirect to registration
-          console.log('Restaurant not registered')
+      // Check if running in LIFF and logged in
+      if (liffService.isLoggedIn()) {
+        // Get ID Token (SECURE: this will be verified by backend)
+        const idToken = liffService.getIDToken()
+
+        if (idToken) {
+          // Verify token with backend and get restaurant info
+          try {
+            const response = await authApi.verify(idToken)
+            const { line_user_id, restaurant, is_registered } = response.data
+
+            setLineUserId(line_user_id)
+
+            if (is_registered && restaurant) {
+              setRestaurant(restaurant)
+            } else {
+              console.log('Restaurant not registered')
+              // In production, redirect to registration page
+            }
+          } catch (err: any) {
+            console.error('Authentication failed:', err)
+            setError('認証に失敗しました')
+          }
+        }
+      } else {
+        // Not logged in - trigger LINE login
+        if (liffService.isInClient()) {
+          liffService.login()
+        } else {
+          // Development mode: use mock data
+          console.warn('Not in LIFF environment. Using mock data.')
+          const mockLineUserId = 'U' + Math.random().toString(36).substring(2, 15)
+          setLineUserId(mockLineUserId)
         }
       }
 

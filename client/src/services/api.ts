@@ -3,6 +3,7 @@
  * Uses Axios with TypeScript type safety
  */
 import axios, { AxiosInstance, AxiosError } from 'axios'
+import { liffService } from './liff'
 import type {
   Restaurant,
   Farmer,
@@ -27,11 +28,13 @@ const apiClient: AxiosInstance = axios.create({
 // Request interceptor
 apiClient.interceptors.request.use(
   (config) => {
-    // Add authorization token if available
-    const token = localStorage.getItem('auth_token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+    // Get ID Token from LIFF (SECURE: verified by backend)
+    const idToken = liffService.getIDToken() || liffService.getStoredIDToken()
+    
+    if (idToken) {
+      config.headers.Authorization = `Bearer ${idToken}`
     }
+    
     return config
   },
   (error) => {
@@ -52,6 +55,15 @@ apiClient.interceptors.response.use(
     return Promise.reject(error)
   }
 )
+
+// Authentication API
+export const authApi = {
+  verify: (idToken: string) =>
+    apiClient.post('/auth/verify', { id_token: idToken }),
+  
+  getMe: () =>
+    apiClient.get<Restaurant>('/auth/me'),
+}
 
 // Restaurant API
 export const restaurantApi = {
