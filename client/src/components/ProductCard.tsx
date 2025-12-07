@@ -2,16 +2,36 @@ import { Product, StockType } from '@/types'
 import { useStore } from '@/store/useStore'
 import { Heart, Plus, Minus } from 'lucide-react'
 import { useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { favoriteApi } from '@/services/api'
 
 interface ProductCardProps {
   product: Product
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
-  const { addToCart, cart, isFavorite } = useStore()
+  const queryClient = useQueryClient()
+  const { addToCart, cart, restaurant, isFavorite, addFavorite, removeFavorite } = useStore()
   const [quantity, setQuantity] = useState(1)
   const cartItem = cart.find(item => item.product.id === product.id)
   const isKobe = product.stock_type === StockType.KOBE
+  const isFav = isFavorite(product.id)
+
+  const toggleFavoriteMutation = useMutation({
+    mutationFn: async () => {
+      if (!restaurant) throw new Error('Restaurant not found')
+      const response = await favoriteApi.toggle(restaurant.id, { product_id: product.id })
+      return response.data
+    },
+    onSuccess: (data) => {
+      if (data.is_favorited) {
+        addFavorite(product.id)
+      } else {
+        removeFavorite(product.id)
+      }
+      queryClient.invalidateQueries({ queryKey: ['favorites'] })
+    },
+  })
 
   const handleAddToCart = () => {
     addToCart(product, quantity)
@@ -19,7 +39,16 @@ export default function ProductCard({ product }: ProductCardProps) {
   }
 
   return (
-    <div className={`card border-2 ${isKobe ? 'border-kobe-500' : 'border-other-500'}`}>
+    <div className={`card border-2 ${isKobe ? 'border-kobe-500' : 'border-other-500'} relative`}>
+      {/* Favorite Button */}
+      <button
+        onClick={() => toggleFavoriteMutation.mutate()}
+        className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow z-10"
+        disabled={toggleFavoriteMutation.isPending}
+      >
+        <Heart className={`w-5 h-5 ${isFav ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+      </button>
+
       {/* Badge */}
       <div className="mb-2">
         <span className={isKobe ? 'badge-kobe' : 'badge-other'}>
