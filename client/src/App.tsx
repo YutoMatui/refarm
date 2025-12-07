@@ -14,6 +14,7 @@ import Farmers from './pages/Farmers'
 import MyPage from './pages/MyPage'
 import Cart from './pages/Cart'
 import OrderComplete from './pages/OrderComplete'
+import Admin from './pages/Admin'
 import Loading from './components/Loading'
 
 function App() {
@@ -78,6 +79,7 @@ function App() {
         </Route>
         <Route path="/cart" element={<Cart />} />
         <Route path="/order-complete/:orderId" element={<OrderComplete />} />
+        <Route path="/admin" element={<Admin />} />
       </Routes>
     </Router>
   )

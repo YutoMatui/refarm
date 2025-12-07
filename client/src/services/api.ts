@@ -95,6 +95,15 @@ export const productApi = {
   
   getById: (id: number) =>
     apiClient.get<Product>(`/products/${id}`),
+  
+  create: (data: Partial<Product>) =>
+    apiClient.post<Product>('/products', data),
+  
+  update: (id: number, data: Partial<Product>) =>
+    apiClient.put<Product>(`/products/${id}`, data),
+  
+  delete: (id: number) =>
+    apiClient.delete(`/products/${id}`),
 }
 
 // Order API
