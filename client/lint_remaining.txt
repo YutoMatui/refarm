@@ -1,0 +1,3 @@
+C:\Users\YutoM\Downloads\りふぁーむ\refarm-eos-v3.0.0-production\webapp\client\src\App.tsx:28:6: React Hook useEffect has a missing dependency: 'initializeApp'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+
+1 problem
