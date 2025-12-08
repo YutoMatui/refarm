@@ -39,56 +39,89 @@ export default function ProductCard({ product }: ProductCardProps) {
   }
 
   return (
-    <div className={`card border-2 ${isKobe ? 'border-kobe-500' : 'border-other-500'} relative`}>
-      {/* Favorite Button */}
-      <button
-        onClick={() => toggleFavoriteMutation.mutate()}
-        className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow z-10"
-        disabled={toggleFavoriteMutation.isPending}
-      >
-        <Heart className={`w-5 h-5 ${isFav ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
-      </button>
+    <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+      <div className="relative">
+        {/* Image */}
+        <div className="aspect-square w-full bg-gray-100 relative overflow-hidden">
+          {product.image_url ? (
+            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-300">
+              No Image
+            </div>
+          )}
 
-      {/* Badge */}
-      <div className="mb-2">
-        <span className={isKobe ? 'badge-kobe' : 'badge-other'}>
-          {isKobe ? '神戸野菜' : 'その他の野菜'}
-        </span>
+          {/* Badge */}
+          <div className="absolute top-2 left-2">
+            <span className={`px-2 py-1 rounded-md text-xs font-bold text-white shadow-sm ${isKobe ? 'bg-green-600' : 'bg-orange-500'
+              }`}>
+              {isKobe ? '神戸野菜' : 'その他'}
+            </span>
+          </div>
+
+          {/* Favorite Button */}
+          <button
+            onClick={() => toggleFavoriteMutation.mutate()}
+            className="absolute top-2 right-2 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-sm active:scale-95 transition-transform"
+          >
+            <Heart className={`w-5 h-5 ${isFav ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+          </button>
+        </div>
       </div>
 
-      {/* Product Image */}
-      {product.image_url && (
-        <img src={product.image_url} alt={product.name} className="w-full h-32 object-cover rounded-md mb-3" />
-      )}
+      <div className="p-3">
+        {/* Title & Price */}
+        <h3 className="font-bold text-gray-900 line-clamp-2 min-h-[2.5rem] mb-1 text-sm">
+          {product.name}
+        </h3>
 
-      {/* Product Info */}
-      <h3 className="font-bold text-lg mb-1">{product.name}</h3>
-      <p className="text-2xl font-bold text-gray-900 mb-2">
-        ¥{parseFloat(product.price_with_tax).toLocaleString()}
-        <span className="text-sm font-normal text-gray-600">/{product.unit}</span>
-      </p>
+        <div className="flex items-baseline gap-1 mb-3">
+          <span className="text-lg font-bold text-gray-900">
+            ¥{parseFloat(product.price_with_tax).toLocaleString()}
+          </span>
+          <span className="text-xs text-gray-500">
+            /{product.unit}
+          </span>
+        </div>
 
-      {/* Quantity Controls */}
-      <div className="flex items-center gap-2 mb-3">
-        <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="p-1 bg-gray-200 rounded hover:bg-gray-300">
-          <Minus className="w-4 h-4" />
-        </button>
-        <span className="px-3 py-1 bg-gray-100 rounded font-medium">{quantity}</span>
-        <button onClick={() => setQuantity(quantity + 1)} className="p-1 bg-gray-200 rounded hover:bg-gray-300">
-          <Plus className="w-4 h-4" />
-        </button>
+        {/* Actions */}
+        <div className="space-y-2">
+          {/* Quantity */}
+          <div className="flex items-center justify-between bg-gray-50 rounded-lg p-1">
+            <button
+              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+              className="w-8 h-8 flex items-center justify-center bg-white rounded-md shadow-sm text-gray-600 active:bg-gray-100"
+            >
+              <Minus className="w-4 h-4" />
+            </button>
+            <span className="font-bold text-gray-900 w-8 text-center">{quantity}</span>
+            <button
+              onClick={() => setQuantity(quantity + 1)}
+              className="w-8 h-8 flex items-center justify-center bg-white rounded-md shadow-sm text-gray-600 active:bg-gray-100"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Add Button */}
+          <button
+            onClick={handleAddToCart}
+            className="w-full py-2.5 bg-gray-900 text-white text-sm font-bold rounded-lg active:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            カートへ
+          </button>
+        </div>
+
+        {/* In Cart Indicator */}
+        {cartItem && (
+          <div className="mt-2 text-center">
+            <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">
+              カートに {cartItem.quantity}{product.unit} 入っています
+            </span>
+          </div>
+        )}
       </div>
-
-      {/* Add to Cart Button */}
-      <button onClick={handleAddToCart} className="btn-primary w-full">
-        カートに追加
-      </button>
-
-      {cartItem && (
-        <p className="text-xs text-center mt-2 text-gray-600">
-          カート内: {cartItem.quantity}{product.unit}
-        </p>
-      )}
     </div>
   )
 }

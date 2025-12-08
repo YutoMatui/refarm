@@ -8,10 +8,12 @@ import { productApi } from '@/services/api'
 import { StockType, ProductCategory } from '@/types'
 import Loading from '@/components/Loading'
 import ProductCard from '@/components/ProductCard'
+import { Search, Filter } from 'lucide-react'
 
 export default function VegetableList() {
   const [stockTypeFilter, setStockTypeFilter] = useState<StockType | ''>('')
-  const [categoryFilter, setCategoryFilter] = useState<ProductCategory | ''>('')
+  // const [categoryFilter, setCategoryFilter] = useState<ProductCategory | ''>('')
+  const categoryFilter = ''
   const [searchQuery, setSearchQuery] = useState('')
 
   const { data, isLoading, error } = useQuery({
@@ -21,77 +23,82 @@ export default function VegetableList() {
       if (stockTypeFilter) params.stock_type = stockTypeFilter
       if (categoryFilter) params.category = categoryFilter
       if (searchQuery) params.search = searchQuery
-      
+
       const response = await productApi.list(params)
       return response.data
     },
   })
 
   if (isLoading) return <Loading message="商品を読み込み中..." />
-  if (error) return <div className="p-4 text-red-600">エラーが発生しました</div>
+  if (error) return <div className="p-4 text-red-600 text-center mt-10">エラーが発生しました</div>
 
   const products = data?.items || []
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
-      <h2 className="text-2xl font-bold mb-6">野菜一覧</h2>
+    <div className="bg-gray-50 min-h-screen">
+      {/* Sticky Header with Search */}
+      <div className="sticky top-0 z-20 bg-white shadow-sm pb-2">
+        <div className="px-4 py-3">
+          <h2 className="text-xl font-bold mb-3">野菜一覧</h2>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="商品名で検索..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 bg-gray-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+        </div>
 
-      {/* Filters */}
-      <div className="mb-6 space-y-4">
-        <div className="flex gap-2 flex-wrap">
+        {/* Horizontal Scrollable Filters */}
+        <div className="flex overflow-x-auto px-4 pb-2 gap-2 no-scrollbar">
           <button
             onClick={() => setStockTypeFilter('')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              stockTypeFilter === ''
-                ? 'bg-gray-900 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
+            className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${stockTypeFilter === ''
+              ? 'bg-gray-900 text-white'
+              : 'bg-gray-100 text-gray-600'
+              }`}
           >
             すべて
           </button>
           <button
             onClick={() => setStockTypeFilter(StockType.KOBE)}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              stockTypeFilter === StockType.KOBE
-                ? 'bg-kobe-600 text-white'
-                : 'bg-kobe-100 text-kobe-700 hover:bg-kobe-200 border-2 border-kobe-500'
-            }`}
+            className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${stockTypeFilter === StockType.KOBE
+              ? 'bg-green-600 text-white shadow-sm'
+              : 'bg-green-50 text-green-700 border border-green-200'
+              }`}
           >
             神戸野菜
           </button>
           <button
             onClick={() => setStockTypeFilter(StockType.OTHER)}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              stockTypeFilter === StockType.OTHER
-                ? 'bg-other-600 text-white'
-                : 'bg-other-100 text-other-700 hover:bg-other-200 border-2 border-other-500'
-            }`}
+            className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${stockTypeFilter === StockType.OTHER
+              ? 'bg-orange-500 text-white shadow-sm'
+              : 'bg-orange-50 text-orange-700 border border-orange-200'
+              }`}
           >
             その他の野菜
           </button>
         </div>
-
-        <input
-          type="text"
-          placeholder="商品名で検索..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        />
       </div>
 
       {/* Product Grid */}
-      {products.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          該当する商品が見つかりません
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-      )}
+      <div className="px-4 py-4">
+        {products.length === 0 ? (
+          <div className="text-center py-20 text-gray-500">
+            <Filter className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+            <p>該当する商品が見つかりません</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 pb-20">
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

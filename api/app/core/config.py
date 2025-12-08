@@ -1,7 +1,7 @@
 """
 Application configuration using Pydantic Settings.
 """
-from typing import List
+from typing import List, Union, Any
 from pydantic_settings import BaseSettings
 from pydantic import AnyHttpUrl, validator
 
@@ -23,12 +23,16 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # CORS
-    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+    CORS_ORIGINS: Union[str, List[str]] = ["http://localhost:5173", "http://localhost:3000"]
     
     @validator("CORS_ORIGINS", pre=True)
-    def parse_cors_origins(cls, v: str) -> List[str]:
+    def parse_cors_origins(cls, v: Any) -> List[str]:
         """Parse comma-separated CORS origins."""
-        return [origin.strip() for origin in v.split(",")]
+        if isinstance(v, str) and not v.startswith("["):
+            return [origin.strip() for origin in v.split(",")]
+        elif isinstance(v, list):
+            return v
+        raise ValueError(v)
     
     # LINE LIFF
     LIFF_ID: str = ""

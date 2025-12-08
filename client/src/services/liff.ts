@@ -2,7 +2,7 @@
  * LINE LIFF Service
  * Handles LIFF SDK initialization and authentication
  */
-import liff from '@liff/sdk'
+import liff from '@line/liff'
 
 export interface LIFFProfile {
   userId: string
@@ -13,6 +13,7 @@ export interface LIFFProfile {
 
 class LIFFService {
   private initialized = false
+  private mockMode = false
   private idToken: string | null = null
 
   /**
@@ -26,6 +27,7 @@ class LIFFService {
     if (!liffId || liffId === 'mock-liff-id-for-development') {
       console.warn('LIFF ID not configured. Using mock mode.')
       this.initialized = true
+      this.mockMode = true
       return
     }
 
@@ -52,6 +54,7 @@ class LIFFService {
    */
   isLoggedIn(): boolean {
     if (!this.initialized) return false
+    if (this.mockMode) return true
     return liff.isLoggedIn()
   }
 
@@ -63,6 +66,7 @@ class LIFFService {
       console.warn('LIFF not initialized')
       return
     }
+    if (this.mockMode) return
     liff.login()
   }
 
@@ -71,6 +75,10 @@ class LIFFService {
    */
   logout(): void {
     if (!this.initialized) return
+    if (this.mockMode) {
+      this.idToken = null
+      return
+    }
     liff.logout()
     this.idToken = null
   }
@@ -81,6 +89,15 @@ class LIFFService {
   async getProfile(): Promise<LIFFProfile | null> {
     if (!this.initialized || !this.isLoggedIn()) {
       return null
+    }
+
+    if (this.mockMode) {
+      return {
+        userId: 'mock-user-id',
+        displayName: 'Mock User',
+        pictureUrl: 'https://via.placeholder.com/150',
+        statusMessage: 'Mock Status',
+      }
     }
 
     try {
@@ -106,6 +123,10 @@ class LIFFService {
       return null
     }
 
+    if (this.mockMode) {
+      return 'mock-id-token'
+    }
+
     try {
       // Get ID Token from LIFF SDK
       const token = liff.getIDToken()
@@ -129,6 +150,7 @@ class LIFFService {
    */
   closeWindow(): void {
     if (!this.initialized) return
+    if (this.mockMode) return
     liff.closeWindow()
   }
 
@@ -137,6 +159,10 @@ class LIFFService {
    */
   openWindow(url: string, external = true): void {
     if (!this.initialized) {
+      window.open(url, external ? '_blank' : '_self')
+      return
+    }
+    if (this.mockMode) {
       window.open(url, external ? '_blank' : '_self')
       return
     }
@@ -151,6 +177,10 @@ class LIFFService {
    */
   async sendMessages(messages: any[]): Promise<void> {
     if (!this.initialized) return
+    if (this.mockMode) {
+      console.log('Mock send messages:', messages)
+      return
+    }
 
     try {
       await liff.sendMessages(messages)

@@ -20,7 +20,7 @@ passlib[bcrypt]==1.7.4
 python-dotenv==1.0.0
 
 # CORS & Middleware
-python-cors==1.0.0
+
 
 # Date & Time
 python-dateutil==2.8.2

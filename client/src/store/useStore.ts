@@ -11,7 +11,7 @@ interface AppState {
   setRestaurant: (restaurant: Restaurant | null) => void
   lineUserId: string | null
   setLineUserId: (id: string | null) => void
-  
+
   // Cart
   cart: CartItem[]
   addToCart: (product: Product, quantity: number) => void
@@ -20,13 +20,13 @@ interface AppState {
   clearCart: () => void
   getCartTotal: () => number
   getCartItemCount: () => number
-  
+
   // Favorites (IDs only, fetch details from API)
   favoriteIds: Set<number>
   addFavorite: (productId: number) => void
   removeFavorite: (productId: number) => void
   isFavorite: (productId: number) => boolean
-  
+
   // UI State
   currentTab: 'history' | 'favorites' | 'catalog' | 'farmers' | 'mypage'
   setCurrentTab: (tab: AppState['currentTab']) => void
@@ -40,13 +40,13 @@ export const useStore = create<AppState>()(
       setRestaurant: (restaurant) => set({ restaurant }),
       lineUserId: null,
       setLineUserId: (id) => set({ lineUserId: id }),
-      
+
       // Cart
       cart: [],
       addToCart: (product, quantity) => {
         const { cart } = get()
         const existingItem = cart.find(item => item.product.id === product.id)
-        
+
         if (existingItem) {
           set({
             cart: cart.map(item =>
@@ -59,11 +59,11 @@ export const useStore = create<AppState>()(
           set({ cart: [...cart, { product, quantity }] })
         }
       },
-      
+
       removeFromCart: (productId) => {
         set({ cart: get().cart.filter(item => item.product.id !== productId) })
       },
-      
+
       updateCartQuantity: (productId, quantity) => {
         if (quantity <= 0) {
           get().removeFromCart(productId)
@@ -75,20 +75,20 @@ export const useStore = create<AppState>()(
           })
         }
       },
-      
+
       clearCart: () => set({ cart: [] }),
-      
+
       getCartTotal: () => {
         return get().cart.reduce((total, item) => {
           const priceWithTax = parseFloat(item.product.price_with_tax)
           return total + priceWithTax * item.quantity
         }, 0)
       },
-      
+
       getCartItemCount: () => {
         return get().cart.reduce((count, item) => count + item.quantity, 0)
       },
-      
+
       // Favorites
       favoriteIds: new Set(),
       addFavorite: (productId) => {
@@ -96,17 +96,17 @@ export const useStore = create<AppState>()(
         favorites.add(productId)
         set({ favoriteIds: favorites })
       },
-      
+
       removeFavorite: (productId) => {
         const favorites = new Set(get().favoriteIds)
         favorites.delete(productId)
         set({ favoriteIds: favorites })
       },
-      
+
       isFavorite: (productId) => {
         return get().favoriteIds.has(productId)
       },
-      
+
       // UI State
       currentTab: 'catalog',
       setCurrentTab: (tab) => set({ currentTab: tab }),
@@ -119,6 +119,12 @@ export const useStore = create<AppState>()(
         cart: state.cart,
         favoriteIds: Array.from(state.favoriteIds), // Convert Set to Array for persistence
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state && state.favoriteIds && Array.isArray(state.favoriteIds)) {
+          // Convert Array back to Set after rehydration
+          state.favoriteIds = new Set(state.favoriteIds)
+        }
+      },
     }
   )
 )

@@ -8,27 +8,20 @@ import { useMutation } from '@tanstack/react-query'
 import { orderApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
 import { DeliveryTimeSlot, type OrderCreateRequest } from '@/types'
-import { Trash2, ShoppingCart, Calendar, Clock, MapPin } from 'lucide-react'
+import { Trash2, ShoppingCart, Calendar, MapPin, ChevronLeft } from 'lucide-react'
 import { format, addDays } from 'date-fns'
-import { ja } from 'date-fns/locale'
 
 export default function Cart() {
   const navigate = useNavigate()
   const { cart, getCartTotal, updateCartQuantity, removeFromCart, clearCart, restaurant } = useStore()
-  
+
   // Delivery details
   const [deliveryDate, setDeliveryDate] = useState('')
   const [deliveryTimeSlot, setDeliveryTimeSlot] = useState<DeliveryTimeSlot | ''>('')
   const [deliveryNotes, setDeliveryNotes] = useState('')
 
-  // Generate next 7 days for delivery date selection
-  const availableDates = Array.from({ length: 7 }, (_, i) => {
-    const date = addDays(new Date(), i + 1) // Start from tomorrow
-    return {
-      value: format(date, 'yyyy-MM-dd'),
-      label: format(date, 'M月d日(E)', { locale: ja }),
-    }
-  })
+  // Min date (tomorrow)
+  const minDate = format(addDays(new Date(), 1), 'yyyy-MM-dd')
 
   const timeSlots: { value: DeliveryTimeSlot; label: string }[] = [
     { value: DeliveryTimeSlot.SLOT_12_14, label: '12:00 〜 14:00' },
@@ -46,6 +39,7 @@ export default function Cart() {
       navigate(`/order-complete/${order.id}`)
     },
     onError: (error: any) => {
+      console.error('Order creation failed:', error)
       alert(`注文に失敗しました: ${error.response?.data?.detail || error.message}`)
     },
   })
@@ -61,9 +55,12 @@ export default function Cart() {
       return
     }
 
+    // Ensure date is ISO format with timezone
+    const isoDate = new Date(deliveryDate).toISOString()
+
     const orderData: OrderCreateRequest = {
       restaurant_id: restaurant.id,
-      delivery_date: `${deliveryDate}T00:00:00+09:00`,
+      delivery_date: isoDate,
       delivery_time_slot: deliveryTimeSlot,
       delivery_address: restaurant.address,
       delivery_phone: restaurant.phone_number,
@@ -85,12 +82,14 @@ export default function Cart() {
 
   if (cart.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="text-center">
-          <ShoppingCart className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">カートは空です</h2>
-          <p className="text-gray-600 mb-6">商品を追加してください</p>
-          <button onClick={() => navigate('/catalog')} className="btn-primary">
+          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <ShoppingCart className="w-10 h-10 text-gray-400" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">カートは空です</h2>
+          <p className="text-gray-500 mb-8">商品を追加して、注文を作成しましょう</p>
+          <button onClick={() => navigate('/catalog')} className="btn-primary w-full max-w-xs">
             野菜一覧へ
           </button>
         </div>
@@ -99,189 +98,164 @@ export default function Cart() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
+    <div className="min-h-screen bg-gray-50 pb-32">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">カート</h1>
-            <button onClick={() => navigate('/catalog')} className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-              買い物を続ける
-            </button>
-          </div>
-        </div>
+      <div className="bg-white sticky top-0 z-10 border-b px-4 h-14 flex items-center">
+        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-gray-600">
+          <ChevronLeft className="w-6 h-6" />
+        </button>
+        <h1 className="text-lg font-bold ml-2">カート</h1>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Cart Items */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="card">
-              <h2 className="text-xl font-bold mb-4">注文商品</h2>
-              <div className="space-y-4">
-                {cart.map((item) => (
-                  <div key={item.product.id} className="flex gap-4 border-b pb-4 last:border-b-0">
-                    {item.product.image_url && (
-                      <img
-                        src={item.product.image_url}
-                        alt={item.product.name}
-                        className="w-20 h-20 object-cover rounded"
-                      />
-                    )}
-                    <div className="flex-1">
-                      <h3 className="font-bold">{item.product.name}</h3>
-                      <p className="text-sm text-gray-600">
-                        ¥{parseFloat(item.product.price_with_tax).toLocaleString()} / {item.product.unit}
-                      </p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <button
-                          onClick={() => updateCartQuantity(item.product.id, item.quantity - 1)}
-                          className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
-                        >
-                          -
-                        </button>
-                        <span className="px-3 py-1 bg-gray-100 rounded font-medium">
-                          {item.quantity}
-                        </span>
-                        <button
-                          onClick={() => updateCartQuantity(item.product.id, item.quantity + 1)}
-                          className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
-                        >
-                          +
-                        </button>
-                        <button
-                          onClick={() => removeFromCart(item.product.id)}
-                          className="ml-auto text-red-600 hover:text-red-800"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-lg">
-                        ¥{(parseFloat(item.product.price_with_tax) * item.quantity).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Delivery Details */}
-            <div className="card">
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
-                配送情報
-              </h2>
-              
-              {/* Delivery Date */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  配送希望日 *
-                </label>
-                <select
-                  value={deliveryDate}
-                  onChange={(e) => setDeliveryDate(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  required
-                >
-                  <option value="">日付を選択してください</option>
-                  {availableDates.map((date) => (
-                    <option key={date.value} value={date.value}>
-                      {date.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Delivery Time Slot */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Clock className="w-4 h-4 inline mr-1" />
-                  配送時間帯 *
-                </label>
-                <div className="space-y-2">
-                  {timeSlots.map((slot) => (
-                    <label
-                      key={slot.value}
-                      className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                    >
-                      <input
-                        type="radio"
-                        name="timeSlot"
-                        value={slot.value}
-                        checked={deliveryTimeSlot === slot.value}
-                        onChange={(e) => setDeliveryTimeSlot(e.target.value as DeliveryTimeSlot)}
-                        className="mr-3"
-                      />
-                      <span className="font-medium">{slot.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Delivery Address */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <MapPin className="w-4 h-4 inline mr-1" />
-                  配送先住所
-                </label>
-                <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded border">
-                  {restaurant?.address || '住所が登録されていません'}
-                </p>
-              </div>
-
-              {/* Delivery Notes */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  配送メモ (任意)
-                </label>
-                <textarea
-                  value={deliveryNotes}
-                  onChange={(e) => setDeliveryNotes(e.target.value)}
-                  placeholder="例: 裏口から納品してください"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  rows={3}
+      <div className="p-4 space-y-6">
+        {/* Cart Items */}
+        <div className="space-y-4">
+          {cart.map((item) => (
+            <div key={item.product.id} className="bg-white p-4 rounded-xl shadow-sm flex gap-4">
+              {item.product.image_url && (
+                <img
+                  src={item.product.image_url}
+                  alt={item.product.name}
+                  className="w-20 h-20 object-cover rounded-lg bg-gray-100"
                 />
+              )}
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-gray-900 truncate">{item.product.name}</h3>
+                <p className="text-sm text-gray-500 mb-2">
+                  ¥{parseFloat(item.product.price_with_tax).toLocaleString()} / {item.product.unit}
+                </p>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-1">
+                    <button
+                      onClick={() => updateCartQuantity(item.product.id, item.quantity - 1)}
+                      className="w-7 h-7 flex items-center justify-center bg-white rounded shadow-sm text-gray-600"
+                    >
+                      -
+                    </button>
+                    <span className="font-bold text-sm w-4 text-center">{item.quantity}</span>
+                    <button
+                      onClick={() => updateCartQuantity(item.product.id, item.quantity + 1)}
+                      className="w-7 h-7 flex items-center justify-center bg-white rounded shadow-sm text-gray-600"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => removeFromCart(item.product.id)}
+                    className="text-gray-400 hover:text-red-500 p-2"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Delivery Details */}
+        <div className="bg-white p-5 rounded-xl shadow-sm space-y-6">
+          <h2 className="font-bold text-gray-900 flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-blue-600" />
+            配送日時指定
+          </h2>
+
+          {/* Delivery Date (Calendar) */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">
+              配送希望日 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              value={deliveryDate}
+              min={minDate}
+              onChange={(e) => setDeliveryDate(e.target.value)}
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-medium"
+              required
+            />
+            <p className="text-xs text-gray-500 mt-1">※明日以降の日付を選択してください</p>
+          </div>
+
+          {/* Delivery Time Slot */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">
+              配送時間帯 <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-1 gap-2">
+              {timeSlots.map((slot) => (
+                <label
+                  key={slot.value}
+                  className={`flex items-center p-3 border rounded-xl cursor-pointer transition-all ${deliveryTimeSlot === slot.value
+                    ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500'
+                    : 'border-gray-200 hover:bg-gray-50'
+                    }`}
+                >
+                  <input
+                    type="radio"
+                    name="timeSlot"
+                    value={slot.value}
+                    checked={deliveryTimeSlot === slot.value}
+                    onChange={(e) => setDeliveryTimeSlot(e.target.value as DeliveryTimeSlot)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <span className="ml-3 font-medium text-gray-900">{slot.label}</span>
+                </label>
+              ))}
             </div>
           </div>
 
-          {/* Order Summary */}
-          <div className="lg:col-span-1">
-            <div className="card sticky top-20">
-              <h2 className="text-xl font-bold mb-4">注文内容</h2>
-              
-              <div className="space-y-2 mb-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">小計 (税抜)</span>
-                  <span className="font-medium">¥{subtotal.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">消費税</span>
-                  <span className="font-medium">¥{(totalWithTax - subtotal).toLocaleString()}</span>
-                </div>
-                <div className="border-t pt-2 flex justify-between">
-                  <span className="text-lg font-bold">合計 (税込)</span>
-                  <span className="text-2xl font-bold text-blue-600">
-                    ¥{totalWithTax.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-
-              <button
-                onClick={handleSubmitOrder}
-                disabled={!deliveryDate || !deliveryTimeSlot || createOrderMutation.isPending}
-                className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {createOrderMutation.isPending ? '注文中...' : '注文を確定する'}
-              </button>
-
-              <p className="text-xs text-gray-500 mt-4 text-center">
-                注文確定後、Refarm担当者が内容を確認し発送いたします
-              </p>
+          {/* Delivery Address */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">
+              配送先住所
+            </label>
+            <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 text-sm text-gray-600 flex gap-2">
+              <MapPin className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>{restaurant?.address || '住所が登録されていません'}</span>
             </div>
           </div>
+
+          {/* Delivery Notes */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">
+              配送メモ (任意)
+            </label>
+            <textarea
+              value={deliveryNotes}
+              onChange={(e) => setDeliveryNotes(e.target.value)}
+              placeholder="例: 裏口から納品してください"
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+              rows={3}
+            />
+          </div>
+        </div>
+
+        {/* Total & Submit */}
+        <div className="bg-white p-5 rounded-xl shadow-sm space-y-4">
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>小計 (税抜)</span>
+              <span>¥{subtotal.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>消費税</span>
+              <span>¥{(totalWithTax - subtotal).toLocaleString()}</span>
+            </div>
+            <div className="border-t pt-3 flex justify-between items-baseline">
+              <span className="font-bold text-gray-900">合計 (税込)</span>
+              <span className="text-2xl font-bold text-blue-600">
+                ¥{totalWithTax.toLocaleString()}
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={handleSubmitOrder}
+            disabled={!deliveryDate || !deliveryTimeSlot || createOrderMutation.isPending}
+            className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-200 active:scale-[0.98] transition-all disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed"
+          >
+            {createOrderMutation.isPending ? '注文を送信中...' : '注文を確定する'}
+          </button>
         </div>
       </div>
     </div>
