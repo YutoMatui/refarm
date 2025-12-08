@@ -1,0 +1,17 @@
+
+C:\Users\YutoM\Downloads\りふぁーむ\refarm-eos-v3.0.0-production\webapp\client\src\App.tsx
+  28:6   warning  React Hook useEffect has a missing dependency: 'initializeApp'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  54:25  warning  Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+  72:19  warning  Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+
+C:\Users\YutoM\Downloads\りふぁーむ\refarm-eos-v3.0.0-production\webapp\client\src\pages\Cart.tsx
+  41:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\YutoM\Downloads\りふぁーむ\refarm-eos-v3.0.0-production\webapp\client\src\pages\VegetableList.tsx
+  22:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\YutoM\Downloads\りふぁーむ\refarm-eos-v3.0.0-production\webapp\client\src\services\liff.ts
+  178:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 6 problems (0 errors, 6 warnings)
+

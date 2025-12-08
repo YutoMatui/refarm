@@ -1,0 +1,8 @@
+C:\Users\YutoM\Downloads\りふぁーむ\refarm-eos-v3.0.0-production\webapp\client\src\App.tsx:28:6: React Hook useEffect has a missing dependency: 'initializeApp'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\YutoM\Downloads\りふぁーむ\refarm-eos-v3.0.0-production\webapp\client\src\App.tsx:54:25: Unexpected any. Specify a different type. [Warning/@typescript-eslint/no-explicit-any]
+C:\Users\YutoM\Downloads\りふぁーむ\refarm-eos-v3.0.0-production\webapp\client\src\App.tsx:72:19: Unexpected any. Specify a different type. [Warning/@typescript-eslint/no-explicit-any]
+C:\Users\YutoM\Downloads\りふぁーむ\refarm-eos-v3.0.0-production\webapp\client\src\pages\Cart.tsx:41:22: Unexpected any. Specify a different type. [Warning/@typescript-eslint/no-explicit-any]
+C:\Users\YutoM\Downloads\りふぁーむ\refarm-eos-v3.0.0-production\webapp\client\src\pages\VegetableList.tsx:22:21: Unexpected any. Specify a different type. [Warning/@typescript-eslint/no-explicit-any]
+C:\Users\YutoM\Downloads\りふぁーむ\refarm-eos-v3.0.0-production\webapp\client\src\services\liff.ts:178:32: Unexpected any. Specify a different type. [Warning/@typescript-eslint/no-explicit-any]
+
+6 problems
