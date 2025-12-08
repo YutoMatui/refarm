@@ -65,7 +65,11 @@ async def seed_data():
         stmt = select(Product).limit(1)
         result = await db.execute(stmt)
         if result.scalar_one_or_none():
-            logger.info("Products already exist. Skipping.")
+            logger.info("Products already exist. Skipping creation.")
+            # Fetch existing product for favorite
+            stmt = select(Product).where(Product.name == "淡路島たまねぎ")
+            result = await db.execute(stmt)
+            p1 = result.scalar_one_or_none()
         else:
             p1 = Product(
                 name="淡路島たまねぎ",
@@ -107,17 +111,28 @@ async def seed_data():
             await db.flush()
             logger.info("Created Products")
 
-            # 4. Create Favorite (only if products were just created)
-            # Need to get restaurant again if it was skipped
-            if 'restaurant' not in locals():
-                 stmt = select(Restaurant).where(Restaurant.line_user_id == "Uck-id-token")
-                 result = await db.execute(stmt)
-                 restaurant = result.scalar_one()
+        # 4. Create Favorite
+        # Need to get restaurant again if it was skipped
+        if 'restaurant' not in locals() or restaurant is None:
+             # Check if restaurant exists first
+             stmt = select(Restaurant).where(Restaurant.line_user_id == "Uk-id-token")
+             result = await db.execute(stmt)
+             restaurant = result.scalar_one_or_none()
 
+        if restaurant and p1:
             logger.info("Seeding Favorites...")
-            fav = Favorite(restaurant_id=restaurant.id, product_id=p1.id)
-            db.add(fav)
-            logger.info("Created Favorite")
+            # Check if favorite already exists
+            stmt = select(Favorite).where(
+                Favorite.restaurant_id == restaurant.id,
+                Favorite.product_id == p1.id
+            )
+            result = await db.execute(stmt)
+            if not result.scalar_one_or_none():
+                fav = Favorite(restaurant_id=restaurant.id, product_id=p1.id)
+                db.add(fav)
+                logger.info("Created Favorite")
+            else:
+                logger.info("Favorite already exists. Skipping.")
         
         await db.commit()
         logger.info("Seeding completed successfully!")

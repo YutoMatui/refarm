@@ -34,14 +34,14 @@ async def lifespan(app: FastAPI):
     if settings.DEBUG:
         logger.warning("Debug mode: Database tables will be created automatically")
         await init_db()  # Uncomment for auto table creation in dev
-        
-        # Auto-seed data if needed
-        try:
-            from app.seed import seed_data
-            logger.info("Running seed_data...")
-            await seed_data()
-        except Exception as e:
-            logger.error(f"Auto-seeding failed: {e}")
+    
+    # Auto-seed data (Safe to run always as it checks for existence)
+    try:
+        from app.seed import seed_data
+        logger.info("Running seed_data...")
+        await seed_data()
+    except Exception as e:
+        logger.error(f"Auto-seeding failed: {e}")
     
     yield
     
