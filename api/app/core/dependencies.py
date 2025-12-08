@@ -25,31 +25,36 @@ async def get_line_user_id(
     Raises:
         HTTPException: If token is missing or invalid
     """
-    if not authorization:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authorization header missing",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    # TEMPORARY: Bypass authentication for development
+    # Return the mock user ID that matches the seed data
+    return "Uk-id-token"
+
+    # Original authentication logic (commented out)
+    # if not authorization:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_401_UNAUTHORIZED,
+    #         detail="Authorization header missing",
+    #         headers={"WWW-Authenticate": "Bearer"},
+    #     )
     
-    try:
-        scheme, id_token = authorization.split()
-        if scheme.lower() != "bearer":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication scheme",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authorization header format",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    # try:
+    #     scheme, id_token = authorization.split()
+    #     if scheme.lower() != "bearer":
+    #         raise HTTPException(
+    #             status_code=status.HTTP_401_UNAUTHORIZED,
+    #             detail="Invalid authentication scheme",
+    #             headers={"WWW-Authenticate": "Bearer"},
+    #         )
+    # except ValueError:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_401_UNAUTHORIZED,
+    #         detail="Invalid authorization header format",
+    #         headers={"WWW-Authenticate": "Bearer"},
+    #     )
     
-    # Verify token with LINE's server
-    user_info = await get_current_user_from_token(id_token)
-    return user_info["user_id"]
+    # # Verify token with LINE's server
+    # user_info = await get_current_user_from_token(id_token)
+    # return user_info["user_id"]
 
 
 async def get_current_restaurant(
