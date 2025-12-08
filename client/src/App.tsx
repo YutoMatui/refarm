@@ -58,8 +58,8 @@ function App() {
             if (idToken === 'mock-id-token') {
               console.warn('Backend verification failed for mock token, falling back to local mock data');
 
-              // Set dummy data locally
-              const mockLineUserId = 'U' + Math.random().toString(36).substring(2, 15)
+              // Set dummy data locally (Use fixed ID to match seed data if user runs it)
+              const mockLineUserId = 'Uk-id-token'
               setLineUserId(mockLineUserId)
 
               // Only set restaurant if we want to simulate a registered user
@@ -103,7 +103,7 @@ function App() {
           } catch (err) {
             console.error('Mock authentication failed:', err)
             // Fallback to local mock if backend fails
-            const mockLineUserId = 'U' + Math.random().toString(36).substring(2, 15)
+            const mockLineUserId = 'Uk-id-token' // Fixed ID to match seed data
             setLineUserId(mockLineUserId)
 
             setRestaurant({

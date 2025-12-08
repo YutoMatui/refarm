@@ -34,6 +34,14 @@ async def lifespan(app: FastAPI):
     if settings.DEBUG:
         logger.warning("Debug mode: Database tables will be created automatically")
         await init_db()  # Uncomment for auto table creation in dev
+        
+        # Auto-seed data if needed
+        try:
+            from app.seed import seed_data
+            logger.info("Running seed_data...")
+            await seed_data()
+        except Exception as e:
+            logger.error(f"Auto-seeding failed: {e}")
     
     yield
     
@@ -129,6 +137,24 @@ app.include_router(farmers.router, prefix="/api/farmers", tags=["Farmers"])
 app.include_router(products.router, prefix="/api/products", tags=["Products"])
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(favorites.router, prefix="/api/favorites", tags=["Favorites"])
+
+
+@app.get("/api/debug/seed", tags=["Debug"])
+async def debug_seed_data():
+    """
+    Manually trigger data seeding.
+    Useful if initial seeding failed or for testing.
+    """
+    try:
+        from app.seed import seed_data
+        await seed_data()
+        return {"message": "Data seeding completed successfully"}
+    except Exception as e:
+        logger.error(f"Manual seeding failed: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={"message": "Seeding failed", "error": str(e)}
+        )
 
 
 if __name__ == "__main__":
