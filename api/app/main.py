@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
     # Initialize database (optional, use Alembic for production)
     if settings.DEBUG:
         logger.warning("Debug mode: Database tables will be created automatically")
-        # await init_db()  # Uncomment for auto table creation in dev
+        await init_db()  # Uncomment for auto table creation in dev
     
     yield
     
