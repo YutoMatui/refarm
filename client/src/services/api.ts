@@ -95,31 +95,46 @@ export const farmerApi = {
       return await apiClient.get<PaginatedResponse<Farmer>>('/farmers', { params })
     } catch (error) {
       console.warn('Farmer API failed, falling back to mock data', error)
+      // Use type assertion to satisfy TypeScript check
+      const mockFarmers: Farmer[] = [
+        {
+          id: 1,
+          name: "淡路島ファーム",
+          main_crop: "たまねぎ",
+          address: "兵庫県淡路市",
+          bio: "淡路島で3代続く玉ねぎ農家です。",
+          is_active: 1,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          phone_number: "090-1111-2222",
+          profile_photo_url: "https://placehold.co/400x300?text=Farmer+1",
+          map_url: "https://maps.google.com",
+          farming_method: "特別栽培",
+          certifications: "ひょうご安心ブランド",
+          email: "farmer1@example.com"
+        },
+        {
+          id: 2,
+          name: "六甲山農園",
+          main_crop: "人参",
+          address: "兵庫県神戸市北区",
+          bio: "六甲山の麓で有機栽培を行っています。",
+          is_active: 1,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          phone_number: "090-3333-4444",
+          profile_photo_url: "https://placehold.co/400x300?text=Farmer+2",
+          map_url: "https://maps.google.com",
+          farming_method: "有機JAS",
+          certifications: "有機JAS認定",
+          email: "farmer2@example.com"
+        }
+      ]
+
       return {
         data: {
-          items: [
-            {
-              id: 1,
-              name: "淡路島ファーム",
-              main_crop: "たまねぎ",
-              address: "兵庫県淡路市",
-              bio: "淡路島で3代続く玉ねぎ農家です。",
-              is_active: 1,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            },
-            {
-              id: 2,
-              name: "六甲山農園",
-              main_crop: "人参",
-              address: "兵庫県神戸市北区",
-              bio: "六甲山の麓で有機栽培を行っています。",
-              is_active: 1,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }
-          ],
-          total: 2,
+          items: mockFarmers,
+          total: mockFarmers.length,
           skip: 0,
           limit: 100
         }
