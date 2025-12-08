@@ -119,9 +119,16 @@ async def get_current_user_from_token(id_token: str) -> dict:
     if settings.DEBUG:
         # Development mode: use mock verification
         logger.warning("Using mock LINE token verification (DEBUG mode)")
-        # For production testing with real LIFF, you might want to switch this
-        # return verify_line_id_token_mock(id_token)
-        return await verify_line_id_token(id_token)
+        
+        # If token is explicitly a mock token or very short (likely mock)
+        if id_token == 'mock-id-token' or len(id_token) < 50:
+             return verify_line_id_token_mock(id_token)
+
+        try:
+            return await verify_line_id_token(id_token)
+        except Exception:
+            logger.warning("Real token verification failed in DEBUG mode, falling back to mock")
+            return verify_line_id_token_mock(id_token)
     else:
         # Production mode: verify with LINE's server
         return await verify_line_id_token(id_token)

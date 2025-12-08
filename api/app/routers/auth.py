@@ -59,6 +59,33 @@ async def verify_line_token(
     )
     result = await db.execute(stmt)
     restaurant = result.scalar_one_or_none()
+
+    # DEBUG MODE: If restaurant not found but it's a mock user, return a mock restaurant
+    from app.core.config import settings
+    # Check if it's a mock scenario
+    is_mock_token = auth_request.id_token == 'mock-id-token' or auth_request.id_token.startswith('mock-') or len(auth_request.id_token) < 50
+    
+    if not restaurant and settings.DEBUG and is_mock_token:
+         from datetime import datetime
+         dummy_restaurant = {
+             "id": 999,
+             "line_user_id": line_user_id,
+             "name": "開発用デモ店舗",
+             "phone_number": "090-0000-0000",
+             "address": "開発環境",
+             "invoice_email": "dev@example.com",
+             "business_hours": "10:00-22:00",
+             "notes": "開発用ダミーデータ",
+             "is_active": 1,
+             "created_at": datetime.now(),
+             "updated_at": datetime.now()
+         }
+         return AuthResponse(
+            line_user_id=line_user_id,
+            restaurant=dummy_restaurant,
+            is_registered=True,
+            message="認証成功: 開発用デモ店舗（モック）"
+        )
     
     if restaurant:
         return AuthResponse(

@@ -63,8 +63,23 @@ function App() {
         } else {
           // Development mode: use mock data
           console.warn('Not in LIFF environment. Using mock data.')
-          const mockLineUserId = 'U' + Math.random().toString(36).substring(2, 15)
-          setLineUserId(mockLineUserId)
+
+          // Try to get mock data from backend
+          try {
+            const response = await authApi.verify('mock-id-token')
+            const { line_user_id, restaurant, is_registered } = response.data
+
+            setLineUserId(line_user_id)
+
+            if (is_registered && restaurant) {
+              setRestaurant(restaurant)
+            }
+          } catch (err) {
+            console.error('Mock authentication failed:', err)
+            // Fallback to local mock if backend fails
+            const mockLineUserId = 'U' + Math.random().toString(36).substring(2, 15)
+            setLineUserId(mockLineUserId)
+          }
         }
       }
 
