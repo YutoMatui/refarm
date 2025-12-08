@@ -25,6 +25,15 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: Union[str, List[str]] = ["http://localhost:5173", "http://localhost:3000"]
     
+    @validator("DATABASE_URL", pre=True)
+    def validate_database_url(cls, v: str) -> str:
+        """Ensure DATABASE_URL starts with postgresql+asyncpg://"""
+        if v and v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql+asyncpg://", 1)
+        if v and v.startswith("postgresql://") and "+asyncpg" not in v:
+            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
+    
     @validator("CORS_ORIGINS", pre=True)
     def parse_cors_origins(cls, v: Any) -> List[str]:
         """Parse comma-separated CORS origins."""
