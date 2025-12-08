@@ -23,7 +23,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # CORS
-    CORS_ORIGINS: Union[str, List[str]] = ["http://localhost:5173", "http://localhost:3000"]
+    CORS_ORIGINS: Union[str, List[str]] = [
+        "http://localhost:5173", 
+        "http://localhost:3000",
+        "https://refarm-po00du52z-refarm-ff84e7d8.vercel.app"
+    ]
     
     @validator("DATABASE_URL", pre=True)
     def validate_database_url(cls, v: str) -> str:

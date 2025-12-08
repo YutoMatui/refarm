@@ -115,20 +115,13 @@ async def get_current_user_from_token(id_token: str) -> dict:
     Returns:
         dict: User information from verified token
     """
-    # TEMPORARY: Bypass authentication for development
-    # Always return the mock user matching the seed data
-    return {
-        "user_id": "Uk-id-token",
-        "name": "Refarm Demo Restaurant",
-        "picture": None,
-        "email": None,
-    }
-
-    # Original logic (commented out)
-    # if settings.DEBUG:
-    #     # Development mode: use mock verification
-    #     logger.warning("Using mock LINE token verification (DEBUG mode)")
-    #     return verify_line_id_token_mock(id_token)
-    # else:
-    #     # Production mode: verify with LINE's server
-    #     return await verify_line_id_token(id_token)
+    # Original logic (uncommented)
+    if settings.DEBUG:
+        # Development mode: use mock verification
+        logger.warning("Using mock LINE token verification (DEBUG mode)")
+        # For production testing with real LIFF, you might want to switch this
+        # return verify_line_id_token_mock(id_token)
+        return await verify_line_id_token(id_token)
+    else:
+        # Production mode: verify with LINE's server
+        return await verify_line_id_token(id_token)
