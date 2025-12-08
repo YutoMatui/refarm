@@ -53,7 +53,33 @@ function App() {
             }
           } catch (err: any) {
             console.error('Authentication failed:', err)
-            setError('認証に失敗しました')
+
+            // Check if we can fallback to mock data
+            if (idToken === 'mock-id-token') {
+              console.warn('Backend verification failed for mock token, falling back to local mock data');
+
+              // Set dummy data locally
+              const mockLineUserId = 'U' + Math.random().toString(36).substring(2, 15)
+              setLineUserId(mockLineUserId)
+
+              // Only set restaurant if we want to simulate a registered user
+              // For development, we usually want to be registered
+              setRestaurant({
+                id: 999,
+                line_user_id: mockLineUserId,
+                name: "開発用デモ店舗 (Local Fallback)",
+                phone_number: "090-0000-0000",
+                address: "開発環境（バックエンド接続不可）",
+                invoice_email: "dev@example.com",
+                business_hours: "10:00-22:00",
+                notes: "バックエンドに接続できなかったためローカルダミーデータを表示しています",
+                is_active: 1,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
+            } else {
+              setError('認証に失敗しました')
+            }
           }
         }
       } else {
@@ -79,6 +105,20 @@ function App() {
             // Fallback to local mock if backend fails
             const mockLineUserId = 'U' + Math.random().toString(36).substring(2, 15)
             setLineUserId(mockLineUserId)
+
+            setRestaurant({
+              id: 999,
+              line_user_id: mockLineUserId,
+              name: "開発用デモ店舗 (Local Fallback)",
+              phone_number: "090-0000-0000",
+              address: "開発環境（バックエンド接続不可）",
+              invoice_email: "dev@example.com",
+              business_hours: "10:00-22:00",
+              notes: "バックエンドに接続できなかったためローカルダミーデータを表示しています",
+              is_active: 1,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
           }
         }
       }

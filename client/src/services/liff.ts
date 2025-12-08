@@ -11,7 +11,7 @@ export interface LIFFProfile {
   statusMessage?: string
 }
 
-class LIFFService {
+export class LIFFService {
   private initialized = false
   private mockMode = false
   private idToken: string | null = null
@@ -47,6 +47,13 @@ class LIFFService {
   isInClient(): boolean {
     if (!this.initialized) return false
     return liff.isInClient()
+  }
+
+  /**
+   * Check if running in mock mode
+   */
+  isMock(): boolean {
+    return this.mockMode
   }
 
   /**
