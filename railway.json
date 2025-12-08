@@ -1,10 +1,10 @@
 {
     "build": {
         "builder": "DOCKERFILE",
-        "dockerfilePath": "webapp/api/Dockerfile",
-        "context": "webapp/api"
+        "dockerfilePath": "api/Dockerfile",
+        "context": "api"
     },
     "deploy": {
-        "startCommand": "uvicorn main:app --host 0.0.0.0 --port $PORT"
+        "startCommand": "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     }
 }
