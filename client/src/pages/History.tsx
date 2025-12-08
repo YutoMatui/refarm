@@ -6,7 +6,6 @@ import { useQuery } from '@tanstack/react-query'
 import { orderApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
 import { type Product } from '@/types'
-import ProductCard from '@/components/ProductCard'
 import Loading from '@/components/Loading'
 
 interface ProductFrequency {

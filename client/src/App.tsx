@@ -21,7 +21,7 @@ import Loading from './components/Loading'
 function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { restaurant, setRestaurant, setLineUserId } = useStore()
+  const { setRestaurant, setLineUserId } = useStore()
 
   useEffect(() => {
     initializeApp()

@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { farmerApi, productApi } from '@/services/api'
-import { StockType, ProductCategory, TaxRate, type Farmer, type Product } from '@/types'
+import { StockType, type Product } from '@/types'
 import { Plus, Edit2, Save, X } from 'lucide-react'
 import Loading from '@/components/Loading'
 
@@ -27,21 +27,19 @@ export default function Admin() {
         <div className="flex gap-2 mb-6">
           <button
             onClick={() => setActiveTab('farmers')}
-            className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-              activeTab === 'farmers'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-gray-700 hover:bg-gray-100 border'
-            }`}
+            className={`px-6 py-3 rounded-lg font-medium transition-colors ${activeTab === 'farmers'
+              ? 'bg-blue-600 text-white'
+              : 'bg-white text-gray-700 hover:bg-gray-100 border'
+              }`}
           >
             農家管理
           </button>
           <button
             onClick={() => setActiveTab('products')}
-            className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-              activeTab === 'products'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-gray-700 hover:bg-gray-100 border'
-            }`}
+            className={`px-6 py-3 rounded-lg font-medium transition-colors ${activeTab === 'products'
+              ? 'bg-blue-600 text-white'
+              : 'bg-white text-gray-700 hover:bg-gray-100 border'
+              }`}
           >
             商品・在庫管理
           </button>
@@ -56,10 +54,10 @@ export default function Admin() {
 
 // 農家管理コンポーネント
 function FarmerManagement() {
-  const queryClient = useQueryClient()
-  const [isAdding, setIsAdding] = useState(false)
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [formData, setFormData] = useState<Partial<Farmer>>({})
+  // const queryClient = useQueryClient()
+  // const [isAdding, setIsAdding] = useState(false)
+  // const [editingId, setEditingId] = useState<number | null>(null)
+  // const [formData, setFormData] = useState<Partial<Farmer>>({})
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-farmers'],
@@ -79,8 +77,8 @@ function FarmerManagement() {
         <h2 className="text-xl font-bold">農家一覧</h2>
         <button
           onClick={() => {
-            setIsAdding(true)
-            setFormData({})
+            // setIsAdding(true)
+            // setFormData({})
           }}
           className="btn-primary flex items-center gap-2"
         >
@@ -110,11 +108,10 @@ function FarmerManagement() {
                 <td className="px-6 py-4 text-sm text-gray-600">{farmer.phone_number || '-'}</td>
                 <td className="px-6 py-4">
                   <span
-                    className={`px-2 py-1 text-xs rounded-full ${
-                      farmer.is_active === 1
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}
+                    className={`px-2 py-1 text-xs rounded-full ${farmer.is_active === 1
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-red-100 text-red-800'
+                      }`}
                   >
                     {farmer.is_active === 1 ? '契約中' : '停止'}
                   </span>
@@ -259,11 +256,10 @@ function ProductManagement() {
                       </select>
                     ) : (
                       <span
-                        className={`px-2 py-1 text-xs rounded-full ${
-                          product.is_active === 1
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}
+                        className={`px-2 py-1 text-xs rounded-full ${product.is_active === 1
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                          }`}
                       >
                         {product.is_active === 1 ? '販売中' : '停止'}
                       </span>

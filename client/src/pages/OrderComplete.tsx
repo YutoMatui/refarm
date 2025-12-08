@@ -40,7 +40,7 @@ export default function OrderComplete() {
   // Extract products with media URLs
   const productsWithMedia = order.items
     .map((item) => item)
-    .filter((item) => {
+    .filter(() => {
       // In real app, fetch product details to get media_url
       // For now, check if product has media
       return true // Placeholder
@@ -63,7 +63,7 @@ export default function OrderComplete() {
         {/* Order Details */}
         <div className="card mb-6">
           <h2 className="text-xl font-bold mb-4">注文内容</h2>
-          
+
           <div className="grid md:grid-cols-2 gap-4 mb-4">
             <div>
               <p className="text-sm text-gray-600">配送予定日</p>

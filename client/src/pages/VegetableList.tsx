@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { productApi } from '@/services/api'
-import { StockType, ProductCategory } from '@/types'
+import { StockType } from '@/types'
 import Loading from '@/components/Loading'
 import ProductCard from '@/components/ProductCard'
 import { Search, Filter } from 'lucide-react'
