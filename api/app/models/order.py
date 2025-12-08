@@ -259,7 +259,6 @@ class OrderItem(Base, TimestampMixin):
     
     # Indexes
     __table_args__ = (
-        Index('ix_order_items_order_id', 'order_id'),
         {'comment': '注文明細テーブル'}
     )
     
