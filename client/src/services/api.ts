@@ -92,7 +92,8 @@ export const restaurantApi = {
 export const farmerApi = {
   list: async (params?: { skip?: number; limit?: number; is_active?: number }) => {
     try {
-      return await apiClient.get<PaginatedResponse<Farmer>>('/farmers', { params })
+      const response = await apiClient.get<PaginatedResponse<Farmer>>('/farmers', { params })
+      return response
     } catch (error) {
       console.warn('Farmer API failed, falling back to mock data', error)
       // Use type assertion to satisfy TypeScript check
@@ -165,7 +166,8 @@ export const productApi = {
     search?: string
   }) => {
     try {
-      return await apiClient.get<PaginatedResponse<Product>>('/products', { params })
+      const response = await apiClient.get<PaginatedResponse<Product>>('/products', { params })
+      return response
     } catch (error) {
       console.warn('Product API failed, falling back to mock data', error)
       // Mock data fallback matching seed.py
@@ -295,6 +297,8 @@ export const uploadApi = {
   uploadImage: (file: File) => {
     const formData = new FormData()
     formData.append('file', file)
+    // エンドポイントを修正: /upload/image -> /upload/image (バックエンドの修正に合わせて)
+    // 前回のバックエンド修正で /api/upload/image になっています
     return apiClient.post<{ url: string; public_id: string }>('/upload/image', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
