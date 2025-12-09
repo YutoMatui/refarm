@@ -3,7 +3,7 @@ from app.core.cloudinary import upload_image
 
 router = APIRouter()
 
-@router.post("/upload/image", response_model=dict)
+@router.post("/image", response_model=dict)
 async def upload_image_endpoint(file: UploadFile = File(...)):
     """
     Upload an image to Cloudinary and return the URL.
