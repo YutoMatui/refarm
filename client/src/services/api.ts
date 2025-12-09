@@ -144,6 +144,12 @@ export const farmerApi = {
 
   getById: (id: number) =>
     apiClient.get<Farmer>(`/farmers/${id}`),
+
+  create: (data: Partial<Farmer>) =>
+    apiClient.post<Farmer>('/farmers', data),
+
+  update: (id: number, data: Partial<Farmer>) =>
+    apiClient.put<Farmer>(`/farmers/${id}`, data),
 }
 
 // Product API
@@ -282,6 +288,19 @@ export const favoriteApi = {
 
   checkStatus: (restaurantId: number, productId: number) =>
     apiClient.get<{ is_favorited: boolean }>(`/favorites/check/${restaurantId}/${productId}`),
+}
+
+// Upload API
+export const uploadApi = {
+  uploadImage: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return apiClient.post<{ url: string; public_id: string }>('/upload/image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+  },
 }
 
 export default apiClient

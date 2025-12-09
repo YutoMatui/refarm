@@ -4,9 +4,9 @@
  */
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { farmerApi, productApi } from '@/services/api'
+import { farmerApi, productApi, uploadApi } from '@/services/api'
 import { StockType, type Product } from '@/types'
-import { Plus, Edit2, Save, X } from 'lucide-react'
+import { Plus, Edit2, Save, X, Upload } from 'lucide-react'
 import Loading from '@/components/Loading'
 
 export default function Admin() {
@@ -54,7 +54,7 @@ export default function Admin() {
 
 // 農家管理コンポーネント
 function FarmerManagement() {
-  // const queryClient = useQueryClient()
+  const queryClient = useQueryClient()
   // const [isAdding, setIsAdding] = useState(false)
   // const [editingId, setEditingId] = useState<number | null>(null)
   // const [formData, setFormData] = useState<Partial<Farmer>>({})
@@ -66,6 +66,29 @@ function FarmerManagement() {
       return response.data
     },
   })
+
+  // Image Upload Handler
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, farmerId: number) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!confirm('画像をアップロードして更新しますか？')) return
+
+    try {
+      // 1. Upload to Cloudinary
+      const uploadResponse = await uploadApi.uploadImage(file)
+      const imageUrl = uploadResponse.data.url
+
+      // 2. Update Farmer record
+      await farmerApi.update(farmerId, { profile_photo_url: imageUrl })
+
+      alert('画像を更新しました')
+      queryClient.invalidateQueries({ queryKey: ['admin-farmers'] })
+    } catch (error) {
+      console.error('Upload failed:', error)
+      alert('アップロードに失敗しました')
+    }
+  }
 
   if (isLoading) return <Loading message="農家情報を読み込み中..." />
 
@@ -79,6 +102,7 @@ function FarmerManagement() {
           onClick={() => {
             // setIsAdding(true)
             // setFormData({})
+            alert('新規登録機能は未実装です')
           }}
           className="btn-primary flex items-center gap-2"
         >
@@ -92,9 +116,9 @@ function FarmerManagement() {
           <thead className="bg-gray-50 border-b">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">画像</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">名前</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">主要作物</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">電話番号</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ステータス</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
             </tr>
@@ -103,9 +127,27 @@ function FarmerManagement() {
             {farmers.map((farmer) => (
               <tr key={farmer.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 text-sm text-gray-900">{farmer.id}</td>
+                <td className="px-6 py-4">
+                  <div className="relative group w-12 h-12">
+                    <img
+                      src={farmer.profile_photo_url || 'https://placehold.co/100x100?text=No+Image'}
+                      alt={farmer.name}
+                      className="w-12 h-12 rounded-full object-cover bg-gray-100"
+                    />
+                    {/* Hidden File Input for Upload */}
+                    <label className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all rounded-full cursor-pointer">
+                      <Upload className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleImageUpload(e, farmer.id)}
+                      />
+                    </label>
+                  </div>
+                </td>
                 <td className="px-6 py-4 text-sm font-medium text-gray-900">{farmer.name}</td>
                 <td className="px-6 py-4 text-sm text-gray-600">{farmer.main_crop || '-'}</td>
-                <td className="px-6 py-4 text-sm text-gray-600">{farmer.phone_number || '-'}</td>
                 <td className="px-6 py-4">
                   <span
                     className={`px-2 py-1 text-xs rounded-full ${farmer.is_active === 1
