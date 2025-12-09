@@ -64,6 +64,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=r"https?://.*",  # すべてのオリジンからのリクエストを許可（開発・プレビュー用）
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
