@@ -198,6 +198,29 @@ function ProductManagement() {
     },
   })
 
+  // Image Upload Handler for Product
+  const handleProductImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, productId: number) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!confirm('商品画像をアップロードして更新しますか？')) return
+
+    try {
+      // 1. Upload to Cloudinary
+      const uploadResponse = await uploadApi.uploadImage(file)
+      const imageUrl = uploadResponse.data.url
+
+      // 2. Update Product record
+      await productApi.update(productId, { image_url: imageUrl })
+
+      alert('商品画像を更新しました')
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] })
+    } catch (error) {
+      console.error('Upload failed:', error)
+      alert('アップロードに失敗しました')
+    }
+  }
+
   if (isLoading) return <Loading message="商品情報を読み込み中..." />
 
   const products = data?.items || []
@@ -231,6 +254,7 @@ function ProductManagement() {
         <table className="w-full">
           <thead className="bg-gray-50 border-b">
             <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">画像</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">商品名</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">種別</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">価格</th>
@@ -246,6 +270,25 @@ function ProductManagement() {
 
               return (
                 <tr key={product.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4">
+                    <div className="relative group w-12 h-12">
+                      <img
+                        src={product.image_url || 'https://placehold.co/100x100?text=No+Image'}
+                        alt={product.name}
+                        className="w-12 h-12 rounded object-cover bg-gray-100"
+                      />
+                      {/* Hidden File Input for Upload */}
+                      <label className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all rounded cursor-pointer">
+                        <Upload className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleProductImageUpload(e, product.id)}
+                        />
+                      </label>
+                    </div>
+                  </td>
                   <td className="px-6 py-4">
                     <div className="text-sm font-medium text-gray-900">{product.name}</div>
                     <div className="text-xs text-gray-500">{product.unit}</div>
