@@ -9,7 +9,7 @@ import { StockType } from '@/types'
 import Loading from '@/components/Loading'
 import ProductCard from '@/components/ProductCard'
 import { Search, Filter } from 'lucide-react'
-import { useDebounce } from '@/hooks/useDebounce'
+import { useDebounce } from '../hooks/useDebounce'
 
 export default function VegetableList() {
   const [stockTypeFilter, setStockTypeFilter] = useState<StockType | ''>('')
