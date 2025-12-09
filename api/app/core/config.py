@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     LIFF_ID: str = ""
     LINE_CHANNEL_SECRET: str = ""
     
+    # Cloudinary
+    CLOUDINARY_CLOUD_NAME: str = ""
+    CLOUDINARY_API_KEY: str = ""
+    CLOUDINARY_API_SECRET: str = ""
+    
     # Timezone
     TZ: str = "Asia/Tokyo"
     

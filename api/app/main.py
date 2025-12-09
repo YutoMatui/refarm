@@ -129,6 +129,7 @@ from app.routers import (
     products,
     orders,
     favorites,
+    upload,
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -137,6 +138,7 @@ app.include_router(farmers.router, prefix="/api/farmers", tags=["Farmers"])
 app.include_router(products.router, prefix="/api/products", tags=["Products"])
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(favorites.router, prefix="/api/favorites", tags=["Favorites"])
+app.include_router(upload.router, prefix="/api/upload", tags=["Upload"])
 
 
 @app.get("/api/debug/seed", tags=["Debug"])

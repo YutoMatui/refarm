@@ -9,20 +9,22 @@ import { StockType } from '@/types'
 import Loading from '@/components/Loading'
 import ProductCard from '@/components/ProductCard'
 import { Search, Filter } from 'lucide-react'
+import { useDebounce } from '@/hooks/useDebounce'
 
 export default function VegetableList() {
   const [stockTypeFilter, setStockTypeFilter] = useState<StockType | ''>('')
   // const [categoryFilter, setCategoryFilter] = useState<ProductCategory | ''>('')
   const categoryFilter = ''
   const [searchQuery, setSearchQuery] = useState('')
+  const debouncedSearchQuery = useDebounce(searchQuery, 500)
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['products', stockTypeFilter, categoryFilter, searchQuery],
+    queryKey: ['products', stockTypeFilter, categoryFilter, debouncedSearchQuery],
     queryFn: async () => {
       const params: any = { is_active: 1, limit: 1000 }
       if (stockTypeFilter) params.stock_type = stockTypeFilter
       if (categoryFilter) params.category = categoryFilter
-      if (searchQuery) params.search = searchQuery
+      if (debouncedSearchQuery) params.search = debouncedSearchQuery
 
       const response = await productApi.list(params)
       return response.data
