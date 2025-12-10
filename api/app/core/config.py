@@ -27,7 +27,8 @@ class Settings(BaseSettings):
         "http://localhost:5173", 
         "http://localhost:3000",
         "https://refarm-po00du52z-refarm-ff84e7d8.vercel.app",
-        "https://refarm-nine.vercel.app"
+        "https://refarm-nine.vercel.app",
+        "https://app.refarmkobe.com"
     ]
     
     @validator("DATABASE_URL", pre=True)
