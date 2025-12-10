@@ -79,10 +79,10 @@ export const restaurantApi = {
     apiClient.get<Restaurant>(`/restaurants/${id}`),
 
   list: (params?: { skip?: number; limit?: number; is_active?: number }) =>
-    apiClient.get<PaginatedResponse<Restaurant>>('/restaurants', { params }),
+    apiClient.get<PaginatedResponse<Restaurant>>('/restaurants/', { params }),
 
   create: (data: Partial<Restaurant>) =>
-    apiClient.post<Restaurant>('/restaurants', data),
+    apiClient.post<Restaurant>('/restaurants/', data),
 
   update: (id: number, data: Partial<Restaurant>) =>
     apiClient.put<Restaurant>(`/restaurants/${id}`, data),
@@ -92,7 +92,7 @@ export const restaurantApi = {
 export const farmerApi = {
   list: async (params?: { skip?: number; limit?: number; is_active?: number }) => {
     try {
-      const response = await apiClient.get<PaginatedResponse<Farmer>>('/farmers', { params })
+      const response = await apiClient.get<PaginatedResponse<Farmer>>('/farmers/', { params })
       return response
     } catch (error) {
       console.warn('Farmer API failed, falling back to mock data', error)
@@ -147,7 +147,7 @@ export const farmerApi = {
     apiClient.get<Farmer>(`/farmers/${id}`),
 
   create: (data: Partial<Farmer>) =>
-    apiClient.post<Farmer>('/farmers', data),
+    apiClient.post<Farmer>('/farmers/', data),
 
   update: (id: number, data: Partial<Farmer>) =>
     apiClient.put<Farmer>(`/farmers/${id}`, data),
@@ -166,7 +166,7 @@ export const productApi = {
     search?: string
   }) => {
     try {
-      const response = await apiClient.get<PaginatedResponse<Product>>('/products', { params })
+      const response = await apiClient.get<PaginatedResponse<Product>>('/products/', { params })
       return response
     } catch (error) {
       console.warn('Product API failed, falling back to mock data', error)
@@ -249,7 +249,7 @@ export const productApi = {
     apiClient.get<Product>(`/products/${id}`),
 
   create: (data: Partial<Product>) =>
-    apiClient.post<Product>('/products', data),
+    apiClient.post<Product>('/products/', data),
 
   update: (id: number, data: Partial<Product>) =>
     apiClient.put<Product>(`/products/${id}`, data),
@@ -261,14 +261,14 @@ export const productApi = {
 // Order API
 export const orderApi = {
   create: (data: OrderCreateRequest) =>
-    apiClient.post<Order>('/orders', data),
+    apiClient.post<Order>('/orders/', data),
 
   list: (params?: {
     skip?: number
     limit?: number
     restaurant_id?: number
     status?: string
-  }) => apiClient.get<PaginatedResponse<Order>>('/orders', { params }),
+  }) => apiClient.get<PaginatedResponse<Order>>('/orders/', { params }),
 
   getById: (id: number) =>
     apiClient.get<Order>(`/orders/${id}`),
