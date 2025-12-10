@@ -49,6 +49,14 @@ class Settings(BaseSettings):
             return v
         raise ValueError(v)
     
+    @validator("CORS_ORIGINS")
+    def ensure_production_origin(cls, v: List[str]) -> List[str]:
+        """Always include production domain in CORS origins."""
+        prod_origin = "https://app.refarmkobe.com"
+        if prod_origin not in v:
+            v.append(prod_origin)
+        return v
+    
     # LINE LIFF
     LIFF_ID: str = ""
     LINE_CHANNEL_SECRET: str = ""
