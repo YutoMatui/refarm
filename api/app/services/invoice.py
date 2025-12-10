@@ -19,10 +19,11 @@ try:
         pdfmetrics.registerFont(TTFont(FONT_NAME, FONT_PATH))
     else:
         # Fallback to standard font (Japanese won't render correctly)
-        print(f"Font not found at {FONT_PATH}")
-        pass
+        print(f"Font not found at {FONT_PATH}, falling back to Helvetica")
+        FONT_NAME = "Helvetica"
 except Exception as e:
-    print(f"Error registering font: {e}")
+    print(f"Error registering font: {e}, falling back to Helvetica")
+    FONT_NAME = "Helvetica"
 
 def generate_invoice_pdf(order):
     """
