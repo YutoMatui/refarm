@@ -94,7 +94,7 @@ class OrderResponse(OrderBase, TimestampSchema, BaseSchema):
     shipped_at: Optional[datetime]
     delivered_at: Optional[datetime]
     cancelled_at: Optional[datetime]
-    items: List[OrderItemResponse] = []
+    items: List[OrderItemResponse] = Field([], validation_alias="order_items")
     
     class Config:
         json_schema_extra = {

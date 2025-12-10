@@ -278,6 +278,13 @@ export const orderApi = {
 
   cancel: (id: number) =>
     apiClient.delete(`/orders/${id}`),
+
+  downloadInvoice: async (id: number) => {
+    const response = await apiClient.get(`/orders/${id}/invoice`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
 }
 
 // Favorite API
