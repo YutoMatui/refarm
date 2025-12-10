@@ -7,10 +7,11 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.services.invoice import generate_invoice_pdf
 from app.models import Order, OrderItem, Product
 from app.models.enums import OrderStatus
@@ -32,6 +33,18 @@ async def create_order(order_data: OrderCreate, db: AsyncSession = Depends(get_d
     注文を新規作成
     商品の価格スナップショットを保存し、合計金額を計算
     """
+    # Validate delivery date (must be >= today + MIN_DELIVERY_DAYS)
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    min_delivery_date = today + timedelta(days=settings.MIN_DELIVERY_DAYS)
+    
+    # Ensure order_data.delivery_date is timezone-naive or convert correctly for comparison
+    # Assuming input is timezone-aware, we compare dates only
+    if order_data.delivery_date.date() < min_delivery_date.date():
+         raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"配送日は注文日から{settings.MIN_DELIVERY_DAYS}日後以降を指定してください"
+        )
+
     # Create order
     order_dict = order_data.model_dump(exclude={"items"})
     db_order = Order(**order_dict)
@@ -142,6 +155,112 @@ async def get_order(order_id: int, db: AsyncSession = Depends(get_db)):
     return order
 
 
+@router.patch("/{order_id}", response_model=OrderResponse)
+async def update_order(
+    order_id: int,
+    order_update: OrderUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    注文内容を変更（日時、商品、数量）
+    配送予定日の3日前まで変更可能
+    """
+    stmt = select(Order).options(selectinload(Order.order_items)).where(Order.id == order_id)
+    result = await db.execute(stmt)
+    db_order = result.scalar_one_or_none()
+    
+    if not db_order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
+        
+    # Check modification deadline
+    today = datetime.now().date()
+    # Check against current delivery date
+    if db_order.delivery_date:
+        days_until_delivery = (db_order.delivery_date.date() - today).days
+        if days_until_delivery < settings.CANCEL_DEADLINE_DAYS:
+             raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"配送予定日の{settings.CANCEL_DEADLINE_DAYS}日前を過ぎているため変更できません"
+            )
+
+    # If updating delivery date, validate new date
+    if order_update.delivery_date:
+        min_delivery_date = today + timedelta(days=settings.MIN_DELIVERY_DAYS)
+        if order_update.delivery_date.date() < min_delivery_date:
+             raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"配送日は今日から{settings.MIN_DELIVERY_DAYS}日後以降を指定してください"
+            )
+        db_order.delivery_date = order_update.delivery_date
+
+    # Update other fields if provided
+    if order_update.delivery_time_slot:
+        db_order.delivery_time_slot = order_update.delivery_time_slot
+    if order_update.notes is not None:
+        db_order.notes = order_update.notes
+
+    # Update items if provided
+    if order_update.items is not None:
+        # Clear existing items
+        # Note: In a real app, might want to be smarter about this (diffing) to preserve ids
+        # For simplicity, remove all and recreate
+        for item in db_order.order_items:
+            await db.delete(item)
+        
+        # Re-calculate totals
+        subtotal = Decimal(0)
+        tax_amount = Decimal(0)
+        
+        for item_data in order_update.items:
+             # Get product
+            stmt = select(Product).where(Product.id == item_data.product_id)
+            result = await db.execute(stmt)
+            product = result.scalar_one_or_none()
+            
+            if not product:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"商品ID {item_data.product_id} が見つかりません"
+                )
+            
+            # Calculate prices (using current product price)
+            item_subtotal = product.price * item_data.quantity
+            item_tax = item_subtotal * (Decimal(product.tax_rate.value) / 100)
+            item_total = item_subtotal + item_tax
+            
+            # Create order item
+            db_order_item = OrderItem(
+                order_id=db_order.id,
+                product_id=product.id,
+                quantity=item_data.quantity,
+                unit_price=product.price,
+                tax_rate=product.tax_rate.value,
+                subtotal=item_subtotal,
+                tax_amount=item_tax,
+                total_amount=item_total,
+                product_name=product.name,
+                product_unit=product.unit,
+            )
+            db.add(db_order_item)
+            
+            subtotal += item_subtotal
+            tax_amount += item_tax
+            
+        # Update order totals
+        db_order.subtotal = subtotal
+        db_order.tax_amount = tax_amount
+        db_order.total_amount = subtotal + tax_amount
+
+    await db.commit()
+    
+    # Reload
+    stmt = select(Order).options(selectinload(Order.order_items)).where(Order.id == db_order.id)
+    result = await db.execute(stmt)
+    db_order = result.scalar_one()
+    
+    return db_order
+
+
 @router.patch("/{order_id}/status", response_model=OrderResponse)
 async def update_order_status(
     order_id: int,
@@ -194,6 +313,16 @@ async def cancel_order(order_id: int, db: AsyncSession = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="配送中または配達完了の注文はキャンセルできません"
         )
+        
+    # Check cancellation deadline
+    today = datetime.now().date()
+    if order.delivery_date:
+        days_until_delivery = (order.delivery_date.date() - today).days
+        if days_until_delivery < settings.CANCEL_DEADLINE_DAYS:
+             raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"配送予定日の{settings.CANCEL_DEADLINE_DAYS}日前を過ぎているためキャンセルできません"
+            )
     
     order.status = OrderStatus.CANCELLED
     order.cancelled_at = datetime.now()

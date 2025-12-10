@@ -79,6 +79,7 @@ class OrderUpdate(BaseModel):
     delivery_time_slot: Optional[DeliveryTimeSlot] = None
     delivery_notes: Optional[str] = None
     notes: Optional[str] = None
+    items: Optional[List[OrderItemCreate]] = None
 
 
 class OrderResponse(OrderBase, TimestampSchema, BaseSchema):
