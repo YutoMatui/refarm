@@ -1,7 +1,9 @@
 """
 Order API Router - 注文管理
 """
+import io
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
@@ -9,6 +11,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from app.core.database import get_db
+from app.services.invoice import generate_invoice_pdf
 from app.models import Order, OrderItem, Product
 from app.models.enums import OrderStatus
 from app.schemas import (
@@ -197,3 +200,30 @@ async def cancel_order(order_id: int, db: AsyncSession = Depends(get_db)):
     await db.commit()
     
     return ResponseMessage(message="注文をキャンセルしました", success=True)
+
+
+@router.get("/{order_id}/invoice")
+async def download_invoice(order_id: int, db: AsyncSession = Depends(get_db)):
+    """請求書をダウンロード"""
+    stmt = select(Order).options(
+        selectinload(Order.order_items),
+        selectinload(Order.restaurant)
+    ).where(Order.id == order_id)
+    
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
+    
+    # Generate PDF
+    pdf_content = generate_invoice_pdf(order)
+    
+    # Return as stream
+    return StreamingResponse(
+        io.BytesIO(pdf_content),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=invoice_{order.id}.pdf"
+        }
+    )
