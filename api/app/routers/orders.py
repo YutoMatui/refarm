@@ -87,7 +87,12 @@ async def create_order(order_data: OrderCreate, db: AsyncSession = Depends(get_d
     db_order.total_amount = subtotal + tax_amount
     
     await db.commit()
-    await db.refresh(db_order, ["order_items"])
+    
+    # Reload order with items to ensure all fields (IDs, timestamps) are populated
+    # and items are eagerly loaded for the response to prevent MissingGreenlet error
+    stmt = select(Order).options(selectinload(Order.order_items)).where(Order.id == db_order.id)
+    result = await db.execute(stmt)
+    db_order = result.scalar_one()
     
     return db_order
 
@@ -162,7 +167,11 @@ async def update_order_status(
         order.cancelled_at = now
     
     await db.commit()
-    await db.refresh(order)
+    
+    # Reload order with items to ensure all fields are populated and items are loaded
+    stmt = select(Order).options(selectinload(Order.order_items)).where(Order.id == order.id)
+    result = await db.execute(stmt)
+    order = result.scalar_one()
     
     return order
 
