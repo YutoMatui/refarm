@@ -69,6 +69,10 @@ class Settings(BaseSettings):
     # Timezone
     TZ: str = "Asia/Tokyo"
     
+    # Business Rules
+    MIN_DELIVERY_DAYS: int = 3  # Minimum days before delivery (e.g., Order on 10th -> Earliest 13th)
+    CANCEL_DEADLINE_DAYS: int = 3 # Deadline days before delivery for cancellation/modification
+    
     class Config:
         env_file = ".env"
         case_sensitive = True
