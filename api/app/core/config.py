@@ -26,7 +26,8 @@ class Settings(BaseSettings):
     CORS_ORIGINS: Union[str, List[str]] = [
         "http://localhost:5173", 
         "http://localhost:3000",
-        "https://refarm-po00du52z-refarm-ff84e7d8.vercel.app"
+        "https://refarm-po00du52z-refarm-ff84e7d8.vercel.app",
+        "https://refarm-nine.vercel.app"
     ]
     
     @validator("DATABASE_URL", pre=True)
