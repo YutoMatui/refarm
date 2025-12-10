@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react'
-import Cropper from 'react-easy-crop'
-import { Point, Area } from 'react-easy-crop/types'
+import Cropper, { Point, Area } from 'react-easy-crop'
 import getCroppedImg from '@/utils/cropImage'
 import { X, Check, ZoomIn, RotateCw } from 'lucide-react'
 
