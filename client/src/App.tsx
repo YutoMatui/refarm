@@ -4,6 +4,7 @@
  */
 import { useEffect, useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from 'sonner'
 import { useStore } from './store/useStore'
 import { authApi } from './services/api'
 import { liffService } from './services/liff'
@@ -147,21 +148,24 @@ function App() {
   }
 
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Navigate to="/catalog" replace />} />
-          <Route path="history" element={<History />} />
-          <Route path="favorites" element={<Favorites />} />
-          <Route path="catalog" element={<VegetableList />} />
-          <Route path="farmers" element={<Farmers />} />
-          <Route path="mypage" element={<MyPage />} />
-        </Route>
-        <Route path="/cart" element={<Cart />} />
-        <Route path="/order-complete/:orderId" element={<OrderComplete />} />
-        <Route path="/admin" element={<Admin />} />
-      </Routes>
-    </Router>
+    <>
+      <Toaster position="top-center" richColors />
+      <Router>
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Navigate to="/catalog" replace />} />
+            <Route path="history" element={<History />} />
+            <Route path="favorites" element={<Favorites />} />
+            <Route path="catalog" element={<VegetableList />} />
+            <Route path="farmers" element={<Farmers />} />
+            <Route path="mypage" element={<MyPage />} />
+          </Route>
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/order-complete/:orderId" element={<OrderComplete />} />
+          <Route path="/admin" element={<Admin />} />
+        </Routes>
+      </Router>
+    </>
   )
 }
 

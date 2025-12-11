@@ -174,6 +174,19 @@ export interface OrderCreateRequest {
   }>
 }
 
+// Order Update Request
+export interface OrderUpdateRequest {
+  status?: OrderStatus
+  delivery_date?: string
+  delivery_time_slot?: DeliveryTimeSlot
+  delivery_notes?: string
+  notes?: string
+  items?: Array<{
+    product_id: number
+    quantity: number
+  }>
+}
+
 // Favorite Toggle Request
 export interface FavoriteToggleRequest {
   product_id: number

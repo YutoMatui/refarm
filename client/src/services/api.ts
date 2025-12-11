@@ -17,6 +17,7 @@ import type {
   Favorite,
   PaginatedResponse,
   OrderCreateRequest,
+  OrderUpdateRequest,
   FavoriteToggleRequest,
   FavoriteToggleResponse,
 } from '@/types'
@@ -272,6 +273,9 @@ export const orderApi = {
 
   getById: (id: number) =>
     apiClient.get<Order>(`/orders/${id}`),
+
+  update: (id: number, data: OrderUpdateRequest) =>
+    apiClient.patch<Order>(`/orders/${id}`, data),
 
   updateStatus: (id: number, status: string) =>
     apiClient.patch<Order>(`/orders/${id}/status`, { status }),
