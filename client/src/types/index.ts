@@ -214,3 +214,13 @@ export interface FarmerAggregation {
   farmer_name: string
   products: AggregatedProduct[]
 }
+
+export interface RegisterRequest {
+  id_token: string
+  name: string
+  phone_number: string
+  address: string
+  invoice_email?: string
+  business_hours?: string
+  notes?: string
+}

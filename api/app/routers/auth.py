@@ -27,6 +27,71 @@ class AuthResponse(BaseModel):
     message: str
 
 
+class RegisterRequest(BaseModel):
+    """Registration request."""
+    id_token: str
+    name: str
+    phone_number: str
+    address: str
+    invoice_email: str | None = None
+    business_hours: str | None = None
+    notes: str | None = None
+
+
+@router.post("/register", response_model=AuthResponse, summary="飲食店新規登録")
+async def register_restaurant(
+    register_data: RegisterRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    LINE ID Tokenを使用して飲食店を新規登録します。
+    """
+    from app.core.security import get_current_user_from_token
+    
+    # Verify token
+    user_info = await get_current_user_from_token(register_data.id_token)
+    line_user_id = user_info["user_id"]
+    
+    # Check if already registered
+    stmt = select(Restaurant).where(
+        Restaurant.line_user_id == line_user_id,
+        Restaurant.deleted_at.is_(None)
+    )
+    result = await db.execute(stmt)
+    existing_restaurant = result.scalar_one_or_none()
+    
+    if existing_restaurant:
+        return AuthResponse(
+            line_user_id=line_user_id,
+            restaurant=existing_restaurant,
+            is_registered=True,
+            message="既に登録されています"
+        )
+    
+    # Create new restaurant
+    new_restaurant = Restaurant(
+        line_user_id=line_user_id,
+        name=register_data.name,
+        phone_number=register_data.phone_number,
+        address=register_data.address,
+        invoice_email=register_data.invoice_email,
+        business_hours=register_data.business_hours,
+        notes=register_data.notes,
+        is_active=1
+    )
+    
+    db.add(new_restaurant)
+    await db.commit()
+    await db.refresh(new_restaurant)
+    
+    return AuthResponse(
+        line_user_id=line_user_id,
+        restaurant=new_restaurant,
+        is_registered=True,
+        message="登録が完了しました"
+    )
+
+
 @router.post("/verify", response_model=AuthResponse, summary="LINE ID Token検証")
 async def verify_line_token(
     auth_request: AuthRequest,

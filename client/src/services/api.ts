@@ -21,6 +21,7 @@ import type {
   FavoriteToggleRequest,
   FavoriteToggleResponse,
   FarmerAggregation,
+  RegisterRequest,
 } from '@/types'
 
 // Create Axios instance
