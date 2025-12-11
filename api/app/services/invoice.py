@@ -30,6 +30,16 @@ def generate_invoice_pdf(order):
     Generate Invoice PDF for the given order.
     Returns bytes of the PDF.
     """
+    return _generate_pdf(order, "請求書")
+
+def generate_delivery_slip_pdf(order):
+    """
+    Generate Delivery Slip PDF for the given order.
+    Returns bytes of the PDF.
+    """
+    return _generate_pdf(order, "納品書")
+
+def _generate_pdf(order, title):
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
@@ -40,14 +50,17 @@ def generate_invoice_pdf(order):
     
     # --- Header ---
     c.setFont(FONT_NAME, 18)
-    c.drawString(width/2 - 30*mm, height - MARGIN_Y, "請求書")
+    c.drawString(width/2 - 30*mm, height - MARGIN_Y, title)
     
     # --- Customer ---
     c.setFont(FONT_NAME, 12)
-    c.drawString(MARGIN_X, height - 50*mm, f"{order.restaurant.name} 様 御中")
+    c.drawString(MARGIN_X, height - 50*mm, f"{order.restaurant.name} 様")
+    if title == "請求書":
+         c.drawString(MARGIN_X + 60*mm, height - 50*mm, "御中")
     
-    c.setFont(FONT_NAME, 10)
-    c.drawString(MARGIN_X, height - 60*mm, "下記のとおり、御請求申し上げます。")
+    if title == "請求書":
+        c.setFont(FONT_NAME, 10)
+        c.drawString(MARGIN_X, height - 60*mm, "下記のとおり、御請求申し上げます。")
     
     # --- Subject & Payment Info ---
     c.setFont(FONT_NAME, 12)
@@ -55,18 +68,18 @@ def generate_invoice_pdf(order):
     c.setFont(FONT_NAME, 14)
     c.drawString(MARGIN_X + 20*mm, height - 75*mm, "野菜代金")
     
-    # Payment Deadline (End of next month relative to invoice date)
-    # Assuming invoice date is today or order.created_at
+    # Dates
     invoice_date = order.created_at or datetime.now()
     if order.confirmed_at:
         invoice_date = order.confirmed_at
-        
-    payment_deadline = invoice_date + relativedelta(months=1)
-    payment_deadline = payment_deadline.replace(day=1) + relativedelta(months=1, days=-1) # End of next month
     
-    c.setFont(FONT_NAME, 10)
-    c.drawString(MARGIN_X, height - 85*mm, f"支払期限 {payment_deadline.strftime('%Y/%m/%d')}")
-    c.drawString(MARGIN_X + 60*mm, height - 85*mm, "振込先 三井住友銀行 板宿支店 普通 4792089")
+    if title == "請求書":
+        payment_deadline = invoice_date + relativedelta(months=1)
+        payment_deadline = payment_deadline.replace(day=1) + relativedelta(months=1, days=-1) # End of next month
+        
+        c.setFont(FONT_NAME, 10)
+        c.drawString(MARGIN_X, height - 85*mm, f"支払期限 {payment_deadline.strftime('%Y/%m/%d')}")
+        c.drawString(MARGIN_X + 60*mm, height - 85*mm, "振込先 三井住友銀行 板宿支店 普通 4792089")
     
     # --- Total Amount ---
     c.setFont(FONT_NAME, 12)
@@ -76,14 +89,14 @@ def generate_invoice_pdf(order):
     total_str = f"{int(order.total_amount):,} 円 (税込)"
     c.drawString(MARGIN_X + 20*mm, height - 100*mm, total_str)
     
-    # --- Invoice Info (Right side) ---
+    # --- Issuer Info (Right side) ---
     c.setFont(FONT_NAME, 10)
     info_x = width - MARGIN_X - 60*mm
     info_y = height - 50*mm
     line_height = 5*mm
     
-    c.drawString(info_x, info_y, f"No. {1000 + order.id}") # Simple invoice number logic
-    c.drawString(info_x, info_y - line_height, f"請求日 {invoice_date.strftime('%Y/%m/%d')}")
+    c.drawString(info_x, info_y, f"No. {1000 + order.id}") # Simple number logic
+    c.drawString(info_x, info_y - line_height, f"発行日 {invoice_date.strftime('%Y/%m/%d')}")
     
     c.setFont(FONT_NAME, 12)
     c.drawString(info_x, info_y - line_height*3, "りふぁーむ")

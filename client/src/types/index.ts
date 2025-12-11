@@ -196,3 +196,15 @@ export interface FavoriteToggleResponse {
   is_favorited: boolean
   message: string
 }
+
+// Procurement Summary (Daily Aggregation)
+export interface AggregatedProduct {
+  product_name: string
+  quantity: number
+  unit: string
+}
+
+export interface FarmerAggregation {
+  farmer_name: string
+  products: AggregatedProduct[]
+}

@@ -4,14 +4,16 @@
  */
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { farmerApi, productApi, uploadApi } from '@/services/api'
-import { StockType, type Product } from '@/types'
-import { Plus, Edit2, Save, X, Upload } from 'lucide-react'
+import { farmerApi, productApi, uploadApi, orderApi } from '@/services/api'
+import { StockType, type Product, type Order, OrderStatus, type FarmerAggregation, type AggregatedProduct } from '@/types'
+import { Plus, Edit2, Save, X, Upload, FileText, Truck, Calendar } from 'lucide-react'
 import Loading from '@/components/Loading'
 import ImageCropperModal from '@/components/ImageCropperModal'
+import { format } from 'date-fns'
+import { ja } from 'date-fns/locale'
 
 export default function Admin() {
-  const [activeTab, setActiveTab] = useState<'farmers' | 'products'>('products')
+  const [activeTab, setActiveTab] = useState<'farmers' | 'products' | 'delivery' | 'procurement'>('delivery')
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -19,16 +21,34 @@ export default function Admin() {
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <h1 className="text-2xl font-bold text-gray-900">管理画面 (Refarm側)</h1>
-          <p className="text-sm text-gray-600">農家・商品・在庫の管理</p>
+          <p className="text-sm text-gray-600">農家・商品・在庫・配送の管理</p>
         </div>
       </header>
 
       {/* Tabs */}
       <div className="max-w-7xl mx-auto px-4 py-4">
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+          <button
+            onClick={() => setActiveTab('delivery')}
+            className={`px-6 py-3 rounded-lg font-medium transition-colors whitespace-nowrap ${activeTab === 'delivery'
+              ? 'bg-blue-600 text-white'
+              : 'bg-white text-gray-700 hover:bg-gray-100 border'
+              }`}
+          >
+            配送・注文管理
+          </button>
+          <button
+            onClick={() => setActiveTab('procurement')}
+            className={`px-6 py-3 rounded-lg font-medium transition-colors whitespace-nowrap ${activeTab === 'procurement'
+              ? 'bg-blue-600 text-white'
+              : 'bg-white text-gray-700 hover:bg-gray-100 border'
+              }`}
+          >
+            仕入れ集計
+          </button>
           <button
             onClick={() => setActiveTab('farmers')}
-            className={`px-6 py-3 rounded-lg font-medium transition-colors ${activeTab === 'farmers'
+            className={`px-6 py-3 rounded-lg font-medium transition-colors whitespace-nowrap ${activeTab === 'farmers'
               ? 'bg-blue-600 text-white'
               : 'bg-white text-gray-700 hover:bg-gray-100 border'
               }`}
@@ -37,7 +57,7 @@ export default function Admin() {
           </button>
           <button
             onClick={() => setActiveTab('products')}
-            className={`px-6 py-3 rounded-lg font-medium transition-colors ${activeTab === 'products'
+            className={`px-6 py-3 rounded-lg font-medium transition-colors whitespace-nowrap ${activeTab === 'products'
               ? 'bg-blue-600 text-white'
               : 'bg-white text-gray-700 hover:bg-gray-100 border'
               }`}
@@ -47,8 +67,213 @@ export default function Admin() {
         </div>
 
         {/* Content */}
-        {activeTab === 'farmers' ? <FarmerManagement /> : <ProductManagement />}
+        {activeTab === 'farmers' && <FarmerManagement />}
+        {activeTab === 'products' && <ProductManagement />}
+        {activeTab === 'delivery' && <DeliveryManagement />}
+        {activeTab === 'procurement' && <ProcurementManagement />}
       </div>
+    </div>
+  )
+}
+
+// 配送・注文管理コンポーネント
+function DeliveryManagement() {
+  const queryClient = useQueryClient()
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-orders'],
+    queryFn: async () => {
+      // 全注文を取得
+      const response = await orderApi.list({ limit: 100 })
+      return response.data
+    },
+  })
+
+  // PDF Download Handler
+  const handleDownload = async (orderId: number, type: 'invoice' | 'delivery_slip') => {
+    try {
+      const blob = type === 'invoice'
+        ? await orderApi.downloadInvoice(orderId)
+        : await orderApi.downloadDeliverySlip(orderId)
+
+      const url = window.URL.createObjectURL(new Blob([blob]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `${type === 'invoice' ? 'invoice' : 'delivery_slip'}_${orderId}.pdf`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+    } catch (error) {
+      console.error('Download failed:', error)
+      alert('ダウンロードに失敗しました')
+    }
+  }
+
+  // ステータス更新
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: OrderStatus }) => {
+      await orderApi.updateStatus(id, status)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] })
+      alert('ステータスを更新しました')
+    },
+    onError: () => {
+      alert('更新に失敗しました')
+    }
+  })
+
+  if (isLoading) return <Loading message="注文情報を読み込み中..." />
+
+  const orders = data?.items || []
+
+  return (
+    <div className="bg-white rounded-lg shadow">
+      <div className="p-6 border-b">
+        <h2 className="text-xl font-bold">配送・注文管理</h2>
+        <p className="text-sm text-gray-600 mt-1">注文一覧の確認、各種帳票のダウンロードができます</p>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gray-50 border-b">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">注文ID</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">配送日・時間</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">飲食店名</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">金額</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ステータス</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">帳票</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {orders.map((order: Order) => (
+              <tr key={order.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 text-sm text-gray-900">#{order.id}</td>
+                <td className="px-6 py-4 text-sm text-gray-900">
+                  <div>{format(new Date(order.delivery_date), 'MM/dd(E)', { locale: ja })}</div>
+                  <div className="text-gray-500 text-xs">{order.delivery_time_slot}</div>
+                </td>
+                <td className="px-6 py-4 text-sm text-gray-900">
+                  <div className="font-medium">{`Restaurant #${order.restaurant_id}`}</div>
+                  <div className="text-xs text-gray-500 truncate max-w-[150px]">{order.delivery_address}</div>
+                </td>
+                <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                  ¥{parseInt(order.total_amount).toLocaleString()}
+                </td>
+                <td className="px-6 py-4">
+                  <select
+                    className="text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                    value={order.status}
+                    onChange={(e) => updateStatusMutation.mutate({ id: order.id, status: e.target.value as OrderStatus })}
+                  >
+                    <option value={OrderStatus.PENDING}>未確定</option>
+                    <option value={OrderStatus.CONFIRMED}>受注確定</option>
+                    <option value={OrderStatus.SHIPPED}>配送中</option>
+                    <option value={OrderStatus.DELIVERED}>配達完了</option>
+                    <option value={OrderStatus.CANCELLED}>キャンセル</option>
+                  </select>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleDownload(order.id, 'invoice')}
+                      className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded hover:bg-blue-100"
+                      title="請求書ダウンロード"
+                    >
+                      <FileText className="w-3 h-3" /> 請求書
+                    </button>
+                    <button
+                      onClick={() => handleDownload(order.id, 'delivery_slip')}
+                      className="flex items-center gap-1 text-xs bg-green-50 text-green-700 px-2 py-1 rounded hover:bg-green-100"
+                      title="納品書ダウンロード"
+                    >
+                      <Truck className="w-3 h-3" /> 納品書
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// 仕入れ集計コンポーネント
+function ProcurementManagement() {
+  const [targetDate, setTargetDate] = useState(new Date())
+
+  const formattedDate = format(targetDate, 'yyyy-MM-dd')
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['procurement', formattedDate],
+    queryFn: async () => {
+      const response = await orderApi.getDailyAggregation(formattedDate)
+      return response
+    },
+  })
+
+  return (
+    <div className="bg-white rounded-lg shadow">
+      <div className="p-6 border-b flex flex-col md:flex-row justify-between md:items-center gap-4">
+        <div>
+          <h2 className="text-xl font-bold">仕入れ集計</h2>
+          <p className="text-sm text-gray-600 mt-1">日ごとの農家別必要野菜数を確認できます</p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-gray-500" />
+          <input
+            type="date"
+            value={formattedDate}
+            onChange={(e) => e.target.value && setTargetDate(new Date(e.target.value))}
+            className="border rounded-md px-3 py-2 text-sm"
+          />
+        </div>
+      </div>
+
+      {isLoading ? (
+        <Loading message="集計中..." />
+      ) : data && data.length > 0 ? (
+        <div className="p-6 space-y-8">
+          <>
+            {data.map((farmerGroup: FarmerAggregation, index: number) => (
+              <div key={index} className="border rounded-lg overflow-hidden">
+                <div className="bg-green-50 px-6 py-3 border-b flex justify-between items-center">
+                  <h3 className="font-bold text-green-900 flex items-center gap-2">
+                    <span className="w-2 h-6 bg-green-600 rounded-full inline-block"></span>
+                    {farmerGroup.farmer_name}
+                  </h3>
+                </div>
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase w-2/3">商品名</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase w-1/3">必要数量</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {farmerGroup.products.map((product: AggregatedProduct, pIndex: number) => (
+                      <tr key={pIndex} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 text-sm text-gray-900">{product.product_name}</td>
+                        <td className="px-6 py-4 text-sm font-bold text-gray-900 text-right">
+                          {product.quantity} <span className="text-xs font-normal text-gray-500">{product.unit}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </>
+        </div>
+      ) : (
+        <div className="p-12 text-center text-gray-500">
+          <p className="text-lg mb-2">データがありません</p>
+          <p className="text-sm">指定された日（{format(targetDate, 'MM/dd', { locale: ja })}）の配送予定はありません。</p>
+        </div>
+      )}
     </div>
   )
 }

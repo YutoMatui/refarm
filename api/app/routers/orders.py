@@ -267,3 +267,110 @@ async def download_invoice(order_id: int, db: AsyncSession = Depends(get_db)):
             "Content-Disposition": f"attachment; filename=invoice_{order.id}.pdf"
         }
     )
+
+@router.get("/{order_id}/delivery_slip")
+async def download_delivery_slip(order_id: int, db: AsyncSession = Depends(get_db)):
+    """納品書をダウンロード"""
+    from app.services.invoice import generate_delivery_slip_pdf
+    
+    stmt = select(Order).options(
+        selectinload(Order.order_items),
+        selectinload(Order.restaurant)
+    ).where(Order.id == order_id)
+    
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
+    
+    # Generate PDF
+    pdf_content = generate_delivery_slip_pdf(order)
+    
+    # Return as stream
+    return StreamingResponse(
+        io.BytesIO(pdf_content),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=delivery_slip_{order.id}.pdf"
+        }
+    )
+
+
+@router.get("/aggregation/daily", response_model=list[dict])
+async def get_daily_aggregation(
+    date: str = Query(..., description="集計日 (YYYY-MM-DD)"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    指定日の仕入れ集計を取得
+    農家ごとに必要な野菜の総数を返す
+    """
+    from app.models import Farmer
+    from datetime import datetime, time
+    
+    try:
+        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="日付の形式はYYYY-MM-DDである必要があります"
+        )
+        
+    # Start and end of the day
+    start_of_day = datetime.combine(target_date, time.min)
+    end_of_day = datetime.combine(target_date, time.max)
+    
+    # Query: Join Order -> OrderItem -> Product -> Farmer
+    # Filter by Order.delivery_date
+    stmt = (
+        select(
+            Farmer.id.label("farmer_id"),
+            Farmer.name.label("farmer_name"),
+            Product.id.label("product_id"),
+            Product.name.label("product_name"),
+            Product.unit.label("product_unit"),
+            func.sum(OrderItem.quantity).label("total_quantity")
+        )
+        .select_from(Order)
+        .join(OrderItem, Order.id == OrderItem.order_id)
+        .join(Product, OrderItem.product_id == Product.id)
+        .join(Farmer, Product.farmer_id == Farmer.id)
+        .where(
+            # Assuming delivery_date is stored as Date or DateTime
+            # If DateTime, we need range check. If Date, equality check.
+            # Model definition says DateTime usually, but let's check.
+            # Based on schema it is datetime.
+            func.date(Order.delivery_date) == target_date,
+            Order.status != OrderStatus.CANCELLED
+        )
+        .group_by(
+            Farmer.id,
+            Farmer.name,
+            Product.id,
+            Product.name,
+            Product.unit
+        )
+        .order_by(Farmer.id, Product.id)
+    )
+    
+    result = await db.execute(stmt)
+    rows = result.all()
+    
+    # Group by Farmer in Python
+    aggregation = {}
+    for row in rows:
+        farmer_id = row.farmer_id
+        if farmer_id not in aggregation:
+            aggregation[farmer_id] = {
+                "farmer_name": row.farmer_name,
+                "products": []
+            }
+        
+        aggregation[farmer_id]["products"].append({
+            "product_name": row.product_name,
+            "quantity": int(row.total_quantity),
+            "unit": row.product_unit
+        })
+        
+    return list(aggregation.values())

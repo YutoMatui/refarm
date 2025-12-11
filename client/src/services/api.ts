@@ -20,6 +20,7 @@ import type {
   OrderUpdateRequest,
   FavoriteToggleRequest,
   FavoriteToggleResponse,
+  FarmerAggregation,
 } from '@/types'
 
 // Create Axios instance
@@ -286,6 +287,20 @@ export const orderApi = {
   downloadInvoice: async (id: number) => {
     const response = await apiClient.get(`/orders/${id}/invoice`, {
       responseType: 'blob',
+    })
+    return response.data
+  },
+
+  downloadDeliverySlip: async (id: number) => {
+    const response = await apiClient.get(`/orders/${id}/delivery_slip`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  getDailyAggregation: async (date: string) => {
+    const response = await apiClient.get<FarmerAggregation[]>('/orders/aggregation/daily', {
+      params: { date }
     })
     return response.data
   },
