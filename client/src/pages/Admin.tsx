@@ -88,7 +88,7 @@ function DeliveryManagement() {
     },
   })
 
-  // PDF Download Handler
+  // PDF Download Handler - 請求書・納品書のダウンロード処理
   const handleDownload = async (orderId: number, type: 'invoice' | 'delivery_slip') => {
     try {
       const blob = type === 'invoice'
@@ -140,6 +140,7 @@ function DeliveryManagement() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">注文ID</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">配送日・時間</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">飲食店名</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">注文内容</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">金額</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ステータス</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">帳票</th>
@@ -154,8 +155,25 @@ function DeliveryManagement() {
                   <div className="text-gray-500 text-xs">{order.delivery_time_slot}</div>
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-900">
-                  <div className="font-medium">{`Restaurant #${order.restaurant_id}`}</div>
+                  <div className="font-medium">{order.restaurant?.name || `Restaurant #${order.restaurant_id}`}</div>
                   <div className="text-xs text-gray-500 truncate max-w-[150px]">{order.delivery_address}</div>
+                </td>
+                <td className="px-6 py-4 text-sm text-gray-900">
+                  <div className="space-y-2">
+                    {order.items.map((item) => (
+                      <div key={item.id} className="text-xs border-b border-gray-100 last:border-0 pb-2 last:pb-0">
+                        <div className="font-medium text-gray-800">{item.product_name}</div>
+                        <div className="flex justify-between items-center mt-1">
+                          <span className="text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded text-[10px]">
+                            {item.farmer_name || '農家不明'}
+                          </span>
+                          <span className="font-medium">
+                            ×{item.quantity}<span className="text-gray-500 font-normal">{item.product_unit}</span>
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </td>
                 <td className="px-6 py-4 text-sm font-medium text-gray-900">
                   ¥{parseInt(order.total_amount).toLocaleString()}
@@ -237,36 +255,34 @@ function ProcurementManagement() {
         <Loading message="集計中..." />
       ) : data && data.length > 0 ? (
         <div className="p-6 space-y-8">
-          <>
-            {data.map((farmerGroup: FarmerAggregation, index: number) => (
-              <div key={index} className="border rounded-lg overflow-hidden">
-                <div className="bg-green-50 px-6 py-3 border-b flex justify-between items-center">
-                  <h3 className="font-bold text-green-900 flex items-center gap-2">
-                    <span className="w-2 h-6 bg-green-600 rounded-full inline-block"></span>
-                    {farmerGroup.farmer_name}
-                  </h3>
-                </div>
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase w-2/3">商品名</th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase w-1/3">必要数量</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {farmerGroup.products.map((product: AggregatedProduct, pIndex: number) => (
-                      <tr key={pIndex} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 text-sm text-gray-900">{product.product_name}</td>
-                        <td className="px-6 py-4 text-sm font-bold text-gray-900 text-right">
-                          {product.quantity} <span className="text-xs font-normal text-gray-500">{product.unit}</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {data.map((farmerGroup: FarmerAggregation, index: number) => (
+            <div key={index} className="border rounded-lg overflow-hidden">
+              <div className="bg-green-50 px-6 py-3 border-b flex justify-between items-center">
+                <h3 className="font-bold text-green-900 flex items-center gap-2">
+                  <span className="w-2 h-6 bg-green-600 rounded-full inline-block"></span>
+                  {farmerGroup.farmer_name}
+                </h3>
               </div>
-            ))}
-          </>
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase w-2/3">商品名</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase w-1/3">必要数量</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {farmerGroup.products.map((product: AggregatedProduct, pIndex: number) => (
+                    <tr key={pIndex} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm text-gray-900">{product.product_name}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-gray-900 text-right">
+                        {product.quantity} <span className="text-xs font-normal text-gray-500">{product.unit}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
         </div>
       ) : (
         <div className="p-12 text-center text-gray-500">

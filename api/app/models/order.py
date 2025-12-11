@@ -264,3 +264,17 @@ class OrderItem(Base, TimestampMixin):
     
     def __repr__(self) -> str:
         return f"<OrderItem(id={self.id}, order_id={self.order_id}, product_name='{self.product_name}', quantity={self.quantity})>"
+
+    @property
+    def farmer_name(self) -> str | None:
+        """農家名を取得"""
+        if self.product and self.product.farmer:
+            return self.product.farmer.name
+        return None
+
+    @property
+    def farmer_id(self) -> int | None:
+        """農家IDを取得"""
+        if self.product and self.product.farmer:
+            return self.product.farmer.id
+        return None

@@ -107,12 +107,18 @@ export interface OrderItem extends TimestampFields {
   total_amount: string
   product_name: string
   product_unit: string
+  farmer_name?: string
+  farmer_id?: number
 }
 
 // Order
 export interface Order extends TimestampFields {
   id: number
   restaurant_id: number
+  restaurant?: {
+    id: number
+    name: string
+  }
   delivery_date: string
   delivery_time_slot: DeliveryTimeSlot
   status: OrderStatus

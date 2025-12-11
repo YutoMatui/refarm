@@ -34,6 +34,8 @@ class OrderItemResponse(BaseSchema, TimestampSchema):
     total_amount: Decimal
     product_name: str
     product_unit: str
+    farmer_name: Optional[str] = None
+    farmer_id: Optional[int] = None
     
     class Config:
         json_schema_extra = {
@@ -49,6 +51,8 @@ class OrderItemResponse(BaseSchema, TimestampSchema):
                 "total_amount": "907.20",
                 "product_name": "神戸産 フリルレタス",
                 "product_unit": "個",
+                "farmer_name": "山田農園",
+                "farmer_id": 1,
                 "created_at": "2024-01-01T00:00:00+09:00",
                 "updated_at": "2024-01-01T00:00:00+09:00"
             }
@@ -81,10 +85,20 @@ class OrderUpdate(BaseModel):
     notes: Optional[str] = None
 
 
+class RestaurantSummary(BaseModel):
+    """Schema for restaurant summary."""
+    id: int
+    name: str
+    
+    class Config:
+        from_attributes = True
+
+
 class OrderResponse(OrderBase, TimestampSchema, BaseSchema):
     """Schema for order response."""
     id: int
     restaurant_id: int
+    restaurant: Optional[RestaurantSummary] = None
     status: OrderStatus
     subtotal: Decimal
     tax_amount: Decimal
