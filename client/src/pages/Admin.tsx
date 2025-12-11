@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { farmerApi, productApi, uploadApi, orderApi } from '@/services/api'
 import { StockType, type Product, type Order, OrderStatus, type FarmerAggregation, type AggregatedProduct } from '@/types'
-import { Plus, Edit2, Save, X, Upload, FileText, Truck, Calendar } from 'lucide-react'
+import { Plus, Edit2, Save, X, Upload, FileText, Truck, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 import Loading from '@/components/Loading'
 import ImageCropperModal from '@/components/ImageCropperModal'
 import { format } from 'date-fns'
@@ -79,6 +79,18 @@ export default function Admin() {
 // 配送・注文管理コンポーネント
 function DeliveryManagement() {
   const queryClient = useQueryClient()
+  const [expandedOrders, setExpandedOrders] = useState<Set<number>>(new Set())
+
+  const toggleOrderExpand = (orderId: number) => {
+    const newExpanded = new Set(expandedOrders)
+    if (newExpanded.has(orderId)) {
+      newExpanded.delete(orderId)
+    } else {
+      newExpanded.add(orderId)
+    }
+    setExpandedOrders(newExpanded)
+  }
+
   const { data, isLoading } = useQuery({
     queryKey: ['admin-orders'],
     queryFn: async () => {
@@ -160,7 +172,7 @@ function DeliveryManagement() {
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-900">
                   <div className="space-y-2">
-                    {order.items.map((item) => (
+                    {order.items && order.items.length > 0 && (expandedOrders.has(order.id) ? order.items : [order.items[0]]).map((item) => (
                       <div key={item.id} className="text-xs border-b border-gray-100 last:border-0 pb-2 last:pb-0">
                         <div className="font-medium text-gray-800">{item.product_name}</div>
                         <div className="flex justify-between items-center mt-1">
@@ -173,6 +185,24 @@ function DeliveryManagement() {
                         </div>
                       </div>
                     ))}
+                    {order.items.length > 1 && (
+                      <button
+                        onClick={() => toggleOrderExpand(order.id)}
+                        className="text-blue-600 text-xs mt-1 flex items-center gap-1 hover:underline w-full justify-center bg-blue-50 py-1 rounded"
+                      >
+                        {expandedOrders.has(order.id) ? (
+                          <>
+                            <ChevronUp className="w-3 h-3" />
+                            閉じる
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="w-3 h-3" />
+                            すべて見る ({order.items.length}点)
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </td>
                 <td className="px-6 py-4 text-sm font-medium text-gray-900">
