@@ -91,10 +91,10 @@ function DeliveryManagement() {
   // PDF Download Handler - 請求書・納品書のダウンロード処理
   const handleDownload = async (orderId: number, type: 'invoice' | 'delivery_slip') => {
     try {
-      const blob = type === 'invoice'
+      const blob = type === 'invoice' 
         ? await orderApi.downloadInvoice(orderId)
         : await orderApi.downloadDeliverySlip(orderId)
-
+      
       const url = window.URL.createObjectURL(new Blob([blob]))
       const link = document.createElement('a')
       link.href = url
@@ -239,7 +239,7 @@ function ProcurementManagement() {
           <h2 className="text-xl font-bold">仕入れ集計</h2>
           <p className="text-sm text-gray-600 mt-1">日ごとの農家別必要野菜数を確認できます</p>
         </div>
-
+        
         <div className="flex items-center gap-2">
           <Calendar className="w-5 h-5 text-gray-500" />
           <input
