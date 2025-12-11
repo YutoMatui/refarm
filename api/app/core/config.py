@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     
     # LINE LIFF
     LIFF_ID: str = ""
+    LINE_CHANNEL_ID: str = ""
     LINE_CHANNEL_SECRET: str = ""
     
     # Cloudinary

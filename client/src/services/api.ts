@@ -21,6 +21,7 @@ import type {
   FavoriteToggleRequest,
   FavoriteToggleResponse,
   FarmerAggregation,
+  RegisterRequest,
 } from '@/types'
 
 // Create Axios instance
@@ -70,6 +71,9 @@ export const authApi = {
 
   getMe: () =>
     apiClient.get<Restaurant>('/auth/me'),
+
+  register: (data: RegisterRequest) =>
+    apiClient.post('/auth/register', data),
 }
 
 // Restaurant API

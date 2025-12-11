@@ -16,13 +16,14 @@ import Farmers from './pages/Farmers'
 import MyPage from './pages/MyPage'
 import Cart from './pages/Cart'
 import OrderComplete from './pages/OrderComplete'
+import Register from './pages/Register'
 import Admin from './pages/Admin'
 import Loading from './components/Loading'
 
 function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { setRestaurant, setLineUserId } = useStore()
+  const { restaurant, lineUserId, setRestaurant, setLineUserId } = useStore()
 
   useEffect(() => {
     initializeApp()
@@ -50,7 +51,8 @@ function App() {
               setRestaurant(restaurant)
             } else {
               console.log('Restaurant not registered')
-              // In production, redirect to registration page
+              // User is authenticated with LINE but not registered in our DB
+              // The Router will handle redirection to /register based on state
             }
           } catch (err: any) {
             console.error('Authentication failed:', err)
@@ -147,12 +149,27 @@ function App() {
     )
   }
 
+  // Auth Guard Component
+  const AuthGuard = ({ children }: { children: JSX.Element }) => {
+    if (!lineUserId) return <Navigate to="/login" replace /> // Should trigger login theoretically
+    if (!restaurant) return <Navigate to="/register" replace />
+    return children
+  }
+
   return (
     <>
       <Toaster position="top-center" richColors />
       <Router>
         <Routes>
-          <Route path="/" element={<Layout />}>
+          <Route path="/register" element={
+            !restaurant && lineUserId ? <Register /> : <Navigate to="/" replace />
+          } />
+
+          <Route path="/" element={
+            <AuthGuard>
+              <Layout />
+            </AuthGuard>
+          }>
             <Route index element={<Navigate to="/catalog" replace />} />
             <Route path="history" element={<History />} />
             <Route path="favorites" element={<Favorites />} />
@@ -160,8 +177,19 @@ function App() {
             <Route path="farmers" element={<Farmers />} />
             <Route path="mypage" element={<MyPage />} />
           </Route>
-          <Route path="/cart" element={<Cart />} />
-          <Route path="/order-complete/:orderId" element={<OrderComplete />} />
+
+          <Route path="/cart" element={
+            <AuthGuard>
+              <Cart />
+            </AuthGuard>
+          } />
+
+          <Route path="/order-complete/:orderId" element={
+            <AuthGuard>
+              <OrderComplete />
+            </AuthGuard>
+          } />
+
           <Route path="/admin" element={<Admin />} />
         </Routes>
       </Router>

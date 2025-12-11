@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@line/liff": "^2.23.1",
+    "@line/liff": "^2.27.3",
     "@tanstack/react-query": "^5.17.9",
     "axios": "^1.6.5",
     "date-fns": "^3.3.1",
@@ -17,6 +17,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-easy-crop": "^5.5.6",
+    "react-hook-form": "^7.68.0",
     "react-router-dom": "^6.21.1",
     "sonner": "^2.0.7",
     "zustand": "^4.4.7"
