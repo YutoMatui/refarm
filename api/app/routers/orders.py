@@ -142,6 +142,46 @@ async def get_order(order_id: int, db: AsyncSession = Depends(get_db)):
     return order
 
 
+@router.patch("/{order_id}", response_model=OrderResponse)
+async def update_order(
+    order_id: int,
+    order_data: OrderUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+    """注文情報を更新"""
+    stmt = select(Order).options(selectinload(Order.order_items)).where(Order.id == order_id)
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
+    
+    # Update fields
+    update_data = order_data.model_dump(exclude_unset=True)
+    
+    # Handle status change logic if status is present
+    if "status" in update_data:
+        new_status = update_data["status"]
+        if new_status != order.status:
+            now = datetime.now()
+            if new_status == OrderStatus.CONFIRMED:
+                order.confirmed_at = now
+            elif new_status == OrderStatus.SHIPPED:
+                order.shipped_at = now
+            elif new_status == OrderStatus.DELIVERED:
+                order.delivered_at = now
+            elif new_status == OrderStatus.CANCELLED:
+                order.cancelled_at = now
+    
+    for field, value in update_data.items():
+        setattr(order, field, value)
+    
+    await db.commit()
+    await db.refresh(order)
+    
+    return order
+
+
 @router.patch("/{order_id}/status", response_model=OrderResponse)
 async def update_order_status(
     order_id: int,
