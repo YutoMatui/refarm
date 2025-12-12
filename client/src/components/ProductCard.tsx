@@ -1,6 +1,6 @@
 import { Product, StockType } from '@/types'
 import { useStore } from '@/store/useStore'
-import { Heart, Plus, Minus } from 'lucide-react'
+import { Heart, Plus, Minus, Salad } from 'lucide-react'
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { favoriteApi } from '@/services/api'
@@ -46,8 +46,9 @@ export default function ProductCard({ product }: ProductCardProps) {
           {product.image_url ? (
             <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-300">
-              No Image
+            <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50">
+              <Salad className="w-12 h-12 mb-2 text-green-200" />
+              <span className="text-xs text-gray-400 font-medium">No Photo</span>
             </div>
           )}
 

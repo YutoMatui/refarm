@@ -10,14 +10,22 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import declarative_base
 from app.core.config import settings
 
+# Configure engine arguments based on database type
+engine_args = {
+    "echo": settings.DEBUG,
+    "future": True,
+    "pool_pre_ping": True,
+}
+
+# SQLite does not support pool_size/max_overflow with NullPool (default)
+if "sqlite" not in settings.DATABASE_URL:
+    engine_args["pool_size"] = 10
+    engine_args["max_overflow"] = 20
+
 # Create async engine
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=settings.DEBUG,
-    future=True,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+    **engine_args
 )
 
 # Create async session factory
