@@ -122,6 +122,8 @@ async def import_data():
         
         await session.commit()
         print("Import completed!")
+    
+    await engine.dispose()
 
 if __name__ == "__main__":
     from sqlalchemy import select
