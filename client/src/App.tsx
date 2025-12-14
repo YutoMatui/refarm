@@ -16,6 +16,7 @@ import Farmers from './pages/Farmers'
 import MyPage from './pages/MyPage'
 import Cart from './pages/Cart'
 import OrderComplete from './pages/OrderComplete'
+import ProductDetail from './pages/ProductDetail'
 import Register from './pages/Register'
 import Admin from './pages/Admin'
 import ProducerLayout from './components/ProducerLayout'
@@ -163,6 +164,12 @@ function App() {
           <Route path="/cart" element={
             <AuthGuard>
               <Cart />
+            </AuthGuard>
+          } />
+
+          <Route path="/products/:id" element={
+            <AuthGuard>
+              <ProductDetail />
             </AuthGuard>
           } />
 

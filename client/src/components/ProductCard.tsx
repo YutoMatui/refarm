@@ -3,6 +3,7 @@ import { useStore } from '@/store/useStore'
 import { Heart, Plus, Minus, Salad } from 'lucide-react'
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { favoriteApi } from '@/services/api'
 
 interface ProductCardProps {
@@ -10,6 +11,7 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { addToCart, cart, restaurant, isFavorite, addFavorite, removeFavorite } = useStore()
   const [quantity, setQuantity] = useState(1)
@@ -42,7 +44,10 @@ export default function ProductCard({ product }: ProductCardProps) {
     <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
       <div className="relative">
         {/* Image */}
-        <div className="aspect-square w-full bg-gray-100 relative overflow-hidden">
+        <div
+          onClick={() => navigate(`/products/${product.id}`)}
+          className="aspect-square w-full bg-gray-100 relative overflow-hidden cursor-pointer active:opacity-90 transition-opacity"
+        >
           {product.image_url ? (
             <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
           ) : (
@@ -72,17 +77,20 @@ export default function ProductCard({ product }: ProductCardProps) {
 
       <div className="p-3">
         {/* Title & Price */}
-        <h3 className="font-bold text-gray-900 line-clamp-2 min-h-[2.5rem] mb-1 text-sm">
-          {product.name}
-        </h3>
+        <div onClick={() => navigate(`/products/${product.id}`)} className="cursor-pointer">
+          <h3 className="font-bold text-gray-900 line-clamp-2 min-h-[2.5rem] mb-1 text-sm">
+            {product.name}
+          </h3>
+          <p className="text-xs text-blue-600 mb-2 font-medium">詳細を見る &gt;</p>
 
-        <div className="flex items-baseline gap-1 mb-3">
-          <span className="text-lg font-bold text-gray-900">
-            ¥{Math.floor(Number(product.price)).toLocaleString()}
-          </span>
-          <span className="text-xs text-gray-500">
-            (税抜) /{product.unit}
-          </span>
+          <div className="flex items-baseline gap-1 mb-3">
+            <span className="text-lg font-bold text-gray-900">
+              ¥{Math.floor(Number(product.price)).toLocaleString()}
+            </span>
+            <span className="text-xs text-gray-500">
+              (税抜) /{product.unit}
+            </span>
+          </div>
         </div>
 
         {/* Actions */}

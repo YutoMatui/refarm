@@ -79,10 +79,11 @@ export const useStore = create<AppState>()(
       clearCart: () => set({ cart: [] }),
 
       getCartTotal: () => {
-        return get().cart.reduce((total, item) => {
+        const total = get().cart.reduce((total, item) => {
           const priceWithTax = parseFloat(item.product.price_with_tax)
           return total + priceWithTax * item.quantity
         }, 0)
+        return Math.round(total)
       },
 
       getCartItemCount: () => {
