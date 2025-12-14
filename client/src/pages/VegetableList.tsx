@@ -4,44 +4,162 @@
  */
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { productApi } from '@/services/api'
-import { StockType } from '@/types'
+import { productApi, orderApi } from '@/services/api'
+import { StockType, Order, Product, TaxRate } from '@/types'
 import Loading from '@/components/Loading'
 import ProductCard from '@/components/ProductCard'
-import { Search, Filter } from 'lucide-react'
+import { Search, ShoppingBag, RotateCcw, History as HistoryIcon, List } from 'lucide-react'
 import { useDebounce } from '../hooks/useDebounce'
+import { useStore } from '@/store/useStore'
+import { useNavigate } from 'react-router-dom'
+
+type TabType = 'all' | 'outlet' | 'history' | 'repeat'
 
 export default function VegetableList() {
-  const [stockTypeFilter, setStockTypeFilter] = useState<StockType | ''>('')
-  // const [categoryFilter, setCategoryFilter] = useState<ProductCategory | ''>('')
-  const categoryFilter = ''
+  const [activeTab, setActiveTab] = useState<TabType>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const debouncedSearchQuery = useDebounce(searchQuery, 500)
+  const { restaurant, addToCart } = useStore()
+  const navigate = useNavigate()
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['products', stockTypeFilter, categoryFilter, debouncedSearchQuery],
+  // 1. 商品一覧 (すべて / 訳あり)
+  const { data: productData, isLoading: isProductsLoading } = useQuery({
+    queryKey: ['products', activeTab, debouncedSearchQuery],
     queryFn: async () => {
-      const params: any = { is_active: 1, limit: 1000 }
-      if (stockTypeFilter) params.stock_type = stockTypeFilter
-      if (categoryFilter) params.category = categoryFilter
+      const params: any = { is_active: 1, limit: 100 }
       if (debouncedSearchQuery) params.search = debouncedSearchQuery
+
+      if (activeTab === 'outlet') {
+        params.is_outlet = 1
+      }
 
       const response = await productApi.list(params)
       return response.data
     },
+    enabled: activeTab === 'all' || activeTab === 'outlet',
   })
 
-  if (isLoading) return <Loading message="商品を読み込み中..." />
-  if (error) return <div className="p-4 text-red-600 text-center mt-10">エラーが発生しました</div>
+  // 2. 注文履歴 (いつもの)
+  const { data: orderHistoryData, isLoading: isHistoryLoading } = useQuery({
+    queryKey: ['order-history', restaurant?.id],
+    queryFn: async () => {
+      if (!restaurant) return null
+      const response = await orderApi.list({ restaurant_id: restaurant.id, limit: 50 })
+      return response.data
+    },
+    enabled: activeTab === 'history' && !!restaurant,
+  })
 
-  const products = data?.items || []
+  // 3. 購入済み商品 (リピート)
+  const { data: purchasedData, isLoading: isPurchasedLoading } = useQuery({
+    queryKey: ['purchased-products', restaurant?.id, debouncedSearchQuery],
+    queryFn: async () => {
+      if (!restaurant) return null
+      const params: any = { limit: 100 }
+      if (debouncedSearchQuery) params.search = debouncedSearchQuery
+      return await productApi.getPurchased(params)
+    },
+    enabled: activeTab === 'repeat' && !!restaurant,
+  })
+
+  const handleReorder = (order: Order) => {
+    let addedCount = 0
+    order.items.forEach(item => {
+      // 仮のProductオブジェクトを作成してカートに追加
+      // 注意: 価格は注文当時のものを使用しているため、本来は最新価格を取得すべき
+      const product: any = {
+        id: item.product_id,
+        name: item.product_name,
+        price: item.unit_price,
+        unit: item.product_unit,
+        tax_rate: item.tax_rate === 8 ? TaxRate.REDUCED : TaxRate.STANDARD,
+        stock_type: StockType.KOBE, // Default
+        price_with_tax: String(parseInt(item.unit_price) * (1 + item.tax_rate / 100)),
+        is_kobe_veggie: false,
+        is_outlet: 0
+      }
+
+      addToCart(product, item.quantity)
+      addedCount++
+    })
+
+    if (addedCount > 0) {
+      navigate('/cart')
+    }
+  }
+
+  // Loading State
+  const isLoading = isProductsLoading || isHistoryLoading || isPurchasedLoading
+
+  // Render Content
+  const renderContent = () => {
+    if (isLoading) return <Loading message="読み込み中..." />
+
+    if (activeTab === 'history') {
+      const orders = orderHistoryData?.items || []
+      if (orders.length === 0) return <EmptyState message="注文履歴がありません" />
+
+      return (
+        <div className="space-y-4 pb-20">
+          {orders.map(order => (
+            <div key={order.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <div className="text-sm text-gray-500">{new Date(order.created_at).toLocaleDateString('ja-JP')} の注文</div>
+                  <div className="font-bold">合計: ¥{parseInt(order.total_amount).toLocaleString()}</div>
+                </div>
+                <button
+                  onClick={() => handleReorder(order)}
+                  className="bg-green-600 text-white text-xs px-3 py-1.5 rounded-full font-bold shadow-sm active:bg-green-700"
+                >
+                  もう一度注文
+                </button>
+              </div>
+              <div className="space-y-2">
+                {order.items.map(item => (
+                  <div key={item.id} className="text-sm flex justify-between border-b border-gray-50 pb-1 last:border-0">
+                    <span>{item.product_name}</span>
+                    <span className="text-gray-600">x{item.quantity}{item.product_unit}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )
+    }
+
+    if (activeTab === 'repeat') {
+      const products = purchasedData?.items || []
+      if (products.length === 0) return <EmptyState message="購入履歴のある商品はありません" />
+      return (
+        <div className="grid grid-cols-2 gap-3 pb-20">
+          {products.map((product: Product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+      )
+    }
+
+    // All or Outlet
+    const products = productData?.items || []
+    if (products.length === 0) return <EmptyState message="商品が見つかりません" />
+
+    return (
+      <div className="grid grid-cols-2 gap-3 pb-20">
+        {products.map((product: Product) => (
+          <ProductCard key={product.id} product={product} />
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      {/* Sticky Header with Search */}
-      <div className="sticky top-0 z-20 bg-white shadow-sm pb-2">
-        <div className="px-4 py-3">
-          <h2 className="text-xl font-bold mb-3">野菜一覧</h2>
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-20 bg-white shadow-sm">
+        {/* Search */}
+        <div className="px-4 py-3 border-b border-gray-100">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
@@ -49,58 +167,64 @@ export default function VegetableList() {
               placeholder="商品名で検索..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500 text-sm"
+              className="w-full pl-10 pr-4 py-2 bg-gray-100 border-none rounded-lg focus:ring-2 focus:ring-green-500 text-sm"
             />
           </div>
         </div>
 
-        {/* Horizontal Scrollable Filters */}
-        <div className="flex overflow-x-auto px-4 pb-2 gap-2 no-scrollbar">
-          <button
-            onClick={() => setStockTypeFilter('')}
-            className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${stockTypeFilter === ''
-              ? 'bg-gray-900 text-white'
-              : 'bg-gray-100 text-gray-600'
-              }`}
-          >
-            すべて
-          </button>
-          <button
-            onClick={() => setStockTypeFilter(StockType.KOBE)}
-            className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${stockTypeFilter === StockType.KOBE
-              ? 'bg-green-600 text-white shadow-sm'
-              : 'bg-green-50 text-green-700 border border-green-200'
-              }`}
-          >
-            神戸野菜
-          </button>
-          <button
-            onClick={() => setStockTypeFilter(StockType.OTHER)}
-            className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${stockTypeFilter === StockType.OTHER
-              ? 'bg-orange-500 text-white shadow-sm'
-              : 'bg-orange-50 text-orange-700 border border-orange-200'
-              }`}
-          >
-            その他の野菜
-          </button>
+        {/* Tabs */}
+        <div className="flex overflow-x-auto no-scrollbar">
+          <TabButton
+            active={activeTab === 'all'}
+            onClick={() => setActiveTab('all')}
+            icon={List}
+            label="すべての野菜"
+          />
+          <TabButton
+            active={activeTab === 'outlet'}
+            onClick={() => setActiveTab('outlet')}
+            icon={ShoppingBag}
+            label="訳あり野菜"
+          />
+          <TabButton
+            active={activeTab === 'history'}
+            onClick={() => setActiveTab('history')}
+            icon={HistoryIcon}
+            label="いつもの野菜"
+          />
+          <TabButton
+            active={activeTab === 'repeat'}
+            onClick={() => setActiveTab('repeat')}
+            icon={RotateCcw}
+            label="リピート"
+          />
         </div>
       </div>
 
-      {/* Product Grid */}
-      <div className="px-4 py-4">
-        {products.length === 0 ? (
-          <div className="text-center py-20 text-gray-500">
-            <Filter className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p>該当する商品が見つかりません</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 pb-20">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        )}
+      <div className="p-4">
+        {renderContent()}
       </div>
+    </div>
+  )
+}
+
+function TabButton({ active, onClick, icon: Icon, label }: any) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex-1 flex flex-col items-center justify-center py-3 min-w-[80px] border-b-2 transition-colors ${active ? 'border-green-600 text-green-700 bg-green-50' : 'border-transparent text-gray-500 hover:bg-gray-50'
+        }`}
+    >
+      <Icon size={20} className="mb-1" />
+      <span className="text-[10px] font-bold whitespace-nowrap">{label}</span>
+    </button>
+  )
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="text-center py-20 text-gray-500">
+      <p>{message}</p>
     </div>
   )
 }

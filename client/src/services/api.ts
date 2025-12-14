@@ -169,6 +169,7 @@ export const productApi = {
     farmer_id?: number
     is_active?: number
     is_featured?: number
+    is_outlet?: number
     search?: string
   }) => {
     try {
@@ -249,6 +250,16 @@ export const productApi = {
         }
       }
     }
+  },
+
+  getPurchased: async (params?: {
+    skip?: number
+    limit?: number
+    search?: string
+  }) => {
+    // Get purchased products history
+    const response = await apiClient.get<PaginatedResponse<Product>>('/products/purchased', { params })
+    return response.data
   },
 
   getById: (id: number) =>
