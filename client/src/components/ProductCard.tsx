@@ -78,10 +78,10 @@ export default function ProductCard({ product }: ProductCardProps) {
 
         <div className="flex items-baseline gap-1 mb-3">
           <span className="text-lg font-bold text-gray-900">
-            ¥{parseFloat(product.price_with_tax).toLocaleString()}
+            ¥{Math.floor(Number(product.price)).toLocaleString()}
           </span>
           <span className="text-xs text-gray-500">
-            /{product.unit}
+            (税抜) /{product.unit}
           </span>
         </div>
 

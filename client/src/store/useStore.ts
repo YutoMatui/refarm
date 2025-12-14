@@ -51,12 +51,12 @@ export const useStore = create<AppState>()(
           set({
             cart: cart.map(item =>
               item.product.id === product.id
-                ? { ...item, quantity: item.quantity + quantity }
+                ? { ...item, quantity: Number(item.quantity) + Number(quantity) }
                 : item
             ),
           })
         } else {
-          set({ cart: [...cart, { product, quantity }] })
+          set({ cart: [...cart, { product, quantity: Number(quantity) }] })
         }
       },
 

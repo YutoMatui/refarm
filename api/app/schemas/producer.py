@@ -23,6 +23,7 @@ class ProducerProductUpdate(BaseModel):
 
 class ProducerProfileUpdate(BaseModel):
     """Schema for updating producer profile."""
+    name: Optional[str] = Field(None, description="農園名")
     bio: Optional[str] = Field(None, description="紹介文")
     profile_photo_url: Optional[str] = Field(None, description="プロフィール画像")
     address: Optional[str] = Field(None, description="所在地")

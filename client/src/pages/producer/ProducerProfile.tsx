@@ -63,6 +63,8 @@ export default function ProducerProfile() {
                 profile_photo_url: profilePhotoUrl
             });
             toast.success('プロフィールを更新しました');
+            // Reload to reflect changes
+            await loadProfile();
         } catch (e) {
             toast.error('更新失敗');
         }
