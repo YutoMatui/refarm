@@ -33,8 +33,6 @@ export default function ProductForm() {
     const [loading, setLoading] = useState(isEdit);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const costPrice = watch('cost_price');
-    const sellingPrice = costPrice ? Math.round((costPrice / 0.7) / 10) * 10 : 0;
 
     useEffect(() => {
         if (isEdit && id) {
@@ -138,7 +136,6 @@ export default function ProductForm() {
                         ref={fileInputRef}
                         type="file"
                         accept="image/*"
-                        capture="environment" // Mobile camera trigger
                         className="hidden"
                         onChange={handleImageChange}
                     />
@@ -182,11 +179,7 @@ export default function ProductForm() {
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between border-t border-gray-200 pt-3">
-                        <span className="text-sm text-gray-600">飲食店への販売価格（自動計算）</span>
-                        <span className="text-2xl font-bold text-green-700">¥{sellingPrice}</span>
-                    </div>
-                    <p className="text-xs text-gray-400 text-right">※手数料30%が上乗せされます</p>
+                    {/* Price display removed as requested */}
                 </div>
 
                 {/* Status Selection */}
@@ -202,8 +195,8 @@ export default function ProductForm() {
                             <label
                                 key={opt.val}
                                 className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all ${watch('harvest_status') === opt.val
-                                        ? 'border-green-500 bg-green-50'
-                                        : 'border-gray-200'
+                                    ? 'border-green-500 bg-green-50'
+                                    : 'border-gray-200'
                                     }`}
                             >
                                 <input
