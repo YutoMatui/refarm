@@ -18,6 +18,10 @@ import Cart from './pages/Cart'
 import OrderComplete from './pages/OrderComplete'
 import Register from './pages/Register'
 import Admin from './pages/Admin'
+import ProducerLayout from './components/ProducerLayout'
+import ProducerDashboard from './pages/producer/ProducerDashboard'
+import ProductForm from './pages/producer/ProductForm'
+import ProducerProfile from './pages/producer/ProducerProfile'
 import Loading from './components/Loading'
 
 function App() {
@@ -167,6 +171,14 @@ function App() {
               <OrderComplete />
             </AuthGuard>
           } />
+
+          {/* Producer App Routes (Separated) */}
+          <Route path="/producer" element={<ProducerLayout />}>
+            <Route index element={<ProducerDashboard />} />
+            <Route path="profile" element={<ProducerProfile />} />
+            <Route path="products/new" element={<ProductForm />} />
+            <Route path="products/:id/edit" element={<ProductForm />} />
+          </Route>
 
           <Route path="/admin" element={<Admin />} />
         </Routes>

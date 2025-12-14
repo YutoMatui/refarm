@@ -7,7 +7,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 from app.models.base import TimestampMixin, SoftDeleteMixin
-from app.models.enums import StockType, TaxRate, ProductCategory
+from app.models.enums import StockType, TaxRate, ProductCategory, HarvestStatus
 
 
 class Product(Base, TimestampMixin, SoftDeleteMixin):
@@ -53,7 +53,20 @@ class Product(Base, TimestampMixin, SoftDeleteMixin):
     price = Column(
         Numeric(10, 2),
         nullable=False,
-        comment="単価 (税抜)"
+        comment="単価 (税抜) - 販売価格"
+    )
+
+    cost_price = Column(
+        Integer,
+        nullable=True,
+        comment="仕入れ値 (農家手取り)"
+    )
+    
+    harvest_status = Column(
+        Enum(HarvestStatus),
+        nullable=True,
+        default=HarvestStatus.HARVESTABLE,
+        comment="収穫状況"
     )
     
     tax_rate = Column(

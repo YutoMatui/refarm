@@ -322,6 +322,24 @@ export const favoriteApi = {
     apiClient.get<{ is_favorited: boolean }>(`/favorites/check/${restaurantId}/${productId}`),
 }
 
+// Producer API
+export const producerApi = {
+  getProducts: (farmerId: number) =>
+    apiClient.get<Product[]>(`/producer/products?farmer_id=${farmerId}`),
+
+  createProduct: (data: any) =>
+    apiClient.post<Product>('/producer/products', data),
+
+  updateProduct: (productId: number, farmerId: number, data: any) =>
+    apiClient.put<Product>(`/producer/products/${productId}?farmer_id=${farmerId}`, data),
+
+  getProfile: (farmerId: number) =>
+    apiClient.get<Farmer>(`/producer/profile?farmer_id=${farmerId}`),
+
+  updateProfile: (farmerId: number, data: any) =>
+    apiClient.put<Farmer>(`/producer/profile?farmer_id=${farmerId}`, data),
+}
+
 // Upload API
 export const uploadApi = {
   uploadImage: (file: File) => {

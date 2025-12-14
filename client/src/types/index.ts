@@ -38,6 +38,13 @@ export enum ProductCategory {
   OTHER = 'other',
 }
 
+export enum HarvestStatus {
+  HARVESTABLE = "harvestable",
+  WAIT_1WEEK = "wait_1week",
+  WAIT_2WEEKS = "wait_2weeks",
+  ENDED = "ended"
+}
+
 // Base interfaces
 export interface TimestampFields {
   created_at: string
@@ -87,6 +94,8 @@ export interface Product extends TimestampFields {
   stock_quantity?: number
   image_url?: string
   media_url?: string
+  cost_price?: number
+  harvest_status?: HarvestStatus
   is_active: number
   is_featured: number
   display_order: number

@@ -4,6 +4,14 @@ Enum definitions for database models.
 import enum
 
 
+class HarvestStatus(str, enum.Enum):
+    """収穫状況 (Harvest Status)."""
+    HARVESTABLE = "harvestable"   # 🟢 現在収穫可能
+    WAIT_1WEEK = "wait_1week"     # 🟡 1週間後に収穫可能
+    WAIT_2WEEKS = "wait_2weeks"   # 🟠 2週間以上先に収穫可能
+    ENDED = "ended"               # 🔴 数日以内に終了（または出荷停止）
+
+
 class StockType(str, enum.Enum):
     """野菜の種類 (Stock Type)."""
     KOBE = "KOBE"  # 神戸野菜 (Kobe Veggie)
