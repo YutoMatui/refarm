@@ -325,7 +325,7 @@ export const favoriteApi = {
 // Producer API
 export const producerApi = {
   getProducts: (farmerId: number) =>
-    apiClient.get<Product[]>(`/producer/products?farmer_id=${farmerId}`),
+    apiClient.get<PaginatedResponse<Product>>(`/producer/products?farmer_id=${farmerId}`),
 
   createProduct: (data: any) =>
     apiClient.post<Product>('/producer/products', data),

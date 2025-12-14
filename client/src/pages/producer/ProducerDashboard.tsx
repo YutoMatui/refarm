@@ -18,7 +18,7 @@ export default function ProducerDashboard() {
         setLoading(true);
         try {
             const res = await producerApi.getProducts(farmerId);
-            setProducts(res.data);
+            setProducts(res.data.items);
         } catch (e) {
             console.error(e);
         } finally {
