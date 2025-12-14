@@ -110,7 +110,7 @@ export default function ProductForm() {
                 <h1 className="font-bold text-lg">{isEdit ? '商品編集' : '新規登録'}</h1>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="p-4 space-y-6 pb-32">
+            <form onSubmit={handleSubmit(onSubmit)} className="p-4 space-y-6">
                 {/* Image Upload */}
                 <div className="space-y-2">
                     <label className="block text-sm font-bold text-gray-700">商品画像</label>
@@ -224,19 +224,16 @@ export default function ProductForm() {
                         placeholder="農薬を使わずに育てました。サラダで食べるのがおすすめです。"
                     />
                 </div>
-            </form>
 
-            {/* Floating Action Button for Save */}
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 shadow-lg safe-area-bottom z-20">
                 <button
-                    onClick={handleSubmit(onSubmit)}
+                    type="submit"
                     disabled={isSubmitting || uploading}
-                    className="w-full bg-green-600 text-white font-bold py-4 rounded-xl text-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-green-600 text-white font-bold py-4 rounded-xl text-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
                 >
                     {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />}
                     保存する
                 </button>
-            </div>
+            </form>
         </div>
     );
 }
