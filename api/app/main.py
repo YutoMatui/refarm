@@ -9,6 +9,8 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import time
 import logging
+import subprocess
+import os
 
 from app.core.config import settings
 from app.core.database import init_db
@@ -30,10 +32,28 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info(f"Debug mode: {settings.DEBUG}")
     
+    # Run Alembic migrations automatically
+    try:
+        logger.info("Running database migrations...")
+        # Check if alembic is available in path
+        result = subprocess.run(["alembic", "upgrade", "head"], capture_output=True, text=True)
+        if result.returncode == 0:
+            logger.info("Database migrations completed successfully")
+        else:
+            logger.error(f"Migration failed with return code {result.returncode}")
+            logger.error(f"Migration stdout: {result.stdout}")
+            logger.error(f"Migration stderr: {result.stderr}")
+            # Do NOT raise error here to allow app to start even if migration fails
+            # This is critical for 500/CORS errors when DB connection is flaky
+            
+    except Exception as e:
+        logger.error(f"Migration error: {e}")
+        # Continue startup
+
     # Initialize database (optional, use Alembic for production)
     if settings.DEBUG:
-        logger.warning("Debug mode: Database tables will be created automatically")
-        await init_db()  # Uncomment for auto table creation in dev
+        logger.warning("Debug mode: Checking tables")
+        # await init_db()  # Skipped in favor of Alembic
     
     # Auto-seed data (Safe to run always as it checks for existence)
     try:
@@ -60,10 +80,15 @@ app = FastAPI(
 )
 
 
-# CORS Middleware
+# CORS Middleware - Updated
+# Allow origins from settings + explicit hardcoded for safety in this deployment
+allowed_origins = settings.CORS_ORIGINS
+if "https://app.refarmkobe.com" not in allowed_origins:
+    allowed_origins.append("https://app.refarmkobe.com")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=allowed_origins,
     allow_origin_regex=r"https?://.*",  # すべてのオリジンからのリクエストを許可（開発・プレビュー用）
     allow_credentials=True,
     allow_methods=["*"],
