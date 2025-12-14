@@ -167,7 +167,7 @@ export default function ProductForm() {
                 {/* Price Section */}
                 <div className="bg-gray-50 p-4 rounded-lg space-y-4">
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">仕入れ値（あなたの手取り） <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">卸値 <span className="text-red-500">*</span></label>
                         <div className="relative">
                             <input
                                 {...register('cost_price', { required: '必須です', min: 1, valueAsNumber: true })}

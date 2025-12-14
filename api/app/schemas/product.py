@@ -5,7 +5,7 @@ from typing import Optional
 from decimal import Decimal
 from pydantic import BaseModel, Field, computed_field
 from app.schemas.base import BaseSchema, TimestampSchema
-from app.models.enums import StockType, TaxRate, ProductCategory
+from app.models.enums import StockType, TaxRate, ProductCategory, HarvestStatus
 
 
 class ProductBase(BaseModel):
@@ -13,6 +13,8 @@ class ProductBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=200, description="商品名")
     description: Optional[str] = Field(None, description="商品説明")
     price: Decimal = Field(..., gt=0, description="単価(税抜)")
+    cost_price: Optional[int] = Field(None, description="仕入れ値")
+    harvest_status: Optional[HarvestStatus] = Field(None, description="収穫状況")
     tax_rate: TaxRate = Field(..., description="税率")
     unit: str = Field(default="個", max_length=20, description="単位")
     stock_type: StockType = Field(..., description="種別(KOBE/OTHER)")

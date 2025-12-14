@@ -47,7 +47,7 @@ export default function ProducerLayout() {
             </main>
 
             {/* Mobile Bottom Navigation */}
-            <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 pb-safe">
+            <nav className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 z-50 pb-4">
                 <div className="max-w-md mx-auto flex justify-around">
                     {navItems.map((item) => {
                         const isActive = location.pathname === item.path ||

@@ -6,18 +6,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from app.core.database import get_db
-from app.models import Product
+from app.models import Product, Farmer
 from app.models.enums import StockType, ProductCategory, TaxRate
 from app.schemas.producer import (
     ProducerProductCreate,
     ProducerProductUpdate,
+    ProducerProfileUpdate,
 )
 from app.schemas.product import (
     ProductResponse,
     ProductListResponse,
     ProductFilterParams,
 )
-from app.schemas import ResponseMessage
+from app.schemas import ResponseMessage, FarmerResponse
 
 router = APIRouter()
 
@@ -121,15 +122,13 @@ async def update_producer_product(
     
     update_data = product_data.model_dump(exclude_unset=True)
     
+    # If cost_price is in update data, update price as well
+    if "cost_price" in update_data:
+        update_data["price"] = update_data["cost_price"]
+
     for field, value in update_data.items():
         if hasattr(product, field):
             setattr(product, field, value)
-            
-            # If cost_price is updated, should we update price too?
-            if field == "cost_price":
-                # For now keep them synced or leave price alone? 
-                # Let's update price to match cost_price if it's being used as such.
-                product.price = value
     
     await db.commit()
     await db.refresh(product)
@@ -152,3 +151,43 @@ async def delete_producer_product(product_id: int, db: AsyncSession = Depends(ge
     await db.commit()
     
     return ResponseMessage(message="商品を削除しました", success=True)
+
+
+@router.get("/profile", response_model=FarmerResponse)
+async def get_producer_profile(
+    farmer_id: int = Query(..., description="生産者ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """生産者プロフィール取得"""
+    stmt = select(Farmer).where(Farmer.id == farmer_id)
+    result = await db.execute(stmt)
+    farmer = result.scalar_one_or_none()
+    
+    if not farmer:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
+    
+    return farmer
+
+
+@router.put("/profile", response_model=FarmerResponse)
+async def update_producer_profile(
+    profile_data: ProducerProfileUpdate,
+    farmer_id: int = Query(..., description="生産者ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """生産者プロフィール更新"""
+    stmt = select(Farmer).where(Farmer.id == farmer_id)
+    result = await db.execute(stmt)
+    farmer = result.scalar_one_or_none()
+    
+    if not farmer:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
+    
+    update_dict = profile_data.model_dump(exclude_unset=True)
+    for key, value in update_dict.items():
+        if hasattr(farmer, key):
+            setattr(farmer, key, value)
+        
+    await db.commit()
+    await db.refresh(farmer)
+    return farmer

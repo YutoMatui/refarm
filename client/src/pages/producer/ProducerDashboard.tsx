@@ -87,10 +87,7 @@ export default function ProducerDashboard() {
                                     {getStatusBadge(product.harvest_status)}
                                 </div>
                                 <div className="text-sm text-gray-500 mt-1">
-                                    仕入れ: ¥{product.cost_price || 0} / {product.unit}
-                                </div>
-                                <div className="text-sm font-medium text-green-700">
-                                    → 売価: ¥{Math.round(Number(product.price))}
+                                    卸値: ¥{product.cost_price || 0} / {product.unit}
                                 </div>
                             </div>
 
