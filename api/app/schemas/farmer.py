@@ -59,6 +59,9 @@ class FarmerResponse(FarmerBase, TimestampSchema, BaseSchema):
                 "address": "兵庫県神戸市西区○○町",
                 "farming_method": "有機栽培",
                 "certifications": "JAS有機認証",
+                "article_url": "https://example.com/article/1",
+                "video_url": "https://youtube.com/watch?v=123",
+                "kodawari": "土づくりにこだわっています。",
                 "is_active": 1,
                 "created_at": "2024-01-01T00:00:00+09:00",
                 "updated_at": "2024-01-01T00:00:00+09:00"

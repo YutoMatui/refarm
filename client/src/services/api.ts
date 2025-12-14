@@ -177,68 +177,77 @@ export const productApi = {
       return response
     } catch (error) {
       console.warn('Product API failed, falling back to mock data', error)
-      // Mock data fallback matching seed.py
+      // Mock Data for development
       const mockProducts: Product[] = [
         {
           id: 1,
-          name: "淡路島たまねぎ",
-          description: "甘くて美味しい淡路島の玉ねぎです。",
-          price: "100",
+          name: '泥付き太ねぎ',
+          description: '甘みが強く、鍋物に最適です。',
+          price: '280',
           tax_rate: TaxRate.REDUCED,
-          unit: "個",
+          unit: '束',
           stock_type: StockType.KOBE,
           category: ProductCategory.ROOT,
           farmer_id: 1,
+          stock_quantity: 50,
+          image_url: 'https://images.unsplash.com/photo-1618889482923-38250401d84e?w=800&auto=format&fit=crop&q=60',
           is_active: 1,
-          is_featured: 0,
-          display_order: 0,
-          price_with_tax: "108",
-          is_kobe_veggie: true,
+          is_featured: 1,
+          is_outlet: 0,
+          display_order: 1,
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          price_with_tax: '302',
+          is_kobe_veggie: true
         },
         {
           id: 2,
-          name: "六甲キャロット",
-          description: "雪の下で甘みを蓄えた人参です。",
-          price: "150",
+          name: '完熟トマト',
+          description: '木熟れで収穫した甘いトマトです。',
+          price: '350',
           tax_rate: TaxRate.REDUCED,
-          unit: "袋",
+          unit: '袋',
           stock_type: StockType.OTHER,
-          category: ProductCategory.ROOT,
-          farmer_id: 2,
+          category: ProductCategory.FRUIT_VEG,
+          farmer_id: 1,
+          stock_quantity: 30,
+          image_url: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=60',
           is_active: 1,
           is_featured: 0,
-          display_order: 0,
-          price_with_tax: "162",
-          is_kobe_veggie: false,
+          is_outlet: 0,
+          display_order: 2,
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          price_with_tax: '378',
+          is_kobe_veggie: false
         },
         {
           id: 3,
-          name: "朝採れレタス",
-          description: "シャキシャキの新鮮レタス。",
-          price: "200",
+          name: '新鮮ほうれん草',
+          description: '朝採れの新鮮なほうれん草です。',
+          price: '180',
           tax_rate: TaxRate.REDUCED,
-          unit: "玉",
+          unit: '束',
           stock_type: StockType.KOBE,
           category: ProductCategory.LEAFY,
-          farmer_id: 1,
+          farmer_id: 2,
+          stock_quantity: 40,
+          image_url: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=800&auto=format&fit=crop&q=60',
           is_active: 1,
-          is_featured: 0,
-          display_order: 0,
-          price_with_tax: "216",
-          is_kobe_veggie: true,
+          is_featured: 1,
+          is_outlet: 0,
+          display_order: 3,
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          price_with_tax: '194',
+          is_kobe_veggie: true
         }
       ]
-
       // Simple filtering for mock data
       let filtered = mockProducts
       if (params?.stock_type) filtered = filtered.filter(p => p.stock_type === params.stock_type)
       if (params?.category) filtered = filtered.filter(p => p.category === params.category)
+      if (params?.farmer_id) filtered = filtered.filter(p => p.farmer_id === params.farmer_id)
       if (params?.search) filtered = filtered.filter(p => p.name.includes(params.search!))
 
       return {

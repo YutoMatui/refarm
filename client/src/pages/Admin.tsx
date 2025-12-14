@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { farmerApi, productApi, uploadApi, orderApi } from '@/services/api'
-import { StockType, type Product, type Order, OrderStatus, type FarmerAggregation, type AggregatedProduct } from '@/types'
+import { StockType, type Product, type Order, OrderStatus, type FarmerAggregation, type AggregatedProduct, type Farmer } from '@/types'
 import { Plus, Edit2, Save, X, Upload, FileText, Truck, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 import Loading from '@/components/Loading'
 import ImageCropperModal from '@/components/ImageCropperModal'
@@ -338,6 +338,27 @@ function FarmerManagement() {
     },
   })
 
+  const [editData, setEditData] = useState<Partial<Farmer>>({})
+  const [editingId, setEditingId] = useState<number | null>(null)
+
+
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<Farmer> }) => {
+      const response = await farmerApi.update(id, data)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-farmers'] })
+      setEditingId(null)
+      setEditData({})
+      alert('更新しました')
+    },
+    onError: () => {
+      alert('更新に失敗しました')
+    }
+  })
+
   // Image Select Handler
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, farmerId: number) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -350,6 +371,19 @@ function FarmerManagement() {
       reader.readAsDataURL(file)
       e.target.value = ''
     }
+  }
+
+  const handleStartEdit = (farmer: Farmer) => {
+    setEditingId(farmer.id)
+    setEditData({
+      article_url: farmer.article_url,
+      video_url: farmer.video_url,
+      kodawari: farmer.kodawari
+    })
+  }
+
+  const handleSave = (farmerId: number) => {
+    updateMutation.mutate({ id: farmerId, data: editData })
   }
 
   // Crop Complete Handler
@@ -401,58 +435,131 @@ function FarmerManagement() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">画像</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">名前</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">主要作物</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">名前・作物</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">コンテンツ設定</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ステータス</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {farmers.map((farmer) => (
-                <tr key={farmer.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm text-gray-900">{farmer.id}</td>
-                  <td className="px-6 py-4">
-                    <div className="relative group w-12 h-12">
-                      <img
-                        src={farmer.profile_photo_url || 'https://placehold.co/100x100?text=No+Image'}
-                        alt={farmer.name}
-                        className="w-12 h-12 rounded-full object-cover bg-gray-100"
-                      />
-                      {/* Hidden File Input for Upload */}
-                      <label className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all rounded-full cursor-pointer">
-                        <Upload className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => handleFileSelect(e, farmer.id)}
+              {farmers.map((farmer) => {
+                const isEditing = editingId === farmer.id
+
+                return (
+                  <tr key={farmer.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm text-gray-900">{farmer.id}</td>
+                    <td className="px-6 py-4">
+                      <div className="relative group w-12 h-12">
+                        <img
+                          src={farmer.profile_photo_url || 'https://placehold.co/100x100?text=No+Image'}
+                          alt={farmer.name}
+                          className="w-12 h-12 rounded-full object-cover bg-gray-100"
                         />
-                      </label>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{farmer.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{farmer.main_crop || '-'}</td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full ${farmer.is_active === 1
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                        }`}
-                    >
-                      {farmer.is_active === 1 ? '契約中' : '停止'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                      編集
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                        {/* Hidden File Input for Upload */}
+                        <label className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all rounded-full cursor-pointer">
+                          <Upload className="w-4 h-4 text-white opacity-0 group-hover:opacity-100" />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleFileSelect(e, farmer.id)}
+                          />
+                        </label>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium text-gray-900">{farmer.name}</div>
+                      <div className="text-xs text-gray-500">{farmer.main_crop || '-'}</div>
+                    </td>
+                    <td className="px-6 py-4 min-w-[300px]">
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          <div>
+                            <label className="text-xs text-gray-500">記事URL</label>
+                            <input
+                              type="text"
+                              className="w-full text-xs border rounded p-1"
+                              value={editData.article_url || ''}
+                              placeholder="https://..."
+                              onChange={(e) => setEditData({ ...editData, article_url: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-500">動画URL</label>
+                            <input
+                              type="text"
+                              className="w-full text-xs border rounded p-1"
+                              value={editData.video_url || ''}
+                              placeholder="https://youtube.com/..."
+                              onChange={(e) => setEditData({ ...editData, video_url: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-500">こだわり</label>
+                            <textarea
+                              className="w-full text-xs border rounded p-1"
+                              rows={2}
+                              value={editData.kodawari || ''}
+                              placeholder="農家のこだわり..."
+                              onChange={(e) => setEditData({ ...editData, kodawari: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          {farmer.article_url && <div className="text-xs text-blue-600 truncate max-w-[200px]"><FileText className="inline w-3 h-3 mr-1" />記事あり</div>}
+                          {farmer.video_url && <div className="text-xs text-red-600 truncate max-w-[200px]"><span className="inline-block w-3 h-3 mr-1">▶</span>動画あり</div>}
+                          {farmer.kodawari && <div className="text-xs text-gray-500 truncate max-w-[200px]">こだわり: {farmer.kodawari}</div>}
+                          {!farmer.article_url && !farmer.video_url && !farmer.kodawari && <span className="text-xs text-gray-400">-</span>}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-2 py-1 text-xs rounded-full ${farmer.is_active === 1
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                          }`}
+                      >
+                        {farmer.is_active === 1 ? '契約中' : '停止'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {isEditing ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleSave(farmer.id)}
+                            className="text-green-600 hover:text-green-800"
+                          >
+                            <Save className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingId(null)
+                              setEditData({})
+                            }}
+                            className="text-gray-600 hover:text-gray-800"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          onClick={() => handleStartEdit(farmer)}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
       </div>
+
 
       {cropImage && (
         <ImageCropperModal

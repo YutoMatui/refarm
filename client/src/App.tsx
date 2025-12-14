@@ -17,6 +17,7 @@ import MyPage from './pages/MyPage'
 import Cart from './pages/Cart'
 import OrderComplete from './pages/OrderComplete'
 import ProductDetail from './pages/ProductDetail'
+import FarmerDetail from './pages/FarmerDetail'
 import Register from './pages/Register'
 import Admin from './pages/Admin'
 import ProducerLayout from './components/ProducerLayout'
@@ -158,6 +159,7 @@ function App() {
             <Route path="favorites" element={<Favorites />} />
             <Route path="catalog" element={<VegetableList />} />
             <Route path="farmers" element={<Farmers />} />
+            <Route path="farmers/:id" element={<FarmerDetail />} />
             <Route path="mypage" element={<MyPage />} />
           </Route>
 

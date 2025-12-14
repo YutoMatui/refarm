@@ -2,12 +2,14 @@
  * Farmers Page - 農家一覧
  * 契約農家の情報を表示
  */
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { farmerApi } from '@/services/api'
 import Loading from '@/components/Loading'
 import { ExternalLink, MapPin } from 'lucide-react'
 
 export default function Farmers() {
+  const navigate = useNavigate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['farmers'],
     queryFn: async () => {
@@ -49,7 +51,7 @@ export default function Farmers() {
 
               {/* Farmer Info */}
               <h3 className="text-xl font-bold mb-2">{farmer.name}</h3>
-              
+
               {farmer.main_crop && (
                 <p className="text-sm text-gray-600 mb-2">
                   <span className="font-medium">主要作物:</span> {farmer.main_crop}
@@ -65,6 +67,13 @@ export default function Farmers() {
               {farmer.bio && (
                 <p className="text-sm text-gray-700 mb-4 line-clamp-3">{farmer.bio}</p>
               )}
+
+              <button
+                onClick={() => navigate(`/farmers/${farmer.id}`)}
+                className="btn-primary w-full flex items-center justify-center gap-2 mb-2"
+              >
+                詳細を見る
+              </button>
 
               {/* Map Link */}
               {farmer.map_url && (

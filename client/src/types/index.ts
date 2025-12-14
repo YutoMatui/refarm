@@ -77,6 +77,9 @@ export interface Farmer extends TimestampFields {
   address?: string
   farming_method?: string
   certifications?: string
+  article_url?: string
+  video_url?: string
+  kodawari?: string
   is_active: number
 }
 
@@ -98,6 +101,7 @@ export interface Product extends TimestampFields {
   harvest_status?: HarvestStatus
   is_active: number
   is_featured: number
+  is_outlet: number
   display_order: number
   price_with_tax: string
   is_kobe_veggie: boolean

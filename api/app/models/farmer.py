@@ -87,6 +87,25 @@ class Farmer(Base, TimestampMixin, SoftDeleteMixin):
         nullable=True,
         comment="認証情報 (JAS有機など)"
     )
+
+    # Content for Detail Page
+    article_url = Column(
+        String(500),
+        nullable=True,
+        comment="記事URL"
+    )
+
+    video_url = Column(
+        String(500),
+        nullable=True,
+        comment="動画URL"
+    )
+
+    kodawari = Column(
+        String(1000),
+        nullable=True,
+        comment="農家のこだわり"
+    )
     
     is_active = Column(
         Integer,
