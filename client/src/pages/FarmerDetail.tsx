@@ -45,9 +45,34 @@ export default function FarmerDetail() {
     if (!farmer) return <div className="p-8 text-center">生産者が見つかりません</div>;
 
     const products = productsData?.items || [];
-    // Simple logic for "Recommended": take up to 3 featured items, or just first 3 items
     const recommendedProducts = products.filter(p => p.is_featured === 1).slice(0, 3);
     const displayRecommended = recommendedProducts.length > 0 ? recommendedProducts : products.slice(0, 3);
+
+    // Helper to parse JSON URLs safely
+    const parseUrls = (urlStr?: string): string[] => {
+        if (!urlStr) return []
+        try {
+            const parsed = JSON.parse(urlStr)
+            if (Array.isArray(parsed)) return parsed.filter(u => u && u.trim() !== "")
+            return [urlStr]
+        } catch {
+            return [urlStr]
+        }
+    }
+
+    const articleUrls = parseUrls(farmer.article_url)
+    const videoUrls = parseUrls(farmer.video_url)
+
+    const getEmbedUrl = (url: string) => {
+        if (url.includes("youtube.com") || url.includes("youtu.be")) {
+            let embedUrl = url.replace("watch?v=", "embed/").replace("youtu.be/", "youtube.com/embed/");
+            if (embedUrl.includes("&")) {
+                embedUrl = embedUrl.split("&")[0];
+            }
+            return embedUrl;
+        }
+        return url;
+    }
 
     return (
         <div className="bg-gray-50 min-h-screen pb-20">
@@ -106,12 +131,14 @@ export default function FarmerDetail() {
                     )}
                 </div>
 
-                {/* Media Section (Article / Video) */}
-                {(farmer.article_url || farmer.video_url) && (
-                    <div className="space-y-4">
-                        {farmer.article_url && (
+                {/* Articles Section */}
+                {articleUrls.length > 0 && (
+                    <div className="space-y-3">
+                        <h3 className="text-lg font-bold text-gray-900 px-1">取材記事</h3>
+                        {articleUrls.map((url, idx) => (
                             <a
-                                href={farmer.article_url}
+                                key={idx}
+                                href={url}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="block bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow group"
@@ -121,27 +148,33 @@ export default function FarmerDetail() {
                                         <FileText size={24} />
                                     </div>
                                     <div className="flex-1">
-                                        <h3 className="font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">取材記事を読む</h3>
-                                        <p className="text-xs text-gray-500 truncate">{farmer.article_url}</p>
+                                        <h3 className="font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">記事を読む #{idx + 1}</h3>
+                                        <p className="text-xs text-gray-500 truncate">{url}</p>
                                     </div>
                                     <ExternalLink size={16} className="text-gray-400" />
                                 </div>
                             </a>
-                        )}
+                        ))}
+                    </div>
+                )}
 
-                        {farmer.video_url && (
-                            <div className="bg-black rounded-xl shadow-sm overflow-hidden relative aspect-[9/16] max-w-sm mx-auto">
-                                {/* Simple Embed or Link implementation */}
-                                {/* Assuming YouTube Shorts or similar, displaying as link/overlay for now or iframe if possible */}
-                                <iframe
-                                    src={farmer.video_url.replace("youtube.com/watch?v=", "youtube.com/embed/").replace("youtu.be/", "youtube.com/embed/")}
-                                    className="w-full h-full absolute inset-0"
-                                    title="Farmer Video"
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
-                                ></iframe>
-                            </div>
-                        )}
+                {/* Videos Section */}
+                {videoUrls.length > 0 && (
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-bold text-gray-900 px-1">紹介動画</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {videoUrls.map((url, idx) => (
+                                <div key={idx} className="bg-black rounded-xl shadow-sm overflow-hidden relative aspect-[9/16] w-full max-w-sm mx-auto">
+                                    <iframe
+                                        src={getEmbedUrl(url)}
+                                        className="w-full h-full absolute inset-0"
+                                        title={`Farmer Video ${idx + 1}`}
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                        allowFullScreen
+                                    ></iframe>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 )}
 
