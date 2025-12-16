@@ -157,7 +157,7 @@ from app.routers import (
     favorites,
     upload,
     producer,
-    settings,
+    settings as settings_router,
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -168,7 +168,7 @@ app.include_router(producer.router, prefix="/api/producer", tags=["Producer"])
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(favorites.router, prefix="/api/favorites", tags=["Favorites"])
 app.include_router(upload.router, prefix="/api/upload", tags=["Upload"])
-app.include_router(settings.router, prefix="/api/settings", tags=["Settings"])
+app.include_router(settings_router.router, prefix="/api/settings", tags=["Settings"])
 
 
 @app.get("/api/debug/seed", tags=["Debug"])
