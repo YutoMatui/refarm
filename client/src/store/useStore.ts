@@ -70,7 +70,7 @@ export const useStore = create<AppState>()(
         } else {
           set({
             cart: get().cart.map(item =>
-              item.product.id === productId ? { ...item, quantity } : item
+              item.product.id === productId ? { ...item, quantity: Number(quantity) } : item
             ),
           })
         }
@@ -81,13 +81,13 @@ export const useStore = create<AppState>()(
       getCartTotal: () => {
         const total = get().cart.reduce((total, item) => {
           const priceWithTax = parseFloat(item.product.price_with_tax)
-          return total + priceWithTax * item.quantity
+          return total + priceWithTax * Number(item.quantity)
         }, 0)
         return Math.round(total)
       },
 
       getCartItemCount: () => {
-        return get().cart.reduce((count, item) => count + item.quantity, 0)
+        return get().cart.reduce((count, item) => count + Number(item.quantity), 0)
       },
 
       // Favorites

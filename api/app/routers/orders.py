@@ -94,7 +94,8 @@ async def create_order(order_data: OrderCreate, db: AsyncSession = Depends(get_d
     # Reload order with items to ensure all fields (IDs, timestamps) are populated
     # and items are eagerly loaded for the response to prevent MissingGreenlet error
     stmt = select(Order).options(
-        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer)
+        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
+        selectinload(Order.restaurant)
     ).where(Order.id == db_order.id)
     result = await db.execute(stmt)
     db_order = result.scalar_one()
@@ -138,7 +139,8 @@ async def list_orders(
 async def get_order(order_id: int, db: AsyncSession = Depends(get_db)):
     """注文詳細を取得"""
     stmt = select(Order).options(
-        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer)
+        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
+        selectinload(Order.restaurant)
     ).where(Order.id == order_id)
     result = await db.execute(stmt)
     order = result.scalar_one_or_none()
@@ -157,7 +159,8 @@ async def update_order(
 ):
     """注文情報を更新"""
     stmt = select(Order).options(
-        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer)
+        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
+        selectinload(Order.restaurant)
     ).where(Order.id == order_id)
     result = await db.execute(stmt)
     order = result.scalar_one_or_none()
@@ -222,7 +225,8 @@ async def update_order_status(
     
     # Reload order with items to ensure all fields are populated and items are loaded
     stmt = select(Order).options(
-        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer)
+        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
+        selectinload(Order.restaurant)
     ).where(Order.id == order.id)
     result = await db.execute(stmt)
     order = result.scalar_one()
