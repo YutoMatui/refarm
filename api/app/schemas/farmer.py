@@ -18,6 +18,9 @@ class FarmerBase(BaseModel):
     address: Optional[str] = Field(None, max_length=500, description="農園所在地")
     farming_method: Optional[str] = Field(None, max_length=200, description="栽培方法")
     certifications: Optional[str] = Field(None, max_length=500, description="認証情報")
+    article_url: Optional[str] = Field(None, max_length=500, description="記事URL")
+    video_url: Optional[str] = Field(None, max_length=500, description="動画URL")
+    kodawari: Optional[str] = Field(None, max_length=1000, description="農家のこだわり")
     is_active: int = Field(default=1, description="アクティブフラグ")
 
 
@@ -38,6 +41,9 @@ class FarmerUpdate(BaseModel):
     address: Optional[str] = Field(None, max_length=500)
     farming_method: Optional[str] = Field(None, max_length=200)
     certifications: Optional[str] = Field(None, max_length=500)
+    article_url: Optional[str] = Field(None, max_length=500)
+    video_url: Optional[str] = Field(None, max_length=500)
+    kodawari: Optional[str] = Field(None, max_length=1000)
     is_active: Optional[int] = None
 
 
