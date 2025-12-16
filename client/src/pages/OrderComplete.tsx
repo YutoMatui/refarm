@@ -46,16 +46,21 @@ export default function OrderComplete() {
 
   // Extract farmers with video URLs
   const farmerVideos = order.items.reduce((acc, item) => {
-    // JSON parse video url if needed or use directly
-    // item.farmer_video_url is string or json string
+    // Check if farmer info exists and video URL is present
     if (item.farmer_id && item.farmer_video_url && !acc.some(f => f.id === item.farmer_id)) {
       let urls: string[] = []
-      try {
-        const parsed = JSON.parse(item.farmer_video_url)
-        if (Array.isArray(parsed)) urls = parsed
-        else urls = [item.farmer_video_url]
-      } catch {
-        urls = [item.farmer_video_url]
+
+      // Handle both string (old data) and array (new JSONB data)
+      if (Array.isArray(item.farmer_video_url)) {
+        urls = item.farmer_video_url
+      } else if (typeof item.farmer_video_url === 'string') {
+        try {
+          const parsed = JSON.parse(item.farmer_video_url)
+          if (Array.isArray(parsed)) urls = parsed
+          else urls = [item.farmer_video_url]
+        } catch {
+          urls = [item.farmer_video_url]
+        }
       }
 
       if (urls.length > 0 && urls[0]) {

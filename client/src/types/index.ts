@@ -77,9 +77,10 @@ export interface Farmer extends TimestampFields {
   address?: string
   farming_method?: string
   certifications?: string
-  article_url?: string
-  video_url?: string
+  article_url?: string[]
+  video_url?: string[]
   kodawari?: string
+  selectable_days?: string // JSON string
   is_active: number
 }
 

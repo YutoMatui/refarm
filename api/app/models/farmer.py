@@ -1,7 +1,7 @@
 """
 Farmer model - 生産者情報
 """
-from sqlalchemy import Column, Integer, String, Text
+from sqlalchemy import Column, Integer, String, Text, JSON
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 from app.models.base import TimestampMixin, SoftDeleteMixin
@@ -75,6 +75,19 @@ class Farmer(Base, TimestampMixin, SoftDeleteMixin):
         comment="農園所在地"
     )
     
+    # Content for Detail Page
+    article_url = Column(
+        JSON,
+        nullable=True,
+        comment="記事URL (JSON Array)"
+    )
+
+    video_url = Column(
+        JSON,
+        nullable=True,
+        comment="動画URL (JSON Array)"
+    )
+    
     # Additional Information
     farming_method = Column(
         String(200),
@@ -88,18 +101,6 @@ class Farmer(Base, TimestampMixin, SoftDeleteMixin):
         comment="認証情報 (JAS有機など)"
     )
 
-    # Content for Detail Page
-    article_url = Column(
-        String(500),
-        nullable=True,
-        comment="記事URL"
-    )
-
-    video_url = Column(
-        String(500),
-        nullable=True,
-        comment="動画URL"
-    )
 
     kodawari = Column(
         String(1000),

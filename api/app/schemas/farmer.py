@@ -1,7 +1,7 @@
 """
 Farmer Pydantic schemas.
 """
-from typing import Optional
+from typing import Optional, List, Any
 from pydantic import BaseModel, EmailStr, HttpUrl, Field
 from app.schemas.base import BaseSchema, TimestampSchema
 
@@ -18,8 +18,8 @@ class FarmerBase(BaseModel):
     address: Optional[str] = Field(None, max_length=500, description="農園所在地")
     farming_method: Optional[str] = Field(None, max_length=200, description="栽培方法")
     certifications: Optional[str] = Field(None, max_length=500, description="認証情報")
-    article_url: Optional[str] = Field(None, max_length=500, description="記事URL")
-    video_url: Optional[str] = Field(None, max_length=500, description="動画URL")
+    article_url: Optional[list[str]] = Field(default_factory=list, description="記事URL")
+    video_url: Optional[list[str]] = Field(default_factory=list, description="動画URL")
     kodawari: Optional[str] = Field(None, max_length=1000, description="農家のこだわり")
     selectable_days: Optional[str] = Field(None, max_length=100, description="選択可能曜日 (JSON)")
     is_active: int = Field(default=1, description="アクティブフラグ")
@@ -42,8 +42,8 @@ class FarmerUpdate(BaseModel):
     address: Optional[str] = Field(None, max_length=500)
     farming_method: Optional[str] = Field(None, max_length=200)
     certifications: Optional[str] = Field(None, max_length=500)
-    article_url: Optional[str] = Field(None, max_length=500)
-    video_url: Optional[str] = Field(None, max_length=500)
+    article_url: Optional[list[str]] = Field(None)
+    video_url: Optional[list[str]] = Field(None)
     kodawari: Optional[str] = Field(None, max_length=1000)
     selectable_days: Optional[str] = Field(None, max_length=100)
     is_active: Optional[int] = None
@@ -67,8 +67,8 @@ class FarmerResponse(FarmerBase, TimestampSchema, BaseSchema):
                 "address": "兵庫県神戸市西区○○町",
                 "farming_method": "有機栽培",
                 "certifications": "JAS有機認証",
-                "article_url": "https://example.com/article/1",
-                "video_url": "https://youtube.com/watch?v=123",
+                "article_url": ["https://example.com/article/1"],
+                "video_url": ["https://youtube.com/watch?v=123"],
                 "kodawari": "土づくりにこだわっています。",
                 "selectable_days": "[1,3,5]",
                 "is_active": 1,

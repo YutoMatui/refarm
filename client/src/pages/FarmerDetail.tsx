@@ -48,20 +48,8 @@ export default function FarmerDetail() {
     const recommendedProducts = products.filter(p => p.is_featured === 1).slice(0, 3);
     const displayRecommended = recommendedProducts.length > 0 ? recommendedProducts : products.slice(0, 3);
 
-    // Helper to parse JSON URLs safely
-    const parseUrls = (urlStr?: string): string[] => {
-        if (!urlStr) return []
-        try {
-            const parsed = JSON.parse(urlStr)
-            if (Array.isArray(parsed)) return parsed.filter(u => u && u.trim() !== "")
-            return [urlStr]
-        } catch {
-            return [urlStr]
-        }
-    }
-
-    const articleUrls = parseUrls(farmer.article_url)
-    const videoUrls = parseUrls(farmer.video_url)
+    const articleUrls = farmer.article_url || []
+    const videoUrls = farmer.video_url || []
 
     const getEmbedUrl = (url: string) => {
         if (url.includes("youtube.com") || url.includes("youtu.be")) {

@@ -39,18 +39,39 @@ export default function Cart() {
 
   // Validate selected date
   const isDateDisabled = (dateStr: string) => {
-    if (!settings) return false;
-    const date = new Date(dateStr);
+    // If dateStr is empty, do nothing
+    if (!dateStr) return false;
+
+    // Use date-fns or simple string parsing to avoid timezone issues
+    // dateStr is usually 'YYYY-MM-DD'
+    // Create date at noon to avoid timezone shift to previous day
+    const date = new Date(dateStr + 'T12:00:00');
+
+    // Check if valid date
+    if (isNaN(date.getTime())) return false;
+
+    // 0 = Sun, 1 = Mon, ...
     const day = date.getDay();
-    return !settings.allowed_days.includes(day);
+
+    if (settings && settings.allowed_days && settings.allowed_days.length > 0) {
+      if (!settings.allowed_days.includes(day)) {
+        return true;
+      }
+    }
+
+    return false;
   };
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    if (isDateDisabled(val)) {
-      alert('選択された曜日は配送を行っておりません。別のを選択してください。');
-      setDeliveryDate('');
-      return;
+    // Only validate if value is not empty (user might be clearing it or in progress)
+    // and if it's a complete date string
+    if (val) {
+      if (isDateDisabled(val)) {
+        alert('選択された曜日は配送を行っておりません。別のを選択してください。');
+        setDeliveryDate('');
+        return;
+      }
     }
     setDeliveryDate(val);
   };

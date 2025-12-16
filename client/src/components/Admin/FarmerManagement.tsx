@@ -92,18 +92,6 @@ export default function FarmerManagement() {
 
     const farmers = data?.items || []
 
-    // Helper to parse JSON URLs safely
-    const parseUrls = (urlStr?: string): string[] => {
-        if (!urlStr) return []
-        try {
-            const parsed = JSON.parse(urlStr)
-            if (Array.isArray(parsed)) return parsed
-            return [urlStr]
-        } catch {
-            return [urlStr]
-        }
-    }
-
     return (
         <>
             <div className="bg-white rounded-lg shadow">
@@ -132,8 +120,8 @@ export default function FarmerManagement() {
                         </thead>
                         <tbody className="divide-y divide-gray-200">
                             {farmers.map((farmer) => {
-                                const articleCount = parseUrls(farmer.article_url).length
-                                const videoCount = parseUrls(farmer.video_url).length
+                                const articleCount = farmer.article_url?.length || 0
+                                const videoCount = farmer.video_url?.length || 0
 
                                 return (
                                     <tr key={farmer.id} className="hover:bg-gray-50">
@@ -245,9 +233,10 @@ function FarmerModal({
         main_crop: farmer?.main_crop || '',
         bio: farmer?.bio || '',
         kodawari: farmer?.kodawari || '',
+        selectable_days: farmer?.selectable_days || '[]',
         is_active: farmer?.is_active ?? 1,
-        article_url: farmer?.article_url || '',
-        video_url: farmer?.video_url || '',
+        article_url: farmer?.article_url || [],
+        video_url: farmer?.video_url || [],
         address: farmer?.address || '',
         phone_number: farmer?.phone_number || '',
         email: farmer?.email || ''
@@ -255,29 +244,44 @@ function FarmerModal({
 
     // URL Lists State
     const [articleUrls, setArticleUrls] = useState<string[]>(() => {
-        if (!farmer?.article_url) return []
-        try {
-            const parsed = JSON.parse(farmer.article_url)
-            return Array.isArray(parsed) ? parsed : [farmer.article_url]
-        } catch { return [farmer.article_url] }
+        return farmer?.article_url || []
     })
 
     const [videoUrls, setVideoUrls] = useState<string[]>(() => {
-        if (!farmer?.video_url) return []
+        return farmer?.video_url || []
+    })
+
+    const [selectableDays, setSelectableDays] = useState<number[]>(() => {
+        if (!farmer?.selectable_days) return []
         try {
-            const parsed = JSON.parse(farmer.video_url)
-            return Array.isArray(parsed) ? parsed : [farmer.video_url]
-        } catch { return [farmer.video_url] }
+            // Still using string/JSON for selectable_days for now or assume array?
+            // The model for selectable_days was NOT changed to JSON yet in the previous steps,
+            // so we still need to parse it if it comes as string.
+            // But let's check if it comes as array or string.
+            if (Array.isArray(farmer.selectable_days)) return farmer.selectable_days
+            const parsed = JSON.parse(farmer.selectable_days)
+            return Array.isArray(parsed) ? parsed : []
+        } catch { return [] }
     })
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
         const submitData = {
             ...formData,
-            article_url: JSON.stringify(articleUrls.filter(u => u.trim())),
-            video_url: JSON.stringify(videoUrls.filter(u => u.trim()))
+            article_url: articleUrls.filter(u => u.trim()),
+            video_url: videoUrls.filter(u => u.trim()),
+            selectable_days: JSON.stringify(selectableDays)
         }
         onSave(submitData)
+    }
+
+    const toggleDay = (day: number) => {
+        setSelectableDays(prev => {
+            const newSet = new Set(prev)
+            if (newSet.has(day)) newSet.delete(day)
+            else newSet.add(day)
+            return Array.from(newSet).sort((a, b) => a - b)
+        })
     }
 
     const addUrl = (setter: React.Dispatch<React.SetStateAction<string[]>>) => {
@@ -302,6 +306,8 @@ function FarmerModal({
     ) => {
         setter(prev => prev.filter((_, i) => i !== index))
     }
+
+    const weekDays = ['日', '月', '火', '水', '木', '金', '土']
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -386,6 +392,29 @@ function FarmerModal({
                             onChange={e => setFormData({ ...formData, kodawari: e.target.value })}
                             placeholder="栽培のこだわりなどを入力..."
                         />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">納品可能曜日</label>
+                        <div className="flex flex-wrap gap-2">
+                            {weekDays.map((day, idx) => {
+                                const isSelected = selectableDays.includes(idx)
+                                return (
+                                    <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => toggleDay(idx)}
+                                        className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition-all ${isSelected
+                                            ? 'bg-green-600 text-white border-green-600'
+                                            : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
+                                            }`}
+                                    >
+                                        {day}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">※ 選択した曜日は、この農家の商品を含む注文の配送希望日として選択可能になります。</p>
                     </div>
 
                     <div className="border-t pt-4">
