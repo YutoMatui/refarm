@@ -322,6 +322,13 @@ export const orderApi = {
     return response.data
   },
 
+  getMonthlyAggregation: async (date: string) => {
+    const response = await apiClient.get<FarmerAggregation[]>('/orders/aggregation/monthly', {
+      params: { date }
+    })
+    return response.data
+  },
+
   getDailyAggregation: async (date: string) => {
     const response = await apiClient.get<FarmerAggregation[]>('/orders/aggregation/daily', {
       params: { date }
