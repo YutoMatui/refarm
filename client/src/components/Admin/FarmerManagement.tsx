@@ -239,7 +239,11 @@ function FarmerModal({
         video_url: farmer?.video_url || [],
         address: farmer?.address || '',
         phone_number: farmer?.phone_number || '',
-        email: farmer?.email || ''
+        email: farmer?.email || '',
+        map_url: farmer?.map_url || '',
+        farming_method: farmer?.farming_method || '',
+        certifications: farmer?.certifications || '',
+        profile_photo_url: farmer?.profile_photo_url || ''
     })
 
     // URL Lists State
@@ -254,10 +258,6 @@ function FarmerModal({
     const [selectableDays, setSelectableDays] = useState<number[]>(() => {
         if (!farmer?.selectable_days) return []
         try {
-            // Still using string/JSON for selectable_days for now or assume array?
-            // The model for selectable_days was NOT changed to JSON yet in the previous steps,
-            // so we still need to parse it if it comes as string.
-            // But let's check if it comes as array or string.
             if (Array.isArray(farmer.selectable_days)) return farmer.selectable_days
             const parsed = JSON.parse(farmer.selectable_days)
             return Array.isArray(parsed) ? parsed : []
@@ -362,6 +362,15 @@ function FarmerModal({
                             />
                         </div>
                         <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">メールアドレス</label>
+                            <input
+                                type="email"
+                                className="w-full border rounded-md p-2"
+                                value={formData.email || ''}
+                                onChange={e => setFormData({ ...formData, email: e.target.value })}
+                            />
+                        </div>
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">ステータス</label>
                             <select
                                 className="w-full border rounded-md p-2"
@@ -385,6 +394,17 @@ function FarmerModal({
                     </div>
 
                     <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">GoogleマップURL</label>
+                        <input
+                            type="url"
+                            className="w-full border rounded-md p-2"
+                            value={formData.map_url || ''}
+                            onChange={e => setFormData({ ...formData, map_url: e.target.value })}
+                            placeholder="https://maps.google.com/..."
+                        />
+                    </div>
+
+                    <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">紹介文 (Bio)</label>
                         <textarea
                             className="w-full border rounded-md p-2"
@@ -403,6 +423,29 @@ function FarmerModal({
                             onChange={e => setFormData({ ...formData, kodawari: e.target.value })}
                             placeholder="栽培のこだわりなどを入力..."
                         />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">栽培方法</label>
+                            <input
+                                type="text"
+                                className="w-full border rounded-md p-2"
+                                value={formData.farming_method || ''}
+                                onChange={e => setFormData({ ...formData, farming_method: e.target.value })}
+                                placeholder="例: 有機栽培、特別栽培"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">認証など</label>
+                            <input
+                                type="text"
+                                className="w-full border rounded-md p-2"
+                                value={formData.certifications || ''}
+                                onChange={e => setFormData({ ...formData, certifications: e.target.value })}
+                                placeholder="例: 有機JAS"
+                            />
+                        </div>
                     </div>
 
                     <div>
