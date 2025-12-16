@@ -5,7 +5,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { orderApi } from '@/services/api'
-import { CheckCircle, Download, Home, Film } from 'lucide-react'
+import { CheckCircle, Home, Film } from 'lucide-react'
 import Loading from '@/components/Loading'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
@@ -37,14 +37,30 @@ export default function OrderComplete() {
     )
   }
 
-  // Extract products with media URLs
-  const productsWithMedia = order.items
-    .map((item) => item)
-    .filter(() => {
-      // In real app, fetch product details to get media_url
-      // For now, check if product has media
-      return true // Placeholder
-    })
+  // Extract farmers with video URLs
+  const farmerVideos = order.items.reduce((acc, item) => {
+    // JSON parse video url if needed or use directly
+    // item.farmer_video_url is string or json string
+    if (item.farmer_id && item.farmer_video_url && !acc.some(f => f.id === item.farmer_id)) {
+      let urls: string[] = []
+      try {
+        const parsed = JSON.parse(item.farmer_video_url)
+        if (Array.isArray(parsed)) urls = parsed
+        else urls = [item.farmer_video_url]
+      } catch {
+        urls = [item.farmer_video_url]
+      }
+
+      if (urls.length > 0 && urls[0]) {
+        acc.push({
+          id: item.farmer_id,
+          name: item.farmer_name || '生産者',
+          url: urls[0]
+        })
+      }
+    }
+    return acc
+  }, [] as { id: number, name: string, url: string }[])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -86,7 +102,7 @@ export default function OrderComplete() {
             <div>
               <p className="text-sm text-gray-600">合計金額</p>
               <p className="text-2xl font-bold text-green-600">
-                ¥{parseFloat(order.total_amount).toLocaleString()}
+                ¥{Math.floor(parseFloat(order.total_amount)).toLocaleString()}
               </p>
             </div>
           </div>
@@ -97,8 +113,8 @@ export default function OrderComplete() {
             <div className="space-y-2">
               {order.items.map((item) => (
                 <div key={item.id} className="flex justify-between text-sm">
-                  <span>{item.product_name} × {item.quantity}{item.product_unit}</span>
-                  <span className="font-medium">¥{parseFloat(item.total_amount).toLocaleString()}</span>
+                  <span>{item.product_name} × {Number(item.quantity)}{item.product_unit}</span>
+                  <span className="font-medium">¥{Math.floor(parseFloat(item.total_amount)).toLocaleString()}</span>
                 </div>
               ))}
             </div>
@@ -106,38 +122,56 @@ export default function OrderComplete() {
         </div>
 
         {/* Story Media Download Section */}
-        <div className="card mb-6 bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-blue-600 rounded-lg">
-              <Film className="w-8 h-8 text-white" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-bold mb-2">
-                🎬 ストーリー素材をお店の「武器」に
-              </h2>
-              <p className="text-gray-700 mb-4">
-                今回注文いただいた野菜の「生産者ストーリー動画」や「店頭POP素材」をダウンロードできます。
-                SNSでの発信やメニュー説明にご活用ください!
-              </p>
+        <div className="card mb-6 bg-gradient-to-r from-gray-900 to-gray-800 text-white border-0 shadow-xl overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
 
-              {/* Media Download Links (Placeholder) */}
-              <div className="space-y-2">
-                {productsWithMedia.length > 0 ? (
-                  productsWithMedia.map((item) => (
-                    <button
-                      key={item.id}
-                      className="w-full flex items-center justify-between bg-white p-3 rounded-lg hover:shadow-md transition-shadow border border-blue-200"
-                    >
-                      <span className="font-medium">{item.product_name} - ストーリー動画</span>
-                      <Download className="w-5 h-5 text-blue-600" />
-                    </button>
-                  ))
-                ) : (
-                  <p className="text-sm text-gray-600 italic">
-                    ※ ストーリー素材は準備中です。Refarm担当者より別途ご連絡いたします。
-                  </p>
-                )}
+          <div className="relative z-10 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm">
+                <Film className="w-6 h-6 text-yellow-400" />
               </div>
+              <h2 className="text-2xl font-bold tracking-tight">
+                FARMER'S STORY
+              </h2>
+            </div>
+
+            <p className="text-gray-300 mb-6 text-sm leading-relaxed max-w-2xl">
+              この野菜を育てた生産者の想いを、お客様にも伝えませんか？<br />
+              店頭で使えるストーリー動画やPOP素材をご用意しました。
+            </p>
+
+            <div className="space-y-3">
+              {farmerVideos.length > 0 ? (
+                farmerVideos.map((farmer) => (
+                  <a
+                    key={farmer.id}
+                    href={farmer.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between bg-white/10 hover:bg-white/20 p-4 rounded-xl transition-all border border-white/10 group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-white font-bold text-xs shadow-lg">
+                        {farmer.name.slice(0, 1)}
+                      </div>
+                      <div>
+                        <div className="font-bold text-white group-hover:text-yellow-400 transition-colors">{farmer.name}</div>
+                        <div className="text-xs text-gray-400">生産者ストーリー動画を見る</div>
+                      </div>
+                    </div>
+                    <div className="bg-white text-gray-900 px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 group-hover:scale-105 transition-transform">
+                      <span>再生する</span>
+                      <Film className="w-3 h-3" />
+                    </div>
+                  </a>
+                ))
+              ) : (
+                <div className="bg-white/5 rounded-xl p-4 text-center border border-dashed border-white/10">
+                  <p className="text-sm text-gray-400">
+                    ※ 現在公開されているストーリー動画はありません
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -160,11 +194,13 @@ export default function OrderComplete() {
         </div>
 
         {/* Contact Info */}
-        <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="text-sm text-gray-700">
+        <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+          <p className="text-sm text-gray-700 leading-relaxed">
             <strong>ご不明な点がございましたら:</strong><br />
-            Refarm担当者までお気軽にお問い合わせください。<br />
-            📞 078-XXX-XXXX | ✉️ support@refarm-eos.com
+            りふぁーむ担当者まで<span className="font-bold text-green-600">ラインの相談チャット</span>からご連絡ください。<br />
+            <span className="text-xs text-gray-500 mt-1 block">
+              緊急の場合はりふぁーむ代表電話番号 <a href="tel:090-9614-4516" className="text-blue-600 hover:underline">090-9614-4516</a> に連絡してください。
+            </span>
           </p>
         </div>
       </div>

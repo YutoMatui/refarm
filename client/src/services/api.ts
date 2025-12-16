@@ -382,4 +382,13 @@ export const uploadApi = {
   },
 }
 
+// Settings API
+export const settingsApi = {
+  getDeliverySettings: () =>
+    apiClient.get<{ allowed_days: number[] }>('/settings/delivery'),
+
+  updateDeliverySettings: (data: { allowed_days: number[] }) =>
+    apiClient.post<{ allowed_days: number[] }>('/settings/delivery', data),
+}
+
 export default apiClient

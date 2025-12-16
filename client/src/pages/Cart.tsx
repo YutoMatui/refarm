@@ -4,9 +4,10 @@
  */
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { orderApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
+import { settingsApi } from '@/services/api'
 import { DeliveryTimeSlot, type OrderCreateRequest } from '@/types'
 import { Trash2, ShoppingCart, Calendar, MapPin, ChevronLeft } from 'lucide-react'
 import { format, addDays } from 'date-fns'
@@ -20,8 +21,39 @@ export default function Cart() {
   const [deliveryTimeSlot, setDeliveryTimeSlot] = useState<DeliveryTimeSlot | ''>('')
   const [deliveryNotes, setDeliveryNotes] = useState('')
 
-  // Min date (tomorrow)
-  const minDate = format(addDays(new Date(), 1), 'yyyy-MM-dd')
+  // Delivery Settings
+  const { data: settings } = useQuery({
+    queryKey: ['delivery-settings'],
+    queryFn: async () => {
+      try {
+        const res = await settingsApi.getDeliverySettings();
+        return res.data;
+      } catch {
+        return { allowed_days: [0, 1, 2, 3, 4, 5, 6] };
+      }
+    }
+  });
+
+  // Min date (3 days from now)
+  const minDate = format(addDays(new Date(), 3), 'yyyy-MM-dd')
+
+  // Validate selected date
+  const isDateDisabled = (dateStr: string) => {
+    if (!settings) return false;
+    const date = new Date(dateStr);
+    const day = date.getDay();
+    return !settings.allowed_days.includes(day);
+  };
+
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (isDateDisabled(val)) {
+      alert('選択された曜日は配送を行っておりません。別のを選択してください。');
+      setDeliveryDate('');
+      return;
+    }
+    setDeliveryDate(val);
+  };
 
   const timeSlots: { value: DeliveryTimeSlot; label: string }[] = [
     { value: DeliveryTimeSlot.SLOT_12_14, label: '12:00 〜 14:00' },
@@ -169,11 +201,11 @@ export default function Cart() {
               type="date"
               value={deliveryDate}
               min={minDate}
-              onChange={(e) => setDeliveryDate(e.target.value)}
+              onChange={handleDateChange}
               className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-medium"
               required
             />
-            <p className="text-xs text-gray-500 mt-1">※明日以降の日付を選択してください</p>
+            <p className="text-xs text-gray-500 mt-1">※3日後以降の日付を選択してください（配送休業日を除く）</p>
           </div>
 
           {/* Delivery Time Slot */}

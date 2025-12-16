@@ -122,6 +122,7 @@ export interface OrderItem extends TimestampFields {
   product_unit: string
   farmer_name?: string
   farmer_id?: number
+  farmer_video_url?: string
 }
 
 // Order

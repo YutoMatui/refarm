@@ -278,3 +278,10 @@ class OrderItem(Base, TimestampMixin):
         if self.product and self.product.farmer:
             return self.product.farmer.id
         return None
+
+    @property
+    def farmer_video_url(self) -> str | None:
+        """農家の動画URLを取得"""
+        if self.product and self.product.farmer:
+            return self.product.farmer.video_url
+        return None

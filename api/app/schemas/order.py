@@ -36,6 +36,7 @@ class OrderItemResponse(BaseSchema, TimestampSchema):
     product_unit: str
     farmer_name: Optional[str] = None
     farmer_id: Optional[int] = None
+    farmer_video_url: Optional[str] = None
     
     class Config:
         json_schema_extra = {
