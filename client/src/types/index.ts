@@ -68,19 +68,19 @@ export interface Restaurant extends TimestampFields {
 export interface Farmer extends TimestampFields {
   id: number
   name: string
-  main_crop?: string
-  profile_photo_url?: string
-  bio?: string
-  map_url?: string
-  email?: string
-  phone_number?: string
-  address?: string
-  farming_method?: string
-  certifications?: string
+  main_crop?: string | null
+  profile_photo_url?: string | null
+  bio?: string | null
+  map_url?: string | null
+  email?: string | null
+  phone_number?: string | null
+  address?: string | null
+  farming_method?: string | null
+  certifications?: string | null
   article_url?: string[]
   video_url?: string[]
-  kodawari?: string
-  selectable_days?: string // JSON string
+  kodawari?: string | null
+  selectable_days?: string | null // JSON string
   is_active: number
 }
 

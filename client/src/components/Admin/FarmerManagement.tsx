@@ -268,6 +268,17 @@ function FarmerModal({
         e.preventDefault()
         const submitData = {
             ...formData,
+            // Convert empty strings to null for backend validation
+            email: formData.email || null,
+            phone_number: formData.phone_number || null,
+            main_crop: formData.main_crop || null,
+            address: formData.address || null,
+            bio: formData.bio || null,
+            kodawari: formData.kodawari || null,
+            map_url: formData.map_url || null,
+            profile_photo_url: formData.profile_photo_url || null,
+            farming_method: formData.farming_method || null,
+            certifications: formData.certifications || null,
             article_url: articleUrls.filter(u => u.trim()),
             video_url: videoUrls.filter(u => u.trim()),
             selectable_days: JSON.stringify(selectableDays)
