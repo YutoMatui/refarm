@@ -46,17 +46,18 @@ export const useStore = create<AppState>()(
       addToCart: (product, quantity) => {
         const { cart } = get()
         const existingItem = cart.find(item => item.product.id === product.id)
+        const qty = parseInt(String(quantity), 10)
 
         if (existingItem) {
           set({
             cart: cart.map(item =>
               item.product.id === product.id
-                ? { ...item, quantity: Number(item.quantity) + Number(quantity) }
+                ? { ...item, quantity: parseInt(String(item.quantity), 10) + qty }
                 : item
             ),
           })
         } else {
-          set({ cart: [...cart, { product, quantity: Number(quantity) }] })
+          set({ cart: [...cart, { product, quantity: qty }] })
         }
       },
 

@@ -2,6 +2,7 @@
  * Order Complete Page - 注文完了
  * ストーリー素材のダウンロードリンク表示
  */
+import { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { orderApi } from '@/services/api'
@@ -9,10 +10,16 @@ import { CheckCircle, Home, Film } from 'lucide-react'
 import Loading from '@/components/Loading'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
+import { useStore } from '@/store/useStore'
 
 export default function OrderComplete() {
   const { orderId } = useParams<{ orderId: string }>()
   const navigate = useNavigate()
+  const { clearCart } = useStore()
+
+  useEffect(() => {
+    clearCart()
+  }, [clearCart])
 
   const { data: order, isLoading } = useQuery({
     queryKey: ['order', orderId],

@@ -106,6 +106,12 @@ class Farmer(Base, TimestampMixin, SoftDeleteMixin):
         nullable=True,
         comment="農家のこだわり"
     )
+
+    selectable_days = Column(
+        String(100),
+        nullable=True,
+        comment="選択可能曜日 (JSON: [0,1,2...])"
+    )
     
     is_active = Column(
         Integer,
