@@ -208,7 +208,7 @@ export default function FarmerManagement() {
                         setTargetId(null)
                     }}
                     onCropComplete={handleCropComplete}
-                    aspectRatio={1}
+                    aspectRatio={16 / 9}
                     title="プロフィール画像の編集"
                 />
             )}

@@ -65,84 +65,107 @@ export default function FarmerDetail() {
     return (
         <div className="bg-gray-50 min-h-screen pb-20">
             {/* Header / Cover */}
-            <div className="relative h-48 bg-green-800">
+            <div className="relative h-64 bg-green-900">
                 {farmer.profile_photo_url && (
                     <img
                         src={farmer.profile_photo_url}
                         alt={farmer.name}
-                        className="w-full h-full object-cover opacity-60"
+                        className="w-full h-full object-cover opacity-70"
                     />
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
 
                 <button
                     onClick={() => navigate(-1)}
-                    className="absolute top-4 left-4 bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/30 transition-colors"
+                    className="absolute top-4 left-4 bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/30 transition-colors z-20"
                 >
                     <ArrowLeft size={24} />
                 </button>
 
-                <div className="absolute bottom-4 left-4 text-white">
-                    <h1 className="text-2xl font-bold mb-1">{farmer.name}</h1>
-                    <div className="flex items-center gap-1 text-sm opacity-90">
-                        <MapPin size={14} />
-                        <span>{farmer.address || '兵庫県神戸市'}</span>
+                <div className="absolute bottom-8 left-4 right-4 text-white z-10">
+                    <h1 className="text-3xl font-bold mb-2 text-shadow">{farmer.name}</h1>
+                    <div className="flex items-center gap-2 text-sm font-medium opacity-90">
+                        <MapPin size={16} />
+                        <span>{farmer.address || '住所未設定'}</span>
                     </div>
                 </div>
             </div>
 
-            <div className="max-w-3xl mx-auto px-4 -mt-6 relative z-10 space-y-6">
+            <div className="max-w-3xl mx-auto px-4 py-6 space-y-8">
 
                 {/* Introduction Card */}
-                <div className="bg-white rounded-xl shadow-sm p-5">
+                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
                     {farmer.main_crop && (
-                        <div className="mb-3 inline-block px-3 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full">
+                        <div className="mb-4 inline-flex items-center gap-2 px-3 py-1 bg-green-50 text-green-700 text-sm font-bold rounded-full border border-green-100">
+                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
                             主要作物: {farmer.main_crop}
                         </div>
                     )}
-                    <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                    <p className="text-gray-700 leading-loose whitespace-pre-wrap text-[15px]">
                         {farmer.bio || '紹介文はまだありません。'}
                     </p>
 
-                    {farmer.farming_method && (
-                        <div className="mt-4 pt-4 border-t border-gray-100">
-                            <h3 className="text-sm font-bold text-gray-900 mb-1">栽培方法</h3>
-                            <p className="text-sm text-gray-600">{farmer.farming_method}</p>
-                        </div>
-                    )}
+                    {(farmer.farming_method || farmer.kodawari) && <div className="my-6 border-t border-gray-100"></div>}
 
-                    {farmer.kodawari && (
-                        <div className="mt-4 pt-4 border-t border-gray-100">
-                            <h3 className="text-sm font-bold text-gray-900 mb-1">こだわり</h3>
-                            <p className="text-sm text-gray-600 whitespace-pre-wrap">{farmer.kodawari}</p>
-                        </div>
-                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {farmer.farming_method && (
+                            <div>
+                                <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                                    <span className="w-1 h-4 bg-green-500 rounded-full"></span>
+                                    栽培方法
+                                </h3>
+                                <p className="text-sm text-gray-600 leading-relaxed">{farmer.farming_method}</p>
+                            </div>
+                        )}
+
+                        {farmer.kodawari && (
+                            <div className={farmer.farming_method ? "" : "md:col-span-2"}>
+                                <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                                    <span className="w-1 h-4 bg-orange-500 rounded-full"></span>
+                                    こだわり
+                                </h3>
+                                <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{farmer.kodawari}</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Articles Section */}
                 {articleUrls.length > 0 && (
-                    <div className="space-y-3">
-                        <h3 className="text-lg font-bold text-gray-900 px-1">取材記事</h3>
-                        {articleUrls.map((url, idx) => (
-                            <a
-                                key={idx}
-                                href={url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow group"
-                            >
-                                <div className="p-4 flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center flex-shrink-0 text-blue-600 group-hover:scale-110 transition-transform">
-                                        <FileText size={24} />
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between px-1">
+                            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                <FileText className="w-5 h-5 text-gray-500" />
+                                取材記事
+                            </h3>
+                        </div>
+                        <div className="grid gap-3">
+                            {articleUrls.map((url, idx) => (
+                                <a
+                                    key={idx}
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="group bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between hover:border-green-500 hover:shadow-md transition-all duration-300"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-green-50 group-hover:text-green-600 transition-colors">
+                                            <span className="font-bold text-sm">{(idx + 1).toString().padStart(2, '0')}</span>
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-gray-900 group-hover:text-green-700 transition-colors flex items-center gap-2">
+                                                この記事を読む
+                                                <ExternalLink size={14} className="opacity-30 group-hover:opacity-100 transition-opacity" />
+                                            </div>
+                                            <div className="text-xs text-gray-400 mt-0.5 truncate max-w-[200px] sm:max-w-xs">{url}</div>
+                                        </div>
                                     </div>
-                                    <div className="flex-1">
-                                        <h3 className="font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">記事を読む #{idx + 1}</h3>
-                                        <p className="text-xs text-gray-500 truncate">{url}</p>
+                                    <div className="w-8 h-8 rounded-full border border-gray-100 flex items-center justify-center text-gray-300 group-hover:bg-green-600 group-hover:border-green-600 group-hover:text-white transition-all">
+                                        <ExternalLink size={14} />
                                     </div>
-                                    <ExternalLink size={16} className="text-gray-400" />
-                                </div>
-                            </a>
-                        ))}
+                                </a>
+                            ))}
+                        </div>
                     </div>
                 )}
 
