@@ -4,15 +4,20 @@ import FarmerManagement from '../components/Admin/FarmerManagement'
 import ProductManagement from '../components/Admin/ProductManagement'
 import DeliveryManagement from '../components/Admin/DeliveryManagement'
 import ProcurementManagement from '../components/Admin/ProcurementManagement'
+import RestaurantManagement from '../components/Admin/RestaurantManagement'
+import RoutePlanning from '../components/Admin/RoutePlanning'
+import { Store, Map } from 'lucide-react'
 
 export default function Admin() {
-    const [activeTab, setActiveTab] = useState<'farmers' | 'products' | 'delivery' | 'procurement'>('farmers')
+    const [activeTab, setActiveTab] = useState<'farmers' | 'products' | 'delivery' | 'procurement' | 'restaurants' | 'route'>('farmers')
 
     const tabs = [
         { id: 'farmers', label: '農家管理', icon: Users },
+        { id: 'restaurants', label: '飲食店管理', icon: Store },
         { id: 'products', label: '商品・在庫管理', icon: ShoppingBag },
         { id: 'delivery', label: '注文・配送管理', icon: Truck },
         { id: 'procurement', label: '仕入れ集計', icon: ClipboardList },
+        { id: 'route', label: 'ルート最適化', icon: Map },
     ] as const
 
     return (
@@ -55,6 +60,8 @@ export default function Admin() {
                         {activeTab === 'products' && <ProductManagement />}
                         {activeTab === 'delivery' && <DeliveryManagement />}
                         {activeTab === 'procurement' && <ProcurementManagement />}
+                        {activeTab === 'restaurants' && <RestaurantManagement />}
+                        {activeTab === 'route' && <RoutePlanning />}
                     </div>
                 </div>
             </main>

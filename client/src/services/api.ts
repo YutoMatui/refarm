@@ -22,6 +22,7 @@ import type {
   FavoriteToggleResponse,
   FarmerAggregation,
   RegisterRequest,
+  RouteResponse,
 } from '@/types'
 
 // Create Axios instance
@@ -92,6 +93,9 @@ export const restaurantApi = {
 
   update: (id: number, data: Partial<Restaurant>) =>
     apiClient.put<Restaurant>(`/restaurants/${id}`, data),
+
+  delete: (id: number) =>
+    apiClient.delete(`/restaurants/${id}`),
 }
 
 // Farmer API
@@ -389,6 +393,15 @@ export const settingsApi = {
 
   updateDeliverySettings: (data: { allowed_days: number[] }) =>
     apiClient.post<{ allowed_days: number[] }>('/settings/delivery', data),
+}
+
+// Logistics API
+export const logisticsApi = {
+  getCollectionRoute: (startAddress: string) =>
+    apiClient.post<RouteResponse>('/logistics/route/collection', { start_address: startAddress }),
+
+  getDeliveryRoute: (date: string) =>
+    apiClient.post<RouteResponse>('/logistics/route/delivery', { date }),
 }
 
 export default apiClient

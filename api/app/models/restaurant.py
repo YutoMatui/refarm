@@ -51,6 +51,30 @@ class Restaurant(Base, TimestampMixin, SoftDeleteMixin):
         nullable=False,
         comment="住所 (納品先)"
     )
+
+    latitude = Column(
+        String(50),
+        nullable=True,
+        comment="緯度"
+    )
+
+    longitude = Column(
+        String(50),
+        nullable=True,
+        comment="経度"
+    )
+
+    delivery_window_start = Column(
+        String(5),
+        nullable=True,
+        comment="配送希望開始時間 (HH:MM)"
+    )
+
+    delivery_window_end = Column(
+        String(5),
+        nullable=True,
+        comment="配送希望終了時間 (HH:MM)"
+    )
     
     invoice_email = Column(
         String(200),

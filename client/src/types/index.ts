@@ -62,6 +62,10 @@ export interface Restaurant extends TimestampFields {
   business_hours?: string
   notes?: string
   is_active: number
+  latitude?: string
+  longitude?: string
+  delivery_window_start?: string
+  delivery_window_end?: string
 }
 
 // Farmer
@@ -82,6 +86,8 @@ export interface Farmer extends TimestampFields {
   kodawari?: string | null
   selectable_days?: string | null // JSON string
   is_active: number
+  latitude?: string
+  longitude?: string
 }
 
 // Product
@@ -239,4 +245,22 @@ export interface RegisterRequest {
   invoice_email?: string
   business_hours?: string
   notes?: string
+}
+
+// Route Optimization
+export interface RouteStep {
+  type: 'start' | 'job' | 'end'
+  name?: string
+  address: string
+  latitude: number
+  longitude: number
+  arrival_time_estimate?: string
+  distance?: string
+  data?: any
+}
+
+export interface RouteResponse {
+  total_distance: string
+  total_duration: string
+  timeline: RouteStep[]
 }
