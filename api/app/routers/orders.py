@@ -122,11 +122,14 @@ async def list_orders(
     if status_filter:
         query = query.where(Order.status == status_filter)
     
-    # Order by created_at desc
-    query = query.order_by(Order.created_at.desc())
+    # Count query - simpler and safer
+    count_stmt = select(func.count(Order.id))
+    if restaurant_id:
+        count_stmt = count_stmt.where(Order.restaurant_id == restaurant_id)
+    if status_filter:
+        count_stmt = count_stmt.where(Order.status == status_filter)
     
-    count_query = select(func.count()).select_from(query.subquery())
-    total = await db.scalar(count_query)
+    total = await db.scalar(count_stmt)
     
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
@@ -352,10 +355,6 @@ async def get_daily_aggregation(
         .join(Product, OrderItem.product_id == Product.id)
         .join(Farmer, Product.farmer_id == Farmer.id)
         .where(
-            # Assuming delivery_date is stored as Date or DateTime
-            # If DateTime, we need range check. If Date, equality check.
-            # Model definition says DateTime usually, but let's check.
-            # Based on schema it is datetime.
             func.date(Order.delivery_date) == target_date,
             Order.status != OrderStatus.CANCELLED
         )

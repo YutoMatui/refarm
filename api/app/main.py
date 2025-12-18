@@ -81,20 +81,26 @@ app = FastAPI(
 
 
 # CORS Middleware - Updated
-# Allow origins from settings + explicit hardcoded for safety in this deployment
-allowed_origins = settings.CORS_ORIGINS
-if "https://app.refarmkobe.com" not in allowed_origins:
-    allowed_origins.append("https://app.refarmkobe.com")
+allowed_origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://refarm-nine.vercel.app",
+    "https://app.refarmkobe.com",
+    "https://refarm-production.up.railway.app",
+]
+
+# Merge with settings origins
+for origin in settings.CORS_ORIGINS:
+    if origin not in allowed_origins:
+        allowed_origins.append(origin)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_origin_regex=r"https?://.*",  # すべてのオリジンからのリクエストを許可（開発・プレビュー用）
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 # GZip Middleware for response compression
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -116,12 +122,21 @@ async def add_process_time_header(request: Request, call_next):
 async def global_exception_handler(request: Request, exc: Exception):
     """Global exception handler for unhandled errors."""
     logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)
+    
+    # CORS headers are added manually here because sometimes middleware fails on error
+    origin = request.headers.get("origin")
+    headers = {}
+    if origin in allowed_origins or "*" in allowed_origins:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+
     return JSONResponse(
         status_code=500,
         content={
             "message": "内部サーバーエラーが発生しました",
             "error": str(exc) if settings.DEBUG else "Internal Server Error",
-        }
+        },
+        headers=headers
     )
 
 
