@@ -249,11 +249,9 @@ export interface RegisterRequest {
 
 // Route Optimization
 export interface RouteStep {
-  type: 'start' | 'job' | 'end'
+  type: 'start' | 'visit' | 'end'
   name?: string
   address: string
-  latitude: number
-  longitude: number
   arrival_time_estimate?: string
   distance?: string
   data?: any
@@ -263,4 +261,11 @@ export interface RouteResponse {
   total_distance: string
   total_duration: string
   timeline: RouteStep[]
+  optimized_order?: number[]
+}
+
+export interface FullRouteResponse {
+  collection_leg?: RouteResponse | null
+  delivery_leg?: RouteResponse | null
+  summary: string
 }

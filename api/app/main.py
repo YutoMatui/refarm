@@ -158,9 +158,11 @@ from app.routers import (
     upload,
     producer,
     settings as settings_router,
+    logistics,
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(logistics.router, prefix="/api/logistics", tags=["Logistics"])
 app.include_router(restaurants.router, prefix="/api/restaurants", tags=["Restaurants"])
 app.include_router(farmers.router, prefix="/api/farmers", tags=["Farmers"])
 app.include_router(products.router, prefix="/api/products", tags=["Products"])

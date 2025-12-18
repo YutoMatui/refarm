@@ -7,6 +7,7 @@ from sqlalchemy import select, func
 
 from app.core.database import get_db
 from app.models import Farmer
+from app.services.route_service import route_service
 from app.schemas import (
     FarmerCreate,
     FarmerUpdate,
@@ -21,6 +22,13 @@ router = APIRouter()
 @router.post("/", response_model=FarmerResponse, status_code=status.HTTP_201_CREATED)
 async def create_farmer(farmer_data: FarmerCreate, db: AsyncSession = Depends(get_db)):
     """生産者を新規登録"""
+    # Auto-geocode if address is provided
+    if farmer_data.address:
+        coords = await route_service.get_coordinates(farmer_data.address)
+        if coords:
+            farmer_data.latitude = str(coords["lat"])
+            farmer_data.longitude = str(coords["lng"])
+            
     db_farmer = Farmer(**farmer_data.model_dump())
     db.add(db_farmer)
     await db.commit()
@@ -77,6 +85,13 @@ async def update_farmer(
     if not farmer:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
     
+    # Auto-geocode if address is changing
+    if farmer_data.address is not None and farmer_data.address != farmer.address:
+         coords = await route_service.get_coordinates(farmer_data.address)
+         if coords:
+            farmer_data.latitude = str(coords["lat"])
+            farmer_data.longitude = str(coords["lng"])
+            
     update_data = farmer_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(farmer, field, value)

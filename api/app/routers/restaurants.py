@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.models import Restaurant
+from app.services.route_service import route_service
 from app.schemas import (
     RestaurantCreate,
     RestaurantUpdate,
@@ -51,6 +52,13 @@ async def create_restaurant(
         )
     
     # Create new restaurant
+    # Auto-geocode if address is provided
+    if restaurant_data.address:
+        coords = await route_service.get_coordinates(restaurant_data.address)
+        if coords:
+            restaurant_data.latitude = str(coords["lat"])
+            restaurant_data.longitude = str(coords["lng"])
+            
     db_restaurant = Restaurant(**restaurant_data.model_dump())
     db.add(db_restaurant)
     await db.commit()
@@ -179,6 +187,13 @@ async def update_restaurant(
         )
     
     # Update fields
+    # Auto-geocode if address is changing
+    if restaurant_data.address is not None and restaurant_data.address != restaurant.address:
+         coords = await route_service.get_coordinates(restaurant_data.address)
+         if coords:
+            restaurant_data.latitude = str(coords["lat"])
+            restaurant_data.longitude = str(coords["lng"])
+            
     update_data = restaurant_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(restaurant, field, value)

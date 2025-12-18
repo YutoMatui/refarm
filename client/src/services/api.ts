@@ -23,6 +23,7 @@ import type {
   FarmerAggregation,
   RegisterRequest,
   RouteResponse,
+  FullRouteResponse,
 } from '@/types'
 
 // Create Axios instance
@@ -400,8 +401,12 @@ export const logisticsApi = {
   getCollectionRoute: (startAddress: string) =>
     apiClient.post<RouteResponse>('/logistics/route/collection', { start_address: startAddress }),
 
-  getDeliveryRoute: (date: string) =>
-    apiClient.post<RouteResponse>('/logistics/route/delivery', { date }),
+  // Deprecated/Changed in backend but kept for compatibility just in case
+  getDeliveryRouteOld: (date: string) =>
+    apiClient.post<RouteResponse>('/logistics/route/delivery_old', { date }),
+
+  calculateFullRoute: (data: { target_date: string; start_address: string }) =>
+    apiClient.post<FullRouteResponse>('/logistics/route/delivery', data),
 }
 
 export default apiClient

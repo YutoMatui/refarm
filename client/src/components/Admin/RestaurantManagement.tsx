@@ -66,10 +66,6 @@ export default function RestaurantManagement() {
         setValue('invoice_email', restaurant.invoice_email)
         setValue('business_hours', restaurant.business_hours)
         setValue('notes', restaurant.notes)
-        setValue('latitude', restaurant.latitude)
-        setValue('longitude', restaurant.longitude)
-        setValue('delivery_window_start', restaurant.delivery_window_start)
-        setValue('delivery_window_end', restaurant.delivery_window_end)
         setIsModalOpen(true)
     }
 
@@ -101,7 +97,6 @@ export default function RestaurantManagement() {
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">店舗名</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">連絡先</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">住所</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">配送希望時間</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                         </tr>
                     </thead>
@@ -111,9 +106,6 @@ export default function RestaurantManagement() {
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{restaurant.name}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{restaurant.phone_number}</td>
                                 <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{restaurant.address}</td>
-                                <td className="px-6 py-4 text-sm text-gray-500">
-                                    {restaurant.delivery_window_start ? `${restaurant.delivery_window_start} - ${restaurant.delivery_window_end}` : '-'}
-                                </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <button onClick={() => openEdit(restaurant)} className="text-indigo-600 hover:text-indigo-900 mr-4">
                                         <Pencil className="w-4 h-4" />
@@ -158,28 +150,6 @@ export default function RestaurantManagement() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">住所</label>
                                 <input {...register('address', { required: true })} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">緯度 (Latitude)</label>
-                                    <input {...register('latitude')} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" placeholder="例: 34.6946" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">経度 (Longitude)</label>
-                                    <input {...register('longitude')} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" placeholder="例: 135.1955" />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">配送希望開始 (HH:MM)</label>
-                                    <input {...register('delivery_window_start')} type="time" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">配送希望終了 (HH:MM)</label>
-                                    <input {...register('delivery_window_end')} type="time" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
-                                </div>
                             </div>
 
                             <div>
