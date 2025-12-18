@@ -383,9 +383,11 @@ async def get_daily_aggregation(
         
         aggregation[farmer_id]["products"].append({
             "product_name": row.product_name,
-            "quantity": int(row.total_quantity),
+            "quantity": int(row.total_quantity or 0),
             "unit": row.product_unit
         })
+        
+    return list(aggregation.values())
         
 
 @router.get("/aggregation/monthly", response_model=list[dict])
@@ -463,7 +465,7 @@ async def get_monthly_aggregation(
         
         aggregation[farmer_id]["products"].append({
             "product_name": row.product_name,
-            "quantity": int(row.total_quantity),
+            "quantity": int(row.total_quantity or 0),
             "unit": row.product_unit
         })
         
