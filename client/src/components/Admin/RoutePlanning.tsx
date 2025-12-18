@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { Navigation, Calendar, MapPin as MapPinIcon } from 'lucide-react'
 import { logisticsApi } from '../../services/api'
@@ -9,9 +9,17 @@ export default function RoutePlanning() {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    const { register, handleSubmit } = useForm<{ target_date: string; start_address: string }>()
+    const { register, handleSubmit, setValue } = useForm<{ target_date: string; start_address: string }>()
+
+    useEffect(() => {
+        const savedAddress = localStorage.getItem('route_start_address')
+        if (savedAddress) {
+            setValue('start_address', savedAddress)
+        }
+    }, [setValue])
 
     const onSubmit = async (data: { target_date: string; start_address: string }) => {
+        localStorage.setItem('route_start_address', data.start_address)
         setLoading(true)
         setError(null)
         setFullRoute(null)

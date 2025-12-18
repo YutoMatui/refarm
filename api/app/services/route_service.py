@@ -9,8 +9,8 @@ class RouteService:
     API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "AIzaSyDhWyW7FEEhD1WRp3BZLhK1mu_BMNqefi0")
     
     # University of Hyogo, Kobe Campus for Commerce
-    UNIV_COORDS = "34.6937373,135.0594364"
-    UNIV_ADDRESS = "兵庫県立大学 神戸商科キャンパス"
+    UNIV_COORDS = "34.678832,135.053007"
+    UNIV_ADDRESS = "兵庫県神戸市西区学園西町８丁目２−１"
 
     async def get_coordinates(self, address: str) -> Optional[Dict[str, float]]:
         """Geocodes an address to get latitude and longitude."""
@@ -73,10 +73,9 @@ class RouteService:
 
             return self._format_route_response(data, farmers, "farmer")
 
-    async def calculate_restaurant_route(self, restaurants: List[Dict[str, Any]]) -> Dict[str, Any]:
+    async def calculate_restaurant_route(self, restaurants: List[Dict[str, Any]], destination_address: Optional[str] = None) -> Dict[str, Any]:
         """
-        Calculates delivery route: University -> Restaurants.
-        Currently uses simple optimization.
+        Calculates delivery route: University -> Restaurants -> Destination (Start Address).
         """
         if not restaurants:
             return {"error": "No restaurants provided"}
@@ -96,27 +95,17 @@ class RouteService:
         if not waypoints:
             return {"error": "No valid restaurant locations"}
 
-        # For delivery, we might assume a round trip or just ending at the last one.
-        # Let's assume ending at the last optimized stop effectively (or we can set destination to same as origin for round trip).
-        # However, typically delivery routes end at the last drop-off.
-        # Directions API requires a destination. We'll use the last waypoint as destination initially, 
-        # but optimize:true works best with a fixed start and end.
-        # Let's use the University as Start, and let Google optimize the order of all restaurants.
-        # The 'Destination' is tricky if we don't return. Let's set the destination to the last restaurant in the list (unoptimized)
-        # but let Google reorder the intermediates.
-        # BETTER APPROACH: Set University as Origin, and pass ALL restaurants as waypoints (optimize:true).
-        # But we need a destination. Let's arbitrarily set the first restaurant as destination and the rest as waypoints? No.
-        # Let's default to returning to University or just ending at the "furthest" point?
-        # A common pattern is "Round Trip" back to University. Let's do that for now as it's the most robust default.
-        
         waypoints_str = "|".join(waypoints)
+        
+        # Use provided destination or default to University (round trip)
+        final_dest = destination_address if destination_address else self.UNIV_COORDS
 
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 f"{self.BASE_URL}/directions/json",
                 params={
                     "origin": self.UNIV_COORDS,
-                    "destination": self.UNIV_COORDS, # Round trip for now
+                    "destination": final_dest, 
                     "waypoints": f"optimize:true|{waypoints_str}",
                     "mode": "driving",
                     "language": "ja",
@@ -146,8 +135,8 @@ class RouteService:
              # Real error
              return collection_result
         
-        # 2. Calculate Delivery Leg (University -> Restaurants)
-        delivery_result = await self.calculate_restaurant_route(restaurants)
+        # 2. Calculate Delivery Leg (University -> Restaurants -> Start/End)
+        delivery_result = await self.calculate_restaurant_route(restaurants, destination_address=start_address)
         
         if "error" in delivery_result and delivery_result.get("details") != "No restaurants provided":
              return delivery_result
