@@ -74,6 +74,18 @@ class Farmer(Base, TimestampMixin, SoftDeleteMixin):
         nullable=True,
         comment="農園所在地"
     )
+
+    latitude = Column(
+        String(50),
+        nullable=True,
+        comment="緯度"
+    )
+
+    longitude = Column(
+        String(50),
+        nullable=True,
+        comment="経度"
+    )
     
     # Content for Detail Page
     article_url = Column(

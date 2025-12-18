@@ -388,4 +388,84 @@ async def get_daily_aggregation(
             "unit": row.product_unit
         })
         
+
+@router.get("/aggregation/monthly", response_model=list[dict])
+async def get_monthly_aggregation(
+    date: str = Query(..., description="集計月 (YYYY-MM)"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    指定月の仕入れ集計を取得
+    農家ごとに必要な野菜の総数を返す
+    """
+    from app.models import Farmer
+    from datetime import datetime
+    import calendar
+    
+    try:
+        # Check format YYYY-MM
+        year_str, month_str = date.split('-')
+        year = int(year_str)
+        month = int(month_str)
+        
+        # Determine start and end of month
+        start_date = datetime(year, month, 1).date()
+        _, last_day = calendar.monthrange(year, month)
+        end_date = datetime(year, month, last_day).date()
+        
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="日付の形式はYYYY-MMである必要があります"
+        )
+        
+    # Query: Join Order -> OrderItem -> Product -> Farmer
+    # Filter by Order.delivery_date within the month range
+    stmt = (
+        select(
+            Farmer.id.label("farmer_id"),
+            Farmer.name.label("farmer_name"),
+            Product.id.label("product_id"),
+            Product.name.label("product_name"),
+            Product.unit.label("product_unit"),
+            func.sum(OrderItem.quantity).label("total_quantity")
+        )
+        .select_from(Order)
+        .join(OrderItem, Order.id == OrderItem.order_id)
+        .join(Product, OrderItem.product_id == Product.id)
+        .join(Farmer, Product.farmer_id == Farmer.id)
+        .where(
+            func.date(Order.delivery_date) >= start_date,
+            func.date(Order.delivery_date) <= end_date,
+            Order.status != OrderStatus.CANCELLED
+        )
+        .group_by(
+            Farmer.id,
+            Farmer.name,
+            Product.id,
+            Product.name,
+            Product.unit
+        )
+        .order_by(Farmer.id, Product.id)
+    )
+    
+    result = await db.execute(stmt)
+    rows = result.all()
+    
+    # Group by Farmer in Python
+    aggregation = {}
+    for row in rows:
+        farmer_id = row.farmer_id
+        if farmer_id not in aggregation:
+            aggregation[farmer_id] = {
+                "farmer_name": row.farmer_name,
+                "products": []
+            }
+        
+        aggregation[farmer_id]["products"].append({
+            "product_name": row.product_name,
+            "quantity": int(row.total_quantity),
+            "unit": row.product_unit
+        })
+        
     return list(aggregation.values())

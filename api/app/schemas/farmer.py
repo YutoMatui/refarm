@@ -16,6 +16,8 @@ class FarmerBase(BaseModel):
     email: Optional[EmailStr] = Field(None, description="メールアドレス")
     phone_number: Optional[str] = Field(None, max_length=20, description="電話番号")
     address: Optional[str] = Field(None, max_length=500, description="農園所在地")
+    latitude: Optional[str] = Field(None, max_length=50, description="緯度")
+    longitude: Optional[str] = Field(None, max_length=50, description="経度")
     farming_method: Optional[str] = Field(None, max_length=200, description="栽培方法")
     certifications: Optional[str] = Field(None, max_length=500, description="認証情報")
     article_url: Optional[list[str]] = Field(default_factory=list, description="記事URL")
@@ -40,6 +42,8 @@ class FarmerUpdate(BaseModel):
     email: Optional[EmailStr] = None
     phone_number: Optional[str] = Field(None, max_length=20)
     address: Optional[str] = Field(None, max_length=500)
+    latitude: Optional[str] = Field(None, max_length=50)
+    longitude: Optional[str] = Field(None, max_length=50)
     farming_method: Optional[str] = Field(None, max_length=200)
     certifications: Optional[str] = Field(None, max_length=500)
     article_url: Optional[list[str]] = Field(None)
