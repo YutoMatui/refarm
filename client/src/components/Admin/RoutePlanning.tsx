@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Truck, Navigation, Calendar, MapPin as MapPinIcon } from 'lucide-react'
+import { Navigation, Calendar, MapPin as MapPinIcon } from 'lucide-react'
 import { logisticsApi } from '../../services/api'
 import type { FullRouteResponse, RouteStep } from '../../types'
 
