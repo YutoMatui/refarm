@@ -12,6 +12,7 @@ interface ProductFormData {
     cost_price: number;
     harvest_status: HarvestStatus;
     description: string;
+    is_wakeari: boolean;
 }
 
 export default function ProductForm() {
@@ -24,7 +25,8 @@ export default function ProductForm() {
     const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<ProductFormData>({
         defaultValues: {
             harvest_status: HarvestStatus.HARVESTABLE,
-            unit: '袋'
+            unit: '袋',
+            is_wakeari: false
         }
     });
 
@@ -49,6 +51,7 @@ export default function ProductForm() {
             setValue('cost_price', p.cost_price || 0);
             setValue('harvest_status', p.harvest_status || HarvestStatus.HARVESTABLE);
             setValue('description', p.description || '');
+            setValue('is_wakeari', !!p.is_wakeari);
             setImageUrl(p.image_url || '');
         } catch (e) {
             toast.error('商品情報の取得に失敗しました');
@@ -82,6 +85,7 @@ export default function ProductForm() {
                 ...data,
                 farmer_id: farmerId,
                 image_url: imageUrl,
+                is_wakeari: data.is_wakeari ? 1 : 0
             };
 
             if (isEdit && id) {
@@ -223,6 +227,21 @@ export default function ProductForm() {
                         className="w-full border border-gray-300 rounded-lg p-3"
                         placeholder="農薬を使わずに育てました。サラダで食べるのがおすすめです。"
                     />
+                </div>
+
+                {/* Wakeari Checkbox */}
+                <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                    <label className="flex items-center space-x-3 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            {...register('is_wakeari')}
+                            className="w-6 h-6 text-orange-600 rounded focus:ring-orange-500"
+                        />
+                        <div>
+                            <span className="block font-bold text-gray-900">訳あり品として出品</span>
+                            <span className="text-sm text-gray-500">形が不揃い、少し傷があるなどの理由で安く出品する場合にチェックしてください。</span>
+                        </div>
+                    </label>
                 </div>
 
                 <button

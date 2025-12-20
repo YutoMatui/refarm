@@ -24,6 +24,7 @@ class ProductBase(BaseModel):
     media_url: Optional[str] = Field(None, max_length=500, description="動画・POP素材URL")
     is_active: int = Field(default=1, description="販売可否")
     is_featured: int = Field(default=0, description="おすすめフラグ")
+    is_wakeari: int = Field(default=0, description="訳ありフラグ")
     display_order: int = Field(default=0, description="表示順序")
 
 

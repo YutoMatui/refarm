@@ -109,6 +109,7 @@ export interface Product extends TimestampFields {
   is_active: number
   is_featured: number
   is_outlet: number
+  is_wakeari: number
   display_order: number
   price_with_tax: string
   is_kobe_veggie: boolean

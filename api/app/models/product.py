@@ -133,6 +133,13 @@ class Product(Base, TimestampMixin, SoftDeleteMixin):
         default=0,
         comment="おすすめフラグ (0: 通常, 1: おすすめ)"
     )
+
+    is_wakeari = Column(
+        Integer,  # Boolean-like integer (0: False, 1: True)
+        nullable=False,
+        default=0,
+        comment="訳ありフラグ (0: 通常, 1: 訳あり)"
+    )
     
     # Sorting
     display_order = Column(
