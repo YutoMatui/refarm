@@ -13,7 +13,7 @@ import { useDebounce } from '../hooks/useDebounce'
 import { useStore } from '@/store/useStore'
 import { useNavigate } from 'react-router-dom'
 
-type TabType = 'all' | 'outlet' | 'history' | 'repeat'
+type TabType = 'all' | 'wakeari' | 'history' | 'repeat'
 
 export default function VegetableList() {
   const [activeTab, setActiveTab] = useState<TabType>('all')
@@ -29,14 +29,14 @@ export default function VegetableList() {
       const params: any = { is_active: 1, limit: 100 }
       if (debouncedSearchQuery) params.search = debouncedSearchQuery
 
-      if (activeTab === 'outlet') {
-        params.is_outlet = 1
+      if (activeTab === 'wakeari') {
+        params.is_wakeari = 1
       }
 
       const response = await productApi.list(params)
       return response.data
     },
-    enabled: activeTab === 'all' || activeTab === 'outlet',
+    enabled: activeTab === 'all' || activeTab === 'wakeari',
   })
 
   // 2. 注文履歴 (いつもの)
@@ -181,8 +181,8 @@ export default function VegetableList() {
             label="すべての野菜"
           />
           <TabButton
-            active={activeTab === 'outlet'}
-            onClick={() => setActiveTab('outlet')}
+            active={activeTab === 'wakeari'}
+            onClick={() => setActiveTab('wakeari')}
             icon={ShoppingBag}
             label="訳あり野菜"
           />

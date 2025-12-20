@@ -10,6 +10,7 @@ class ProducerProductCreate(BaseModel):
     harvest_status: HarvestStatus = Field(..., description="収穫状況")
     image_url: Optional[str] = Field(None, description="商品画像URL")
     description: Optional[str] = Field(None, description="こだわりポイント・説明")
+    is_wakeari: int = Field(default=0, description="訳ありフラグ")
     farmer_id: int = Field(..., description="生産者ID")
 
 class ProducerProductUpdate(BaseModel):
@@ -20,6 +21,7 @@ class ProducerProductUpdate(BaseModel):
     harvest_status: Optional[HarvestStatus] = None
     image_url: Optional[str] = None
     description: Optional[str] = None
+    is_wakeari: Optional[int] = None
 
 class ProducerProfileUpdate(BaseModel):
     """Schema for updating producer profile."""

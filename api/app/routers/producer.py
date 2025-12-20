@@ -98,6 +98,7 @@ async def create_producer_product(
         tax_rate=tax_rate,
         category=ProductCategory.LEAFY, # Default category? Or null if nullable. Model says nullable=True.
         is_active=1,
+        is_wakeari=data.get("is_wakeari", 0)
     )
     
     db.add(db_product)
