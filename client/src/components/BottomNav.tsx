@@ -4,8 +4,7 @@ import { useStore } from '@/store/useStore'
 
 export default function BottomNav() {
     const location = useLocation()
-    const { getCartItemCount } = useStore()
-    const cartCount = getCartItemCount()
+    const cartCount = useStore((state) => state.getCartItemCount())
 
     const isActive = (path: string) => location.pathname === path
 

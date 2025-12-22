@@ -26,10 +26,23 @@ import ProductForm from './pages/producer/ProductForm'
 import ProducerProfile from './pages/producer/ProducerProfile'
 import Loading from './components/Loading'
 
+// Auth Guard Component
+const AuthGuard = ({ children }: { children: JSX.Element }) => {
+  const restaurant = useStore(state => state.restaurant)
+  const lineUserId = useStore(state => state.lineUserId)
+
+  if (!lineUserId) return <Navigate to="/login" replace />
+  if (!restaurant) return <Navigate to="/register" replace />
+  return children
+}
+
 function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { restaurant, lineUserId, setRestaurant, setLineUserId } = useStore()
+  const restaurant = useStore(state => state.restaurant)
+  const lineUserId = useStore(state => state.lineUserId)
+  const setRestaurant = useStore(state => state.setRestaurant)
+  const setLineUserId = useStore(state => state.setLineUserId)
 
   useEffect(() => {
     initializeApp()
@@ -131,13 +144,6 @@ function App() {
         </div>
       </div>
     )
-  }
-
-  // Auth Guard Component
-  const AuthGuard = ({ children }: { children: JSX.Element }) => {
-    if (!lineUserId) return <Navigate to="/login" replace /> // Should trigger login theoretically
-    if (!restaurant) return <Navigate to="/register" replace />
-    return children
   }
 
   return (
