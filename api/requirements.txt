@@ -31,6 +31,8 @@ httpx==0.26.0
 
 # PDF Generation (for invoices)
 reportlab==4.0.9
+weasyprint
+jinja2
 
 # Testing
 pytest==7.4.4

@@ -1,29 +1,15 @@
-import io
 import os
+import io
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.lib.units import mm
-from reportlab.lib import colors
+from jinja2 import Environment, FileSystemLoader
+from weasyprint import HTML
 
-# Font Configuration
-FONT_PATH = "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf"
-FONT_NAME = "JapaneseFont"
-
-# Attempt to register font
-try:
-    if os.path.exists(FONT_PATH):
-        pdfmetrics.registerFont(TTFont(FONT_NAME, FONT_PATH))
-    else:
-        # Fallback to standard font (Japanese won't render correctly)
-        print(f"Font not found at {FONT_PATH}, falling back to Helvetica")
-        FONT_NAME = "Helvetica"
-except Exception as e:
-    print(f"Error registering font: {e}, falling back to Helvetica")
-    FONT_NAME = "Helvetica"
+# テンプレートディレクトリの設定
+# このファイルは api/app/services/invoice.py
+# テンプレートは api/app/templates/invoice.html
+TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
+env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
 
 def generate_invoice_pdf(order):
     """
@@ -40,125 +26,108 @@ def generate_delivery_slip_pdf(order):
     return _generate_pdf(order, "納品書")
 
 def _generate_pdf(order, title):
-    buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
+    template = env.get_template('invoice.html')
     
-    # Constants
-    MARGIN_X = 20 * mm
-    MARGIN_Y = 20 * mm
-    
-    # --- Header ---
-    c.setFont(FONT_NAME, 18)
-    c.drawString(width/2 - 30*mm, height - MARGIN_Y, title)
-    
-    # --- Customer ---
-    c.setFont(FONT_NAME, 12)
-    c.drawString(MARGIN_X, height - 50*mm, f"{order.restaurant.name} 様")
-    if title == "請求書":
-         c.drawString(MARGIN_X + 60*mm, height - 50*mm, "御中")
-    
-    if title == "請求書":
-        c.setFont(FONT_NAME, 10)
-        c.drawString(MARGIN_X, height - 60*mm, "下記のとおり、御請求申し上げます。")
-    
-    # --- Subject & Payment Info ---
-    c.setFont(FONT_NAME, 12)
-    c.drawString(MARGIN_X, height - 75*mm, "件名")
-    c.setFont(FONT_NAME, 14)
-    c.drawString(MARGIN_X + 20*mm, height - 75*mm, "野菜代金")
-    
-    # Dates
+    # 日付
     invoice_date = order.created_at or datetime.now()
     if order.confirmed_at:
         invoice_date = order.confirmed_at
     
+    # 支払期限（請求書の場合のみ）
+    due_date = "-"
     if title == "請求書":
         payment_deadline = invoice_date + relativedelta(months=1)
         payment_deadline = payment_deadline.replace(day=1) + relativedelta(months=1, days=-1) # End of next month
-        
-        c.setFont(FONT_NAME, 10)
-        c.drawString(MARGIN_X, height - 85*mm, f"支払期限 {payment_deadline.strftime('%Y/%m/%d')}")
-        c.drawString(MARGIN_X + 60*mm, height - 85*mm, "振込先 三井住友銀行 板宿支店 普通 4792089")
+        due_date = payment_deadline.strftime('%Y/%m/%d')
     
-    # --- Total Amount ---
-    c.setFont(FONT_NAME, 12)
-    c.drawString(MARGIN_X, height - 100*mm, "合計")
-    c.setFont(FONT_NAME, 16)
-    # Format currency
-    total_str = f"{int(order.total_amount):,} 円 (税込)"
-    c.drawString(MARGIN_X + 20*mm, height - 100*mm, total_str)
-    
-    # --- Issuer Info (Right side) ---
-    c.setFont(FONT_NAME, 10)
-    info_x = width - MARGIN_X - 60*mm
-    info_y = height - 50*mm
-    line_height = 5*mm
-    
-    c.drawString(info_x, info_y, f"No. {1000 + order.id}") # Simple number logic
-    c.drawString(info_x, info_y - line_height, f"発行日 {invoice_date.strftime('%Y/%m/%d')}")
-    
-    c.setFont(FONT_NAME, 12)
-    c.drawString(info_x, info_y - line_height*3, "りふぁーむ")
-    
-    c.setFont(FONT_NAME, 9)
-    c.drawString(info_x, info_y - line_height*4, "〒653-0845")
-    c.drawString(info_x, info_y - line_height*5, "兵庫県神戸市長田区戸崎通 2-8-5")
-    c.drawString(info_x, info_y - line_height*6, "メゾン戸崎通 101")
-    c.drawString(info_x, info_y - line_height*7, "TEL：090-9614-4516")
-    c.drawString(info_x, info_y - line_height*8, "担当：松井優人")
-    
-    # --- Table ---
-    table_y = height - 120*mm
-    table_x = MARGIN_X
-    col_widths = [80*mm, 20*mm, 20*mm, 25*mm, 25*mm] # Name, Qty, Unit, UnitPrice, Amount
-    headers = ["摘要", "数量", "単位", "単価", "金額"]
-    
-    # Draw Headers
-    c.setFont(FONT_NAME, 10)
-    current_x = table_x
-    for i, header in enumerate(headers):
-        c.drawString(current_x + 2*mm, table_y, header) # Align left + padding
-        current_x += col_widths[i]
-        
-    # Draw Line under headers
-    c.line(table_x, table_y - 2*mm, width - MARGIN_X, table_y - 2*mm)
-    
-    # Draw Items
-    y = table_y - 8*mm
-    c.setFont(FONT_NAME, 10)
-    
+    # 注文明細
+    items = []
+    # order.order_items が SQLAlchemy のリレーション等でイテラブルであると仮定
     for item in order.order_items:
-        current_x = table_x
-        
-        # Name
-        c.drawString(current_x + 2*mm, y, item.product_name)
-        current_x += col_widths[0]
-        
-        # Qty
-        c.drawRightString(current_x + col_widths[1] - 5*mm, y, str(item.quantity))
-        current_x += col_widths[1]
-        
-        # Unit
-        c.drawString(current_x + 2*mm, y, item.product_unit)
-        current_x += col_widths[2]
-        
-        # Unit Price
-        c.drawRightString(current_x + col_widths[3] - 5*mm, y, f"{int(item.unit_price):,}")
-        current_x += col_widths[3]
-        
-        # Amount
-        c.drawRightString(current_x + col_widths[4] - 5*mm, y, f"{int(item.subtotal):,}")
-        
-        y -= 6*mm
-        
-        # New page if needed
-        if y < MARGIN_Y:
-            c.showPage()
-            c.setFont(FONT_NAME, 10)
-            y = height - MARGIN_Y
+        items.append({
+            "name": item.product_name,
+            "quantity": item.quantity,
+            "unit": item.product_unit,
+            "unit_price": int(item.unit_price),
+            "amount": int(item.subtotal)
+        })
+
+    # 合計計算
+    # 既存コードでは order.total_amount を使用していた。
+    # 明細の合計と order.total_amount が一致するかはデータ次第だが、
+    # ここでは明細の積み上げを小計とする。
+    subtotal_val = sum(item["amount"] for item in items)
     
-    # Finalize
-    c.save()
-    buffer.seek(0)
-    return buffer.getvalue()
+    # 消費税
+    # データ構造に税情報が見当たらないため、一旦 0円 (内税想定) とする
+    # 必要に応じて tax_rate = 0.08 等で計算するロジックに変更可能
+    tax_val = 0 
+    
+    # 合計金額
+    # order.total_amount を優先する（端数処理済みなどの可能性があるため）
+    # もし order.total_amount と subtotal_val が大きく異なる場合は注意が必要だが、
+    # ここでは order.total_amount を信頼しつつ、表示上の整合性を取る
+    total_val = int(order.total_amount)
+    
+    # もし subtotal != total なら調整 (例: 送料など)
+    # 今回は単純化のため、subtotalを表示し、totalを表示する。
+    # 消費税欄が0だと不自然なら、(total - subtotal) を税とする手もあるが、
+    # 既存ロジックに合わせておく。
+    
+    # 発行元情報
+    sender_info = {
+        "name": "りふぁーむ",
+        "zip": "653-0845",
+        "address": "兵庫県神戸市長田区戸崎通 2-8-5",
+        "building": "メゾン戸崎通 101",
+        "tel": "090-9614-4516",
+        "pic": "松井優人"
+    }
+
+    # 銀行振込先
+    bank_info = {
+        "name": "三井住友銀行",
+        "branch": "板宿支店",
+        "type": "普通",
+        "number": "4792089"
+    }
+    # 納品書の場合は振込先を表示しないなどの制御も可能だが、
+    # HTMLテンプレート上は表示される構造になっている。
+    # 空文字を渡せば非表示っぽくなるが、レイアウトが崩れる可能性がある。
+    # 今回はそのまま表示するか、"-"にする。
+    if title != "請求書":
+        bank_info = {k: "" for k in bank_info}
+
+    context = {
+        "title": title, # "請求書" or "納品書" (HTML側で 請求書 と書かれていた部分を置換済み)
+        "invoice_date": invoice_date.strftime('%Y/%m/%d'),
+        "invoice_number": f"{1000 + order.id}",
+        "client_name": order.restaurant.name,
+        "sender_name": sender_info["name"],
+        "sender_zip": sender_info["zip"],
+        "sender_address": sender_info["address"],
+        "sender_building": sender_info["building"],
+        "sender_tel": sender_info["tel"],
+        "sender_pic": sender_info["pic"],
+        
+        "total_amount_incl_tax": total_val,
+        
+        "subject": "野菜代金",
+        "due_date": due_date,
+        "bank_name": bank_info.get("name", ""),
+        "bank_branch": bank_info.get("branch", ""),
+        "bank_type": bank_info.get("type", ""),
+        "bank_number": bank_info.get("number", ""),
+        
+        "items": items,
+        "subtotal": subtotal_val,
+        "tax_amount": tax_val,
+        "remarks": "" 
+    }
+    
+    html_content = template.render(context)
+    
+    # PDF生成
+    pdf_bytes = HTML(string=html_content).write_pdf()
+    
+    return pdf_bytes
