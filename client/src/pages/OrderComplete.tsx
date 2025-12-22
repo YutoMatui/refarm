@@ -15,7 +15,7 @@ import { useStore } from '@/store/useStore'
 export default function OrderComplete() {
   const { orderId } = useParams<{ orderId: string }>()
   const navigate = useNavigate()
-  const { clearCart } = useStore()
+  const clearCart = useStore((state) => state.clearCart)
 
   useEffect(() => {
     clearCart()
