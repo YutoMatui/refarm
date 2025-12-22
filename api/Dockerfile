@@ -7,9 +7,10 @@ RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
     fonts-droid-fallback \
+    # WeasyPrint dependencies
     python3-dev \
     libffi-dev \
-    libshared-mime-info-dev \
+    shared-mime-info \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
     libgdk-pixbuf2.0-0 \
