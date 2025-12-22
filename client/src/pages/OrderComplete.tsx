@@ -19,7 +19,8 @@ export default function OrderComplete() {
 
   useEffect(() => {
     clearCart()
-  }, [clearCart])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const { data: order, isLoading } = useQuery({
     queryKey: ['order', orderId],
