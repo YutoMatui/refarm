@@ -1,4 +1,17 @@
 import os
+import sys
+
+# Windows の場合、GTK の DLL パスを明示的に追加 (WeasyPrint 用)
+if sys.platform == "win32":
+    gtk_path = r"C:\Program Files\GTK3-Runtime Win64\bin"
+    if os.path.exists(gtk_path):
+        os.add_dll_directory(gtk_path)
+    else:
+        # 他の一般的なパスも試行
+        alt_gtk_path = r"C:\Program Files (x86)\GTK3-Runtime Win64\bin"
+        if os.path.exists(alt_gtk_path):
+            os.add_dll_directory(alt_gtk_path)
+
 import io
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
