@@ -24,6 +24,8 @@ import ProducerLayout from './components/ProducerLayout'
 import ProducerDashboard from './pages/producer/ProducerDashboard'
 import ProductForm from './pages/producer/ProductForm'
 import ProducerProfile from './pages/producer/ProducerProfile'
+import ProducerSchedule from './pages/producer/ProducerSchedule'
+import ProducerSales from './pages/producer/ProducerSales'
 import Loading from './components/Loading'
 
 // Auth Guard Component
@@ -193,6 +195,8 @@ function App() {
             <Route path="profile" element={<ProducerProfile />} />
             <Route path="products/new" element={<ProductForm />} />
             <Route path="products/:id/edit" element={<ProductForm />} />
+            <Route path="schedule" element={<ProducerSchedule />} />
+            <Route path="sales" element={<ProducerSales />} />
           </Route>
 
           <Route path="/admin" element={<Admin />} />
