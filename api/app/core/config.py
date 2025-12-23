@@ -61,6 +61,17 @@ class Settings(BaseSettings):
     LIFF_ID: str = ""
     LINE_CHANNEL_ID: str = ""
     LINE_CHANNEL_SECRET: str = ""
+
+    # LINE Messaging API (Restaurant)
+    LINE_RESTAURANT_CHANNEL_ID: str = "2008751355"
+    LINE_RESTAURANT_CHANNEL_SECRET: str = "92d720cf8a7d037a58b4cf5bc5e25115"
+
+    # LINE Messaging API (Producer)
+    LINE_PRODUCER_CHANNEL_ID: str = "2008751402"
+    LINE_PRODUCER_CHANNEL_SECRET: str = "5928cc0acec4d1e51b21b3d5e8f46cd9"
+
+    # LINE Test User ID
+    LINE_TEST_USER_ID: str = "Uf84a1f7dfb47a12c704d6ac8b438f873"
     
     # Cloudinary
     CLOUDINARY_CLOUD_NAME: str = ""

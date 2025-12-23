@@ -2,7 +2,7 @@
 Order API Router - 注文管理
 """
 import io
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -12,6 +12,7 @@ from decimal import Decimal
 
 from app.core.database import get_db
 from app.services.invoice import generate_invoice_pdf
+from app.services.line_notify import line_service
 from app.models import Order, OrderItem, Product, Farmer
 from app.models.enums import OrderStatus
 from app.schemas import (
@@ -27,7 +28,11 @@ router = APIRouter()
 
 
 @router.post("/", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
-async def create_order(order_data: OrderCreate, db: AsyncSession = Depends(get_db)):
+async def create_order(
+    order_data: OrderCreate, 
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
     """
     注文を新規作成
     商品の価格スナップショットを保存し、合計金額を計算
@@ -99,6 +104,10 @@ async def create_order(order_data: OrderCreate, db: AsyncSession = Depends(get_d
     ).where(Order.id == db_order.id)
     result = await db.execute(stmt)
     db_order = result.scalar_one()
+    
+    # Send LINE Notifications
+    background_tasks.add_task(line_service.notify_restaurant, db_order)
+    background_tasks.add_task(line_service.notify_farmers, db_order)
     
     return db_order
 
