@@ -9,9 +9,156 @@ import calendar
 
 from app.core.database import get_db
 from app.models import Order, OrderItem, Product, Farmer
-from app.models.enums import OrderStatus
+from app.models.enums import OrderStatus, StockType
+from app.schemas import ProductListResponse
+from app.schemas.producer import (
+    ProducerProductCreate,
+    ProducerProductUpdate,
+    ProducerProfileUpdate
+)
+from app.schemas.farmer import FarmerResponse
 
 router = APIRouter()
+
+@router.get("/products", response_model=ProductListResponse)
+async def get_producer_products(
+    farmer_id: int = Query(..., description="生産者ID"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    生産者の出品商品一覧を取得
+    """
+    # Verify farmer exists
+    stmt = select(Farmer).where(Farmer.id == farmer_id)
+    result = await db.execute(stmt)
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Farmer not found")
+
+    # Get products
+    query = select(Product).where(Product.farmer_id == farmer_id)
+    
+    # Count total
+    count_stmt = select(func.count(Product.id)).where(Product.farmer_id == farmer_id)
+    total = await db.scalar(count_stmt)
+    
+    # Execute query
+    query = query.offset(skip).limit(limit)
+    result = await db.execute(query)
+    products = result.scalars().all()
+    
+    return ProductListResponse(items=products, total=total or 0, skip=skip, limit=limit)
+
+
+@router.post("/products", response_model=dict)
+async def create_producer_product(
+    product_data: ProducerProductCreate,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    生産者向け：商品新規登録
+    """
+    # Create product
+    # Note: Setting default values for required fields not in the simplified schema
+    new_product = Product(
+        farmer_id=product_data.farmer_id,
+        name=product_data.name,
+        unit=product_data.unit,
+        cost_price=product_data.cost_price,
+        # Selling price = cost / 0.7 (approx 30% margin)
+        price=int(product_data.cost_price / 0.7),
+        harvest_status=product_data.harvest_status,
+        image_url=product_data.image_url,
+        description=product_data.description,
+        is_wakeari=product_data.is_wakeari,
+        stock_type=StockType.KOBE, # Default to KOBE
+        is_active=1
+    )
+    
+    db.add(new_product)
+    await db.commit()
+    await db.refresh(new_product)
+    
+    return {"id": new_product.id, "message": "Product created successfully"}
+
+
+@router.put("/products/{product_id}", response_model=dict)
+async def update_producer_product(
+    product_id: int,
+    product_data: ProducerProductUpdate,
+    farmer_id: int = Query(..., description="生産者ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    生産者向け：商品更新
+    """
+    stmt = select(Product).where(
+        Product.id == product_id,
+        Product.farmer_id == farmer_id
+    )
+    result = await db.execute(stmt)
+    product = result.scalar_one_or_none()
+    
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+        
+    update_dict = product_data.model_dump(exclude_unset=True)
+    
+    # Recalculate price if cost_price changed
+    if "cost_price" in update_dict:
+        update_dict["price"] = int(update_dict["cost_price"] / 0.7)
+        
+    for key, value in update_dict.items():
+        setattr(product, key, value)
+        
+    await db.commit()
+    
+    return {"id": product.id, "message": "Product updated successfully"}
+
+
+@router.get("/profile", response_model=FarmerResponse)
+async def get_producer_profile(
+    farmer_id: int = Query(..., description="生産者ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    生産者プロフィール取得
+    """
+    stmt = select(Farmer).where(Farmer.id == farmer_id)
+    result = await db.execute(stmt)
+    farmer = result.scalar_one_or_none()
+    
+    if not farmer:
+        raise HTTPException(status_code=404, detail="Farmer not found")
+        
+    return farmer
+
+
+@router.put("/profile", response_model=dict)
+async def update_producer_profile(
+    profile_data: ProducerProfileUpdate,
+    farmer_id: int = Query(..., description="生産者ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    生産者プロフィール更新
+    """
+    stmt = select(Farmer).where(Farmer.id == farmer_id)
+    result = await db.execute(stmt)
+    farmer = result.scalar_one_or_none()
+    
+    if not farmer:
+        raise HTTPException(status_code=404, detail="Farmer not found")
+        
+    update_dict = profile_data.model_dump(exclude_unset=True)
+    for key, value in update_dict.items():
+        setattr(farmer, key, value)
+        
+    await db.commit()
+    
+    return {"id": farmer.id, "message": "Profile updated successfully"}
+
 
 @router.get("/dashboard/schedule", response_model=list[dict])
 async def get_producer_schedule(
