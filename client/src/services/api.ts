@@ -373,6 +373,12 @@ export const producerApi = {
 
   updateProfile: (farmerId: number, data: any) =>
     apiClient.put<Farmer>(`/producer/profile?farmer_id=${farmerId}`, data),
+
+  getSchedule: (farmerId: number, date: string) =>
+    apiClient.get<any[]>(`/producer/dashboard/schedule`, { params: { farmer_id: farmerId, date } }),
+
+  getSales: (farmerId: number, month: string) =>
+    apiClient.get<any>(`/producer/dashboard/sales`, { params: { farmer_id: farmerId, month } }),
 }
 
 // Upload API
@@ -380,8 +386,6 @@ export const uploadApi = {
   uploadImage: (file: File) => {
     const formData = new FormData()
     formData.append('file', file)
-    // エンドポイントを修正: /upload/image -> /upload/image (バックエンドの修正に合わせて)
-    // 前回のバックエンド修正で /api/upload/image になっています
     return apiClient.post<{ url: string; public_id: string }>('/upload/image', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -404,7 +408,6 @@ export const logisticsApi = {
   getCollectionRoute: (startAddress: string) =>
     apiClient.post<RouteResponse>('/logistics/route/collection', { start_address: startAddress }),
 
-  // Deprecated/Changed in backend but kept for compatibility just in case
   getDeliveryRouteOld: (date: string) =>
     apiClient.post<RouteResponse>('/logistics/route/delivery_old', { date }),
 
