@@ -1,194 +1,234 @@
 """
-Producer API Router - 生産者用商品管理
+Producer specific endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
+from datetime import datetime, timedelta
+import calendar
 
 from app.core.database import get_db
-from app.models import Product, Farmer
-from app.models.enums import StockType, ProductCategory, TaxRate
-from app.schemas.producer import (
-    ProducerProductCreate,
-    ProducerProductUpdate,
-    ProducerProfileUpdate,
-)
-from app.schemas.product import (
-    ProductResponse,
-    ProductListResponse,
-    ProductFilterParams,
-)
-from app.schemas import ResponseMessage, FarmerResponse
+from app.models import Order, OrderItem, Product, Farmer
+from app.models.enums import OrderStatus
 
 router = APIRouter()
 
-
-@router.get("/products", response_model=ProductListResponse)
-async def list_producer_products(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
+@router.get("/dashboard/schedule", response_model=list[dict])
+async def get_producer_schedule(
     farmer_id: int = Query(..., description="生産者ID"),
+    date: str = Query(..., description="対象日 (YYYY-MM-DD)"),
     db: AsyncSession = Depends(get_db)
 ):
-    """生産者の商品一覧を取得"""
-    query = select(Product).where(
-        Product.deleted_at.is_(None),
-        Product.farmer_id == farmer_id
+    """
+    生産者向けスケジュール取得
+    指定日の「出荷」と「準備」のタスクを返す
+    """
+    try:
+        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+
+    # 1. Shipping Tasks (Orders with delivery_date = target_date)
+    # Assuming shipping happens on the same day as delivery for simplicity, or 1 day before.
+    # The prompt implies "Screen to know when and how much vegetables to prepare".
+    # Usually, if delivery is on Day X, shipping is Day X (morning) or Day X-1.
+    # Let's assume Delivery Date is the key date for "Shipping".
+    
+    shipping_stmt = (
+        select(
+            Product.name,
+            Product.unit,
+            func.sum(OrderItem.quantity).label("total_quantity")
+        )
+        .join(OrderItem, Order.id == OrderItem.order_id)
+        .join(Product, OrderItem.product_id == Product.id)
+        .where(
+            Product.farmer_id == farmer_id,
+            func.date(Order.delivery_date) == target_date,
+            Order.status != OrderStatus.CANCELLED
+        )
+        .group_by(Product.name, Product.unit)
     )
     
-    # Order by display_order and id
-    query = query.order_by(Product.display_order.asc(), Product.id.asc())
-    
-    count_query = select(func.count()).select_from(query.subquery())
-    total = await db.scalar(count_query)
-    
-    query = query.offset(skip).limit(limit)
-    result = await db.execute(query)
-    products = result.scalars().all()
-    
-    return ProductListResponse(items=products, total=total or 0, skip=skip, limit=limit)
+    shipping_result = await db.execute(shipping_stmt)
+    shipping_tasks = [
+        {
+            "id": f"ship_{i}",
+            "name": row.name,
+            "amount": int(row.total_quantity),
+            "unit": row.unit,
+            "type": "shipping"
+        }
+        for i, row in enumerate(shipping_result.all())
+    ]
 
-
-@router.post("/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
-async def create_producer_product(
-    product_data: ProducerProductCreate,
-    db: AsyncSession = Depends(get_db)
-):
-    """生産者用：商品を新規登録"""
-    # Create dict from model
-    data = product_data.model_dump()
-    
-    # Set default values for fields not in ProducerProductCreate but required by Product model
-    # Note: ProducerProductCreate has farmer_id, unit, cost_price, harvest_status, etc.
-    # We need to set stock_type, tax_rate, price (maybe calculated from cost?), etc.
-    
-    # Assuming defaults or logic here. 
-    # For now, let's assume price is same as cost_price if not specified (though schema has cost_price).
-    # Wait, Product model requires 'price' (sales price). ProducerProductCreate ONLY has 'cost_price'.
-    # This might be an issue. Let's assume price = cost_price * markup or just same for now if not provided.
-    # Actually, let's look at the schema again.
-    
-    # ProducerProductCreate: name, unit, cost_price, harvest_status, image_url, description, farmer_id
-    # Product model requires: name, price, tax_rate, unit, stock_type
-    
-    # We are missing 'price', 'tax_rate', 'stock_type'.
-    # We should probably set reasonable defaults or derive them.
-    
-    # Defaulting stock_type to KOBE since it's a producer (farmer)
-    stock_type = StockType.KOBE
-    
-    # Defaulting tax_rate to REDUCED (8%) for food
-    tax_rate = TaxRate.REDUCED
-    
-    # For price, we might need to just use cost_price as a placeholder or if the business logic implies cost_price IS the price for them?
-    # Or maybe 'price' in Product table IS the selling price, and cost_price is what farmer gets.
-    # Let's set price = cost_price for now to avoid validation error, or check if there is a margin logic.
-    # I'll simply set price = cost_price.
-    
-    db_product = Product(
-        name=data["name"],
-        description=data.get("description"),
-        unit=data["unit"],
-        cost_price=data["cost_price"],
-        price=data["cost_price"], # Temporary assignment
-        harvest_status=data["harvest_status"],
-        image_url=data.get("image_url"),
-        farmer_id=data["farmer_id"],
-        stock_type=stock_type,
-        tax_rate=tax_rate,
-        category=ProductCategory.LEAFY, # Default category? Or null if nullable. Model says nullable=True.
-        is_active=1,
-        is_wakeari=data.get("is_wakeari", 0)
+    # 2. Preparation Tasks (Orders with delivery_date = target_date + 1)
+    # Prepare for tomorrow's delivery
+    next_day = target_date + timedelta(days=1)
+    prep_stmt = (
+        select(
+            Product.name,
+            Product.unit,
+            func.sum(OrderItem.quantity).label("total_quantity")
+        )
+        .join(OrderItem, Order.id == OrderItem.order_id)
+        .join(Product, OrderItem.product_id == Product.id)
+        .where(
+            Product.farmer_id == farmer_id,
+            func.date(Order.delivery_date) == next_day,
+            Order.status != OrderStatus.CANCELLED
+        )
+        .group_by(Product.name, Product.unit)
     )
-    
-    db.add(db_product)
-    await db.commit()
-    await db.refresh(db_product)
-    return db_product
+
+    prep_result = await db.execute(prep_stmt)
+    prep_tasks = [
+        {
+            "id": f"prep_{i}",
+            "name": row.name,
+            "amount": int(row.total_quantity),
+            "unit": row.unit,
+            "type": "preparation"
+        }
+        for i, row in enumerate(prep_result.all())
+    ]
+
+    return shipping_tasks + prep_tasks
 
 
-@router.put("/products/{product_id}", response_model=ProductResponse)
-async def update_producer_product(
-    product_id: int,
-    product_data: ProducerProductUpdate,
-    db: AsyncSession = Depends(get_db)
-):
-    """生産者用：商品情報を更新"""
-    stmt = select(Product).where(Product.id == product_id, Product.deleted_at.is_(None))
-    result = await db.execute(stmt)
-    product = result.scalar_one_or_none()
-    
-    if not product:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="商品が見つかりません")
-    
-    update_data = product_data.model_dump(exclude_unset=True)
-    
-    # If cost_price is in update data, update price as well
-    if "cost_price" in update_data:
-        update_data["price"] = update_data["cost_price"]
-
-    for field, value in update_data.items():
-        if hasattr(product, field):
-            setattr(product, field, value)
-    
-    await db.commit()
-    await db.refresh(product)
-    return product
-
-
-@router.delete("/products/{product_id}", response_model=ResponseMessage)
-async def delete_producer_product(product_id: int, db: AsyncSession = Depends(get_db)):
-    """生産者用：商品を削除（ソフトデリート）"""
-    from datetime import datetime
-    
-    stmt = select(Product).where(Product.id == product_id, Product.deleted_at.is_(None))
-    result = await db.execute(stmt)
-    product = result.scalar_one_or_none()
-    
-    if not product:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="商品が見つかりません")
-    
-    product.deleted_at = datetime.now()
-    await db.commit()
-    
-    return ResponseMessage(message="商品を削除しました", success=True)
-
-
-@router.get("/profile", response_model=FarmerResponse)
-async def get_producer_profile(
+@router.get("/dashboard/sales", response_model=dict)
+async def get_producer_sales(
     farmer_id: int = Query(..., description="生産者ID"),
+    month: str = Query(..., description="対象月 (YYYY-MM)"),
     db: AsyncSession = Depends(get_db)
 ):
-    """生産者プロフィール取得"""
-    stmt = select(Farmer).where(Farmer.id == farmer_id)
-    result = await db.execute(stmt)
-    farmer = result.scalar_one_or_none()
-    
-    if not farmer:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
-    
-    return farmer
-
-
-@router.put("/profile", response_model=FarmerResponse)
-async def update_producer_profile(
-    profile_data: ProducerProfileUpdate,
-    farmer_id: int = Query(..., description="生産者ID"),
-    db: AsyncSession = Depends(get_db)
-):
-    """生産者プロフィール更新"""
-    stmt = select(Farmer).where(Farmer.id == farmer_id)
-    result = await db.execute(stmt)
-    farmer = result.scalar_one_or_none()
-    
-    if not farmer:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
-    
-    update_dict = profile_data.model_dump(exclude_unset=True)
-    for key, value in update_dict.items():
-        if hasattr(farmer, key):
-            setattr(farmer, key, value)
+    """
+    生産者向け売上ダッシュボードデータ取得
+    """
+    try:
+        year_str, month_str = month.split('-')
+        year = int(year_str)
+        month_num = int(month_str)
         
-    await db.commit()
-    await db.refresh(farmer)
-    return farmer
+        start_date = datetime(year, month_num, 1).date()
+        _, last_day = calendar.monthrange(year, month_num)
+        end_date = datetime(year, month_num, last_day).date()
+        
+        # Previous Month for comparison
+        prev_month_date = start_date - timedelta(days=1)
+        prev_start = datetime(prev_month_date.year, prev_month_date.month, 1).date()
+        _, prev_last = calendar.monthrange(prev_month_date.year, prev_month_date.month)
+        prev_end = datetime(prev_month_date.year, prev_month_date.month, prev_last).date()
+        
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+
+    # 1. Total Sales & Orders (Current Month)
+    # Using OrderItem.total_amount for sales.
+    # Note: OrderItem.total_amount is tax included.
+    # If we need cost_price (profit), we should use product.cost_price * quantity.
+    # The prompt asked for "Sales", usually meaning Gross Sales.
+    # Let's use total_amount for now.
+    
+    sales_stmt = (
+        select(
+            func.sum(OrderItem.total_amount).label("total_sales"),
+            func.count(func.distinct(Order.id)).label("total_orders")
+        )
+        .join(Order, Order.id == OrderItem.order_id)
+        .join(Product, OrderItem.product_id == Product.id)
+        .where(
+            Product.farmer_id == farmer_id,
+            func.date(Order.delivery_date) >= start_date,
+            func.date(Order.delivery_date) <= end_date,
+            Order.status != OrderStatus.CANCELLED
+        )
+    )
+    
+    result = await db.execute(sales_stmt)
+    current_stats = result.one()
+    total_sales = int(current_stats.total_sales or 0)
+    total_orders = int(current_stats.total_orders or 0)
+    
+    # 2. Previous Month Sales
+    prev_sales_stmt = (
+        select(func.sum(OrderItem.total_amount).label("total_sales"))
+        .join(Order, Order.id == OrderItem.order_id)
+        .join(Product, OrderItem.product_id == Product.id)
+        .where(
+            Product.farmer_id == farmer_id,
+            func.date(Order.delivery_date) >= prev_start,
+            func.date(Order.delivery_date) <= prev_end,
+            Order.status != OrderStatus.CANCELLED
+        )
+    )
+    prev_result = await db.execute(prev_sales_stmt)
+    prev_sales = int(prev_result.scalar() or 0)
+
+    # 3. Daily Sales (Graph)
+    daily_stmt = (
+        select(
+            func.date(Order.delivery_date).label("date"),
+            func.sum(OrderItem.total_amount).label("amount")
+        )
+        .join(Order, Order.id == OrderItem.order_id)
+        .join(Product, OrderItem.product_id == Product.id)
+        .where(
+            Product.farmer_id == farmer_id,
+            func.date(Order.delivery_date) >= start_date,
+            func.date(Order.delivery_date) <= end_date,
+            Order.status != OrderStatus.CANCELLED
+        )
+        .group_by(func.date(Order.delivery_date))
+        .order_by(func.date(Order.delivery_date))
+    )
+    
+    daily_result = await db.execute(daily_stmt)
+    daily_sales = [
+        {"day": row.date.day, "amount": int(row.amount)}
+        for row in daily_result.all()
+    ]
+    
+    # Fill in missing days with 0
+    daily_map = {d["day"]: d["amount"] for d in daily_sales}
+    full_daily_sales = []
+    for d in range(1, last_day + 1):
+        full_daily_sales.append({
+            "day": d,
+            "amount": daily_map.get(d, 0)
+        })
+
+    # 4. Product Ranking
+    ranking_stmt = (
+        select(
+            Product.name,
+            func.sum(OrderItem.total_amount).label("amount"),
+            func.sum(OrderItem.quantity).label("count")
+        )
+        .join(Order, Order.id == OrderItem.order_id)
+        .join(Product, OrderItem.product_id == Product.id)
+        .where(
+            Product.farmer_id == farmer_id,
+            func.date(Order.delivery_date) >= start_date,
+            func.date(Order.delivery_date) <= end_date,
+            Order.status != OrderStatus.CANCELLED
+        )
+        .group_by(Product.name)
+        .order_by(func.sum(OrderItem.total_amount).desc())
+        .limit(5)
+    )
+    
+    ranking_result = await db.execute(ranking_stmt)
+    top_products = [
+        {"name": row.name, "amount": int(row.amount), "count": int(row.count)}
+        for row in ranking_result.all()
+    ]
+
+    return {
+        "totalSales": total_sales,
+        "lastMonthSales": prev_sales,
+        "totalOrders": total_orders,
+        "avgOrderPrice": int(total_sales / total_orders) if total_orders > 0 else 0,
+        "dailySales": full_daily_sales,
+        "topProducts": top_products
+    }
