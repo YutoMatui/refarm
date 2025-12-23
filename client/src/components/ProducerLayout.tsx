@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { LayoutDashboard, User } from 'lucide-react';
+import { LayoutDashboard, User, Calendar, TrendingUp } from 'lucide-react';
 
 export default function ProducerLayout() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -21,7 +21,9 @@ export default function ProducerLayout() {
 
     const navItems = [
         { path: '/producer', icon: LayoutDashboard, label: '出品管理' },
-        { path: '/producer/profile', icon: User, label: 'プロフィール' },
+        { path: '/producer/schedule', icon: Calendar, label: '出荷予定' },
+        { path: '/producer/sales', icon: TrendingUp, label: '売上管理' },
+        { path: '/producer/profile', icon: User, label: '設定' },
     ];
 
     return (
