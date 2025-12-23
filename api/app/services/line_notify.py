@@ -31,12 +31,18 @@ class LineNotificationService:
                 "client_id": channel_id,
                 "client_secret": channel_secret
             }
+            # The Content-Type must be correctly handled by passing `data` for x-www-form-urlencoded
             response = await client.post(
-                f"{self.BASE_URL}/oauth2/v2.1/token",
+                f"{self.BASE_URL}/v2/oauth/accessToken",
                 data=payload,
                 headers={"Content-Type": "application/x-www-form-urlencoded"}
             )
-            response.raise_for_status()
+            
+            # Additional check for better error messages
+            if response.status_code != 200:
+                print(f"LINE Token Error: {response.status_code} - {response.text}")
+                response.raise_for_status()
+            
             data = response.json()
             
             token = data["access_token"]
