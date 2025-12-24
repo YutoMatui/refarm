@@ -376,6 +376,9 @@ export const producerApi = {
 
   getSales: (farmerId: number, month: string) =>
     apiClient.get<any>(`/producer/dashboard/sales?farmer_id=${farmerId}&month=${month}`),
+
+  getSchedule: (farmerId: number, date: string) =>
+    apiClient.get<any>(`/producer/dashboard/schedule?farmer_id=${farmerId}&date=${date}`),
 }
 
 // Upload API

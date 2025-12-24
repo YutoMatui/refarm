@@ -13,14 +13,13 @@ if sys.platform == "win32":
             os.add_dll_directory(alt_gtk_path)
 
 import io
+import math
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 
 # テンプレートディレクトリの設定
-# このファイルは api/app/services/invoice.py
-# テンプレートは api/app/templates/invoice.html
 TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
 env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
 
@@ -65,27 +64,24 @@ def _generate_pdf(order, title):
             "amount": int(item.subtotal)
         })
 
-    # 合計計算
-    # 既存コードでは order.total_amount を使用していた。
-    # 明細の合計と order.total_amount が一致するかはデータ次第だが、
-    # ここでは明細の積み上げを小計とする。
-    subtotal_val = sum(item["amount"] for item in items)
-    
-    # 消費税
-    # データ構造に税情報が見当たらないため、一旦 0円 (内税想定) とする
-    # 必要に応じて tax_rate = 0.08 等で計算するロジックに変更可能
-    tax_val = 0 
-    
-    # 合計金額
-    # order.total_amount を優先する（端数処理済みなどの可能性があるため）
-    # もし order.total_amount と subtotal_val が大きく異なる場合は注意が必要だが、
-    # ここでは order.total_amount を信頼しつつ、表示上の整合性を取る
+    # 合計金額 (税込)
+    # order.total_amount を正とする
     total_val = int(order.total_amount)
     
-    # もし subtotal != total なら調整 (例: 送料など)
-    # 今回は単純化のため、subtotalを表示し、totalを表示する。
-    # 消費税欄が0だと不自然なら、(total - subtotal) を税とする手もあるが、
-    # 既存ロジックに合わせておく。
+    # 消費税計算 (バック計算)
+    # 税率8%と仮定して、合計金額から税額を割り出す
+    # 本体価格 = 合計 / 1.08
+    # 消費税 = 合計 - 本体価格
+    # B2Bの場合、端数処理などがあるが、ここでは簡易的にバック計算で税額を表示する
+    tax_val = int(order.tax_amount)
+    if tax_val == 0:
+        # DBに税額が入っていない場合、合計金額から割り戻す (切り捨て)
+        price_excl_tax = math.ceil(total_val / 1.08)
+        tax_val = total_val - price_excl_tax
+        subtotal_val = price_excl_tax
+    else:
+        # DBに税額がある場合
+        subtotal_val = total_val - tax_val
     
     # 発行元情報
     sender_info = {
@@ -104,15 +100,11 @@ def _generate_pdf(order, title):
         "type": "普通",
         "number": "4792089"
     }
-    # 納品書の場合は振込先を表示しないなどの制御も可能だが、
-    # HTMLテンプレート上は表示される構造になっている。
-    # 空文字を渡せば非表示っぽくなるが、レイアウトが崩れる可能性がある。
-    # 今回はそのまま表示するか、"-"にする。
     if title != "請求書":
         bank_info = {k: "" for k in bank_info}
 
     context = {
-        "title": title, # "請求書" or "納品書" (HTML側で 請求書 と書かれていた部分を置換済み)
+        "title": title,
         "invoice_date": invoice_date.strftime('%Y/%m/%d'),
         "invoice_number": f"{1000 + order.id}",
         "client_name": order.restaurant.name,
