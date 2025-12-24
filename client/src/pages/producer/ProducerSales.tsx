@@ -1,27 +1,40 @@
-import { useState } from 'react';
-import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, ShoppingBag, Download } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, ShoppingBag, Download, Loader2 } from 'lucide-react';
+import { format } from 'date-fns';
+import { producerApi } from '../../services/api';
+
+type SalesData = {
+    totalSales: number;
+    lastMonthSales: number;
+    totalOrders: number;
+    avgOrderPrice: number;
+    dailySales: { day: number; amount: number }[];
+    topProducts: { name: string; amount: number; count: number }[];
+};
 
 export default function ProducerSales() {
+    const { farmerId } = useOutletContext<{ farmerId: number }>();
     const [currentMonth, setCurrentMonth] = useState(new Date());
+    const [data, setData] = useState<SalesData | null>(null);
+    const [loading, setLoading] = useState(true);
 
-    // Mock Data
-    const mockData = {
-        totalSales: 1254000,
-        lastMonthSales: 1080000,
-        totalOrders: 45,
-        avgOrderPrice: 27866,
-        topProducts: [
-            { name: 'フルーツトマト', amount: 450000, count: 150 },
-            { name: 'キャベツ', amount: 320000, count: 80 },
-            { name: '人参', amount: 180000, count: 60 },
-            { name: 'きゅうり', amount: 120000, count: 120 },
-            { name: 'ナス', amount: 85000, count: 50 },
-        ],
-        dailySales: Array.from({ length: 30 }, (_, i) => ({
-            day: i + 1,
-            amount: Math.floor(Math.random() * 80000) + 10000
-        }))
-    };
+    useEffect(() => {
+        const fetchSales = async () => {
+            setLoading(true);
+            try {
+                const monthStr = format(currentMonth, 'yyyy-MM');
+                const response = await producerApi.getSales(farmerId, monthStr);
+                setData(response.data);
+            } catch (error) {
+                console.error("Failed to fetch sales data:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchSales();
+    }, [currentMonth, farmerId]);
 
     const nextMonth = () => {
         const d = new Date(currentMonth);
@@ -39,7 +52,21 @@ export default function ProducerSales() {
         return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(val);
     };
 
-    const maxDaily = Math.max(...mockData.dailySales.map(d => d.amount));
+    if (loading) {
+        return <div className="flex justify-center p-20"><Loader2 className="animate-spin text-green-600" /></div>;
+    }
+
+    if (!data) {
+        return <div className="text-center p-10 text-gray-500">データが読み込めませんでした</div>;
+    }
+
+    const maxDaily = Math.max(...data.dailySales.map(d => d.amount), 1); // Avoid div by zero
+
+    // Calculate growth rate
+    const growthRate = data.lastMonthSales > 0
+        ? ((data.totalSales - data.lastMonthSales) / data.lastMonthSales * 100).toFixed(1)
+        : data.totalSales > 0 ? '100.0' : '0.0';
+    const isPositive = parseFloat(growthRate) >= 0;
 
     return (
         <div className="space-y-6 pb-20">
@@ -72,10 +99,10 @@ export default function ProducerSales() {
                         月間売上
                     </div>
                     <div className="text-xl font-bold text-gray-800">
-                        {formatCurrency(mockData.totalSales)}
+                        {formatCurrency(data.totalSales)}
                     </div>
-                    <div className="text-xs text-green-600 mt-1 font-medium">
-                        先月比 +15.2%
+                    <div className={`text-xs mt-1 font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                        先月比 {isPositive ? '+' : ''}{growthRate}%
                     </div>
                 </div>
                 <div className="bg-white p-4 rounded-xl shadow border-l-4 border-blue-500">
@@ -84,10 +111,10 @@ export default function ProducerSales() {
                         注文数
                     </div>
                     <div className="text-xl font-bold text-gray-800">
-                        {mockData.totalOrders}件
+                        {data.totalOrders}件
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
-                        平均単価: {formatCurrency(mockData.avgOrderPrice)}
+                        平均単価: {formatCurrency(data.avgOrderPrice)}
                     </div>
                 </div>
             </div>
@@ -96,7 +123,7 @@ export default function ProducerSales() {
             <div className="bg-white p-4 rounded-xl shadow">
                 <h3 className="font-bold text-gray-800 mb-4 text-sm">日別売上推移</h3>
                 <div className="h-40 flex items-end justify-between space-x-1">
-                    {mockData.dailySales.map((d, i) => (
+                    {data.dailySales.map((d, i) => (
                         <div key={d.day} className="flex-1 flex flex-col items-center group relative">
                             {/* Tooltip */}
                             <div className="absolute bottom-full mb-1 bg-gray-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
@@ -120,25 +147,31 @@ export default function ProducerSales() {
                     <h3 className="font-bold text-gray-800 text-sm">商品別売上ランキング</h3>
                 </div>
                 <div>
-                    {mockData.topProducts.map((p, i) => (
-                        <div key={p.name} className="flex items-center p-4 border-b border-gray-50 last:border-0">
-                            <div className={`
-                                w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mr-3
-                                ${i === 0 ? 'bg-yellow-100 text-yellow-700' :
-                                    i === 1 ? 'bg-gray-100 text-gray-700' :
-                                        i === 2 ? 'bg-orange-100 text-orange-700' : 'bg-white text-gray-500'}
-                            `}>
-                                {i + 1}
+                    {data.topProducts.length > 0 ? (
+                        data.topProducts.map((p, i) => (
+                            <div key={p.name} className="flex items-center p-4 border-b border-gray-50 last:border-0">
+                                <div className={`
+                                    w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mr-3
+                                    ${i === 0 ? 'bg-yellow-100 text-yellow-700' :
+                                        i === 1 ? 'bg-gray-100 text-gray-700' :
+                                            i === 2 ? 'bg-orange-100 text-orange-700' : 'bg-white text-gray-500'}
+                                `}>
+                                    {i + 1}
+                                </div>
+                                <div className="flex-1">
+                                    <div className="font-bold text-sm text-gray-800">{p.name}</div>
+                                    <div className="text-xs text-gray-500">{p.count}点販売</div>
+                                </div>
+                                <div className="font-bold text-gray-800 text-sm">
+                                    {formatCurrency(p.amount)}
+                                </div>
                             </div>
-                            <div className="flex-1">
-                                <div className="font-bold text-sm text-gray-800">{p.name}</div>
-                                <div className="text-xs text-gray-500">{p.count}点販売</div>
-                            </div>
-                            <div className="font-bold text-gray-800 text-sm">
-                                {formatCurrency(p.amount)}
-                            </div>
+                        ))
+                    ) : (
+                        <div className="p-4 text-center text-gray-400 text-sm">
+                            データがありません
                         </div>
-                    ))}
+                    )}
                 </div>
             </div>
 
