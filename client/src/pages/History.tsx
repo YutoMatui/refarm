@@ -73,8 +73,8 @@ export default function History() {
           <button
             onClick={() => setActiveTab('history')}
             className={`flex-1 flex items-center justify-center py-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'history'
-              ? 'border-green-600 text-green-700 bg-green-50'
-              : 'border-transparent text-gray-500 hover:bg-gray-50'
+                ? 'border-green-600 text-green-700 bg-green-50'
+                : 'border-transparent text-gray-500 hover:bg-gray-50'
               }`}
           >
             <HistoryIcon size={18} className="mr-2" />
@@ -83,8 +83,8 @@ export default function History() {
           <button
             onClick={() => setActiveTab('favorites')}
             className={`flex-1 flex items-center justify-center py-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'favorites'
-              ? 'border-green-600 text-green-700 bg-green-50'
-              : 'border-transparent text-gray-500 hover:bg-gray-50'
+                ? 'border-green-600 text-green-700 bg-green-50'
+                : 'border-transparent text-gray-500 hover:bg-gray-50'
               }`}
           >
             <Heart size={18} className="mr-2" />

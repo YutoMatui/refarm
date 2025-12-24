@@ -46,6 +46,8 @@ export default function FarmerDetail() {
 
     const products = productsData?.items || [];
 
+    // Removed unused displayRecommended
+
     const articleUrls = farmer.article_url || []
     const videoUrls = farmer.video_url || []
 
