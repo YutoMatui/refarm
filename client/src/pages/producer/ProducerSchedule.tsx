@@ -51,12 +51,8 @@ export default function ProducerSchedule() {
 
     // Calculate padding days for grid alignment (start on correct weekday)
     const startDayOfWeek = monthStart.getDay(); // 0 (Sun) to 6 (Sat)
-    // Adjust for Monday start if needed (Japanese calendar usually starts Sunday or Monday)
-    // Let's assume Sunday start for standard calendar view, but code below uses Sunday start by default grid
-    // If we want Monday start: (startDayOfWeek + 6) % 7
     
-    // Grid alignment: Standard calendar grid often includes prev/next month days to fill 6 rows (42 cells)
-    // For simplicity, let's just pad empty cells at the start
+    // Grid alignment
     const emptyStartDays = Array.from({ length: startDayOfWeek });
 
     return (
@@ -86,7 +82,7 @@ export default function ProducerSchedule() {
                     ))}
                 </div>
 
-                <div className="grid grid-cols-7 gap-1">
+                <div className="grid grid-cols-7 gap-1 auto-rows-fr">
                     {emptyStartDays.map((_, i) => <div key={`empty-${i}`} />)}
                     
                     {daysInMonth.map((day) => {
@@ -106,9 +102,6 @@ export default function ProducerSchedule() {
                                 <span className={`text-sm ${isSelected ? 'font-bold' : ''}`}>
                                     {format(day, 'd')}
                                 </span>
-                                {/* We could add dots/indicators here if we fetch monthly summary first, 
-                                    but for now we only fetch daily details. 
-                                    Optimally we would need a separate API for "monthly busy days" */}
                             </button>
                         );
                     })}

@@ -20,6 +20,7 @@ import ProductDetail from './pages/ProductDetail'
 import FarmerDetail from './pages/FarmerDetail'
 import Register from './pages/Register'
 import Admin from './pages/Admin'
+import Home from './pages/Home'
 import ProducerLayout from './components/ProducerLayout'
 import ProducerDashboard from './pages/producer/ProducerDashboard'
 import ProductForm from './pages/producer/ProductForm'
@@ -163,7 +164,7 @@ function App() {
             </AuthGuard>
           }>
             {/* New Routing Structure */}
-            <Route index element={<Navigate to="/history" replace />} /> {/* Default to history as requested */}
+            <Route index element={<Home />} />
             <Route path="history" element={<History />} />
             <Route path="products" element={<ProductSearchLayout />} />
             <Route path="farmers" element={<Farmers />} />
