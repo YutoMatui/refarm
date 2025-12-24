@@ -9,7 +9,7 @@ import { useStore } from './store/useStore'
 import { authApi } from './services/api'
 import { liffService } from './services/liff'
 import Layout from './components/Layout'
-import VegetableList from './pages/VegetableList'
+import ProductSearchLayout from './pages/ProductSearchLayout'
 import History from './pages/History'
 import Favorites from './pages/Favorites'
 import Farmers from './pages/Farmers'
@@ -162,13 +162,15 @@ function App() {
               <Layout />
             </AuthGuard>
           }>
-            <Route index element={<Navigate to="/catalog" replace />} />
+            {/* New Routing Structure */}
+            <Route index element={<Navigate to="/history" replace />} /> {/* Default to history as requested */}
             <Route path="history" element={<History />} />
-            <Route path="favorites" element={<Favorites />} />
-            <Route path="catalog" element={<VegetableList />} />
+            <Route path="products" element={<ProductSearchLayout />} />
             <Route path="farmers" element={<Farmers />} />
             <Route path="farmers/:id" element={<FarmerDetail />} />
             <Route path="mypage" element={<MyPage />} />
+            {/* Kept for backward compatibility if needed, but navigation points to above */}
+            <Route path="favorites" element={<Favorites />} />
           </Route>
 
           <Route path="/cart" element={
