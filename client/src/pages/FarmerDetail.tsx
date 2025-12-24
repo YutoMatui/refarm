@@ -45,8 +45,8 @@ export default function FarmerDetail() {
     if (!farmer) return <div className="p-8 text-center text-gray-500">生産者が見つかりません</div>;
 
     const products = productsData?.items || [];
-    const recommendedProducts = products.filter(p => p.is_featured === 1).slice(0, 3);
-    const displayRecommended = recommendedProducts.length > 0 ? recommendedProducts : products.slice(0, 3);
+    
+    // Removed unused displayRecommended
 
     const articleUrls = farmer.article_url || []
     const videoUrls = farmer.video_url || []

@@ -5,7 +5,7 @@ import { useStore } from '@/store/useStore'
 import { Product, Order, TaxRate, StockType } from '@/types'
 import ProductCard from '@/components/ProductCard'
 import Loading from '@/components/Loading'
-import { RotateCcw, TrendingUp, Users, ChevronRight, Sparkles } from 'lucide-react'
+import { RotateCcw, Users, ChevronRight, Sparkles } from 'lucide-react'
 
 export default function Dashboard() {
   const { restaurant, addToCart } = useStore()
