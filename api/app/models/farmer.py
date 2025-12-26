@@ -113,6 +113,30 @@ class Farmer(Base, TimestampMixin, SoftDeleteMixin):
         comment="認証情報 (JAS有機など)"
     )
 
+    # New fields for detail page enhancement
+    cover_photo_url = Column(
+        String(500),
+        nullable=True,
+        comment="背景（カバー）画像URL"
+    )
+
+    commitments = Column(
+        JSON,
+        nullable=True,
+        comment="こだわり情報 (JSON Array: [{title, body, image_url}])"
+    )
+
+    achievements = Column(
+        JSON,
+        nullable=True,
+        comment="実績リスト (JSON Array: [string])"
+    )
+
+    chef_comments = Column(
+        JSON,
+        nullable=True,
+        comment="シェフからのコメント (JSON Array: [{comment, chef_name, restaurant_name, image_url}])"
+    )
 
     kodawari = Column(
         String(1000),

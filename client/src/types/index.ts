@@ -74,6 +74,7 @@ export interface Farmer extends TimestampFields {
   name: string
   main_crop?: string | null
   profile_photo_url?: string | null
+  cover_photo_url?: string | null
   bio?: string | null
   map_url?: string | null
   email?: string | null
@@ -81,6 +82,9 @@ export interface Farmer extends TimestampFields {
   address?: string | null
   farming_method?: string | null
   certifications?: string | null
+  commitments?: any[] | null
+  achievements?: string[] | null
+  chef_comments?: any[] | null
   article_url?: string[]
   video_url?: string[]
   kodawari?: string | null

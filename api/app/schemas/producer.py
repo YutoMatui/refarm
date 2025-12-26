@@ -28,4 +28,8 @@ class ProducerProfileUpdate(BaseModel):
     name: Optional[str] = Field(None, description="農園名")
     bio: Optional[str] = Field(None, description="紹介文")
     profile_photo_url: Optional[str] = Field(None, description="プロフィール画像")
+    cover_photo_url: Optional[str] = Field(None, description="背景（カバー）画像")
     address: Optional[str] = Field(None, description="所在地")
+    commitments: Optional[list] = Field(None, description="こだわり情報")
+    achievements: Optional[list] = Field(None, description="実績リスト")
+    chef_comments: Optional[list] = Field(None, description="シェフからのコメント")

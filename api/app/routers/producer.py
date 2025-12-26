@@ -202,7 +202,7 @@ async def get_producer_schedule(
         {
             "id": f"ship_{i}",
             "name": row.name,
-            "amount": int(row.total_quantity),
+            "amount": int(row.total_quantity or 0),
             "unit": row.unit,
             "type": "shipping"
         }
@@ -233,7 +233,7 @@ async def get_producer_schedule(
         {
             "id": f"prep_{i}",
             "name": row.name,
-            "amount": int(row.total_quantity),
+            "amount": int(row.total_quantity or 0),
             "unit": row.unit,
             "type": "preparation"
         }
