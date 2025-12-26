@@ -110,7 +110,7 @@ export default function MyPage() {
     const newItems = [...editingOrder.items]
     if (existingItemIndex >= 0) {
       // Increment quantity
-      newItems[existingItemIndex].quantity += 1
+      newItems[existingItemIndex].quantity = Number(newItems[existingItemIndex].quantity) + 1
     } else {
       // Add new item (mocking OrderItem structure for UI)
       const newItem: any = {
@@ -166,7 +166,7 @@ export default function MyPage() {
     const items = editingOrder.items.map(item => ({
       product_id: item.product_id,
       quantity: item.quantity
-    })).filter(item => item.quantity > 0)
+    })).filter(item => Number(item.quantity) > 0)
 
     if (items.length === 0) {
       toast.error('商品が1つもありません。キャンセルしてください。')
