@@ -3,15 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { farmerApi, productApi } from '@/services/api';
 import { Farmer, Product } from '@/types';
-import { useStore } from '@/store/useStore';
 import {
-    ArrowLeft, Loader2, Leaf, PlayCircle, ExternalLink, ShoppingCart, ChefHat
+    ArrowLeft, Loader2, Leaf, PlayCircle, ExternalLink, ChefHat
 } from 'lucide-react';
+import ProductCard from '@/components/ProductCard';
 
 export default function FarmerDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { addToCart } = useStore();
     const [farmer, setFarmer] = useState<Farmer | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -42,10 +41,6 @@ export default function FarmerDetail() {
         },
         enabled: !!id
     });
-
-    const handleAddToCart = (product: Product) => {
-        addToCart(product, 1);
-    };
 
     if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="w-8 h-8 animate-spin text-green-600" /></div>;
     if (!farmer) return <div className="p-8 text-center text-gray-500">生産者が見つかりません</div>;
@@ -142,39 +137,9 @@ export default function FarmerDetail() {
                         <h2 className="text-lg font-bold text-gray-900">販売中の野菜</h2>
 
                         {products.length > 0 ? (
-                            <div className="flex overflow-x-auto space-x-3 pb-2 -mx-4 px-4 scrollbar-hide">
+                            <div className="grid grid-cols-2 gap-3">
                                 {products.map((product: Product) => (
-                                    <div
-                                        key={product.id}
-                                        className="flex-shrink-0 w-40 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden"
-                                    >
-                                        <div
-                                            onClick={() => navigate(`/products/${product.id}`)}
-                                            className="cursor-pointer"
-                                        >
-                                            <div className="relative aspect-square bg-gray-100">
-                                                {product.image_url ? (
-                                                    <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center bg-gray-50">
-                                                        <Leaf className="w-8 h-8 text-gray-300" />
-                                                    </div>
-                                                )}
-                                                {/* 商品名と価格オーバーレイ */}
-                                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 pt-6">
-                                                    <p className="text-white font-bold text-sm truncate">{product.name}</p>
-                                                    <p className="text-white/90 text-xs">¥{Math.floor(Number(product.price)).toLocaleString()}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => handleAddToCart(product)}
-                                            className="w-full py-2.5 bg-green-600 text-white text-sm font-bold flex items-center justify-center gap-1 hover:bg-green-700 active:bg-green-800 transition-colors"
-                                        >
-                                            <ShoppingCart size={14} />
-                                            カートに入れる
-                                        </button>
-                                    </div>
+                                    <ProductCard key={product.id} product={product} />
                                 ))}
                             </div>
                         ) : (
