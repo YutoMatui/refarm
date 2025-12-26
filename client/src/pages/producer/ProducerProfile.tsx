@@ -1,21 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { Camera, Save, Loader2, MapPin, Image as ImageIcon, Plus, Trash2 } from 'lucide-react';
+import { Camera, Save, Loader2, MapPin, Image as ImageIcon } from 'lucide-react';
 import { producerApi, uploadApi } from '../../services/api';
 import { toast } from 'sonner';
+import ChefCommentsEditor from '@/components/ChefCommentsEditor';
+import { ChefComment } from '@/types';
 import { compressImage } from '../../utils/imageUtils';
-
-interface Commitment {
-    title: string;
-    body: string;
-    image: string;
-}
 
 interface ProfileFormData {
     bio: string;
     address: string;
     name: string;
+    kodawari: string;
 }
 
 export default function ProducerProfile() {
@@ -23,8 +20,9 @@ export default function ProducerProfile() {
     const [loading, setLoading] = useState(true);
     const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
     const [coverPhotoUrl, setCoverPhotoUrl] = useState('');
-    const [commitments, setCommitments] = useState<Commitment[]>([]);
     const [uploading, setUploading] = useState(false);
+
+    const [chefComments, setChefComments] = useState<ChefComment[]>([]);
 
     const profileInputRef = useRef<HTMLInputElement>(null);
     const coverInputRef = useRef<HTMLInputElement>(null);
@@ -42,9 +40,10 @@ export default function ProducerProfile() {
             setValue('name', f.name);
             setValue('bio', f.bio || '');
             setValue('address', f.address || '');
+            setValue('kodawari', f.kodawari || '');
             setProfilePhotoUrl(f.profile_photo_url || '');
             setCoverPhotoUrl(f.cover_photo_url || '');
-            setCommitments(f.commitments || []);
+            setChefComments(f.chef_comments || []);
         } catch (e) {
             console.error(e);
             toast.error('プロフィールの取得に失敗しました');
@@ -76,48 +75,13 @@ export default function ProducerProfile() {
         }
     };
 
-    const handleCommitmentImageChange = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        setUploading(true);
-        try {
-            // Compress image before upload
-            const compressedFile = await compressImage(file);
-            const res = await uploadApi.uploadImage(compressedFile);
-            const newCommitments = [...commitments];
-            newCommitments[index].image = res.data.url;
-            setCommitments(newCommitments);
-            toast.success('画像をアップロードしました');
-        } catch (e) {
-            console.error('Upload error:', e);
-            toast.error('アップロード失敗');
-        } finally {
-            setUploading(false);
-        }
-    };
-
-    const addCommitment = () => {
-        setCommitments([...commitments, { title: '', body: '', image: '' }]);
-    };
-
-    const removeCommitment = (index: number) => {
-        setCommitments(commitments.filter((_, i) => i !== index));
-    };
-
-    const updateCommitment = (index: number, field: keyof Commitment, value: string) => {
-        const newCommitments = [...commitments];
-        newCommitments[index] = { ...newCommitments[index], [field]: value };
-        setCommitments(newCommitments);
-    };
-
     const onSubmit = async (data: ProfileFormData) => {
         try {
             await producerApi.updateProfile(farmerId, {
                 ...data,
                 profile_photo_url: profilePhotoUrl,
                 cover_photo_url: coverPhotoUrl,
-                commitments: commitments
+                chef_comments: chefComments
             });
             toast.success('プロフィールを更新しました');
             await loadProfile();
@@ -219,85 +183,30 @@ export default function ProducerProfile() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1.5">紹介文 (こだわり)</label>
+                        <label className="block text-sm font-bold text-gray-700 mb-1.5">紹介文 (Bio)</label>
                         <textarea
                             {...register('bio')}
-                            rows={6}
+                            rows={4}
                             className="w-full border border-gray-300 rounded-xl p-3.5 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
                             placeholder="私たちの農園では..."
                         />
                     </div>
 
-                    {/* Commitments Editor */}
-                    <div className="pt-4 space-y-4">
-                        <div className="flex items-center justify-between">
-                            <label className="block text-sm font-bold text-gray-700">こだわり情報 (画像付き)</label>
-                            <button
-                                type="button"
-                                onClick={addCommitment}
-                                className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-full flex items-center gap-1 hover:bg-green-100 transition-all"
-                            >
-                                <Plus size={14} /> 追加
-                            </button>
-                        </div>
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1.5">こだわり (Kodawari)</label>
+                        <textarea
+                            {...register('kodawari')}
+                            rows={4}
+                            className="w-full border border-gray-300 rounded-xl p-3.5 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
+                            placeholder="栽培方法や味へのこだわり..."
+                        />
+                    </div>
 
-                        {commitments.length === 0 && (
-                            <p className="text-xs text-gray-400 text-center py-4 border-2 border-dashed border-gray-100 rounded-xl">
-                                こだわり情報はまだありません。追加ボタンから作成できます。
-                            </p>
-                        )}
-
-                        <div className="space-y-6">
-                            {commitments.map((item, index) => (
-                                <div key={index} className="bg-gray-50 rounded-2xl p-4 relative group">
-                                    <button
-                                        type="button"
-                                        onClick={() => removeCommitment(index)}
-                                        className="absolute -top-2 -right-2 bg-red-100 text-red-600 p-1.5 rounded-full shadow-sm hover:bg-red-200 transition-all"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
-
-                                    <div className="space-y-3">
-                                        <div
-                                            onClick={() => document.getElementById(`commitment-file-${index}`)?.click()}
-                                            className="w-full h-32 rounded-xl bg-white border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden cursor-pointer relative"
-                                        >
-                                            {item.image ? (
-                                                <img src={item.image} className="w-full h-full object-cover" alt="commitment" />
-                                            ) : (
-                                                <div className="flex flex-col items-center text-gray-400">
-                                                    <Camera size={24} />
-                                                    <span className="text-[10px] mt-1">画像をアップロード</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <input
-                                            id={`commitment-file-${index}`}
-                                            type="file"
-                                            accept="image/*"
-                                            className="hidden"
-                                            onChange={(e) => handleCommitmentImageChange(e, index)}
-                                        />
-
-                                        <input
-                                            value={item.title}
-                                            onChange={(e) => updateCommitment(index, 'title', e.target.value)}
-                                            placeholder="見出し (例: 土作りへのこだわり)"
-                                            className="w-full text-sm font-bold bg-white border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-green-500 outline-none"
-                                        />
-
-                                        <textarea
-                                            value={item.body}
-                                            onChange={(e) => updateCommitment(index, 'body', e.target.value)}
-                                            placeholder="説明文を入力してください..."
-                                            rows={3}
-                                            className="w-full text-sm bg-white border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-green-500 outline-none"
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                    <div className="border-t border-gray-100 pt-6 mt-6">
+                        <ChefCommentsEditor
+                            comments={chefComments}
+                            onChange={setChefComments}
+                        />
                     </div>
                 </div>
 

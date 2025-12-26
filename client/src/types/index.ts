@@ -68,6 +68,14 @@ export interface Restaurant extends TimestampFields {
   delivery_window_end?: string
 }
 
+// Chef Comment
+export interface ChefComment {
+  chef_name: string
+  restaurant_name: string
+  comment: string
+  image_url?: string
+}
+
 // Farmer
 export interface Farmer extends TimestampFields {
   id: number
@@ -82,9 +90,6 @@ export interface Farmer extends TimestampFields {
   address?: string | null
   farming_method?: string | null
   certifications?: string | null
-  commitments?: any[] | null
-  achievements?: string[] | null
-  chef_comments?: any[] | null
   article_url?: string[]
   video_url?: string[]
   kodawari?: string | null
@@ -92,6 +97,9 @@ export interface Farmer extends TimestampFields {
   is_active: number
   latitude?: string
   longitude?: string
+  commitments?: any[] // Should be typed properly later
+  achievements?: string[]
+  chef_comments?: ChefComment[]
 }
 
 // Product
@@ -232,7 +240,7 @@ export interface FavoriteToggleResponse {
 // Procurement Summary (Daily Aggregation)
 export interface AggregatedProduct {
   product_name: string
-  quantity: number | string
+  quantity: string
   unit: string
 }
 
