@@ -392,6 +392,7 @@ export const uploadApi = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 60000, // Increase timeout for uploads to 60s
     })
   },
 }
