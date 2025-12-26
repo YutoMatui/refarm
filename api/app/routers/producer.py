@@ -187,7 +187,8 @@ async def get_producer_schedule(
             Product.unit,
             func.sum(OrderItem.quantity).label("total_quantity")
         )
-        .join(OrderItem, Order.id == OrderItem.order_id)
+        .select_from(OrderItem)
+        .join(Order, Order.id == OrderItem.order_id)
         .join(Product, OrderItem.product_id == Product.id)
         .where(
             Product.farmer_id == farmer_id,
@@ -218,7 +219,8 @@ async def get_producer_schedule(
             Product.unit,
             func.sum(OrderItem.quantity).label("total_quantity")
         )
-        .join(OrderItem, Order.id == OrderItem.order_id)
+        .select_from(OrderItem)
+        .join(Order, Order.id == OrderItem.order_id)
         .join(Product, OrderItem.product_id == Product.id)
         .where(
             Product.farmer_id == farmer_id,
