@@ -3,19 +3,26 @@ import { useQuery } from '@tanstack/react-query'
 import { productApi, orderApi, farmerApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
 import { Product, Order, TaxRate, StockType } from '@/types'
-import ProductCard from '@/components/ProductCard'
 import Loading from '@/components/Loading'
-import { RotateCcw, Users, ChevronRight, Sparkles, ShoppingBag, Leaf } from 'lucide-react'
+import { Leaf } from 'lucide-react'
 
 export default function Dashboard() {
     const { restaurant, addToCart } = useStore()
     const navigate = useNavigate()
 
-    // --- Data Fetching (Logic remains the same) ---
+    // --- Data Fetching ---
     const { data: featuredData, isLoading: isFeaturedLoading } = useQuery({
         queryKey: ['featured-products'],
         queryFn: async () => {
             const response = await productApi.list({ is_featured: 1, limit: 6 })
+            return response.data
+        },
+    })
+
+    const { data: newProductsData, isLoading: isNewProductsLoading } = useQuery({
+        queryKey: ['new-products'],
+        queryFn: async () => {
+            const response = await productApi.list({ is_active: 1, limit: 6 })
             return response.data
         },
     })
@@ -33,12 +40,12 @@ export default function Dashboard() {
     const { data: farmersData, isLoading: isFarmersLoading } = useQuery({
         queryKey: ['popular-farmers'],
         queryFn: async () => {
-            const response = await farmerApi.list({ limit: 5 })
+            const response = await farmerApi.list({ limit: 6 })
             return response.data
         },
     })
 
-    const isLoading = isFeaturedLoading || isOrderLoading || isFarmersLoading
+    const isLoading = isFeaturedLoading || isOrderLoading || isFarmersLoading || isNewProductsLoading
     const latestOrder = latestOrderData?.items?.[0]
     const isRepeater = !!latestOrder
 
@@ -52,11 +59,11 @@ export default function Dashboard() {
                 unit: item.product_unit,
                 tax_rate: item.tax_rate === 8 ? TaxRate.REDUCED : TaxRate.STANDARD,
                 stock_type: StockType.KOBE,
-                price_with_tax: String(parseInt(item.unit_price) * (1 + item.tax_rate / 100)),
+                price_with_tax: String(parseFloat(String(item.unit_price)) * (1 + item.tax_rate / 100)),
                 is_kobe_veggie: false,
                 is_outlet: 0
             }
-            addToCart(product, item.quantity)
+            addToCart(product, Number(item.quantity))
             addedCount++
         })
 
@@ -65,180 +72,186 @@ export default function Dashboard() {
         }
     }
 
+    // 前回の注文商品名を取得（最大3つ + 残り数）
+    const getOrderSummary = (order: Order) => {
+        const items = order.items
+        if (items.length <= 3) {
+            return items.map(item => item.product_name).join(', ')
+        }
+        const firstThree = items.slice(0, 3).map(item => item.product_name).join(', ')
+        return `${firstThree} ほか${items.length - 3}点`
+    }
+
     if (isLoading) return <Loading message="旬の野菜を探しています..." />
 
     return (
-        <div className="bg-gray-50 min-h-screen pb-24 font-sans">
-            {/* Custom Animation Styles */}
-            <style>{`
-                @keyframes fade-in-up {
-                    0% { opacity: 0; transform: translateY(20px); }
-                    100% { opacity: 1; transform: translateY(0); }
-                }
-                .animate-enter { animation: fade-in-up 0.6s ease-out forwards; }
-                .animate-delay-100 { animation-delay: 0.1s; }
-                .animate-delay-200 { animation-delay: 0.2s; }
-                .animate-delay-300 { animation-delay: 0.3s; }
-            `}</style>
-
-            {/* --- Hero Section --- */}
-            <div className="relative h-72 w-full overflow-hidden rounded-b-[40px] shadow-lg animate-enter">
-                {/* Background Image with Overlay */}
-                <img
-                    src="https://images.unsplash.com/photo-1595855709957-bc0734007f5a?q=80&w=2070&auto=format&fit=crop"
-                    alt="Fresh Vegetables"
-                    className="absolute inset-0 w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-b from-green-900/60 to-green-800/90" />
-
-                {/* Content */}
-                <div className="relative h-full flex flex-col items-center justify-center text-center p-6 pt-10">
-                    <div className="mb-2 flex items-center justify-center space-x-2 bg-white/20 backdrop-blur-md px-4 py-1 rounded-full text-white text-xs font-bold tracking-wider border border-white/30">
-                        <Leaf size={14} />
-                        <span>KOBE VEGGIE WORKS</span>
+        <div className="bg-white min-h-screen pb-24 font-sans text-gray-800">
+            {/* --- Logo Header --- */}
+            <div className="flex justify-center pt-8 pb-6">
+                <div className="flex flex-col items-center">
+                    {/* Logo Circle */}
+                    <div className="w-24 h-24 rounded-full border border-gray-100 flex items-center justify-center bg-white shadow-[0_2px_10px_rgba(0,0,0,0.05)] mb-2">
+                        <div className="flex flex-col items-center justify-center">
+                            <div className="relative">
+                                <Leaf className="w-8 h-8 text-green-500 transform -rotate-12" fill="currentColor" />
+                                <div className="absolute -top-1 -right-2 text-blue-400">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                                    </svg>
+                                </div>
+                            </div>
+                            <div className="text-center mt-1">
+                                <span className="block text-sm font-extrabold text-green-600 leading-none tracking-tight">ベジ</span>
+                                <span className="block text-sm font-extrabold text-blue-500 leading-none tracking-tight">コベ</span>
+                            </div>
+                        </div>
                     </div>
-
-                    <h1 className="text-4xl font-extrabold text-white mb-2 tracking-tight drop-shadow-md">
-                        ベジコベ
-                    </h1>
-
-                    <p className="text-green-50 text-sm font-medium opacity-90 mb-6 max-w-xs mx-auto leading-relaxed whitespace-pre-wrap">
-                        {isRepeater
-                            ? `${restaurant?.name}様、今日もお疲れ様です。\n旬の食材が入荷しています。`
-                            : '神戸の採れたて野菜を、\nお店のキッチンへ直送します。'}
-                    </p>
+                    <p className="text-[10px] text-gray-400 font-medium tracking-wide">KOBE Veggie Ecosystem</p>
                 </div>
             </div>
 
-            {/* --- Main Content Container (Overlapping Hero) --- */}
-            <div className="px-4 -mt-16 relative z-10 space-y-6">
+            {/* --- Main Content --- */}
+            <div className="px-5 space-y-8">
 
-                {/* 1. Action Card (Reorder or Guide) */}
-                <div className="animate-enter animate-delay-100">
-                    {isRepeater && latestOrder ? (
-                        <div className="bg-white rounded-2xl p-5 shadow-xl border border-green-50 relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-green-100 rounded-bl-full -mr-10 -mt-10 opacity-50 group-hover:scale-110 transition-transform" />
-
-                            <div className="relative z-10">
-                                <div className="flex items-center justify-between mb-3">
-                                    <div className="flex items-center space-x-2 text-green-700 font-bold">
-                                        <RotateCcw size={18} />
-                                        <span>いつもの発注</span>
-                                    </div>
-                                    <span className="text-xs text-gray-400">
-                                        {new Date(latestOrder.created_at).toLocaleDateString('ja-JP')}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-end mb-4">
-                                    <p className="text-sm text-gray-500">前回と同じ内容で<br />素早くオーダーできます</p>
-                                    <p className="text-2xl font-bold text-gray-800">
-                                        ¥{parseInt(latestOrder.total_amount).toLocaleString()}
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={() => handleReorder(latestOrder)}
-                                    className="w-full bg-green-600 text-white font-bold py-3.5 rounded-xl shadow-md hover:bg-green-700 active:scale-[0.98] transition-all flex items-center justify-center space-x-2"
-                                >
-                                    <ShoppingBag size={18} />
-                                    <span>カートに入れる</span>
-                                </button>
+                {/* 1. いつもの発注カード（リピーター向け） */}
+                {isRepeater && latestOrder ? (
+                    <div className="bg-white rounded-2xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-gray-50">
+                        <h3 className="text-lg font-bold text-gray-900 mb-3">いつもの発注（前回の注文）</h3>
+                        <div className="mb-4">
+                            <div className="text-sm text-gray-600 mb-1">
+                                {new Date(latestOrder.created_at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}の注文：
+                            </div>
+                            <div className="text-sm text-gray-800 font-medium mb-2 line-clamp-2">
+                                {getOrderSummary(latestOrder)}
+                            </div>
+                            <div className="text-right">
+                                <span className="text-2xl font-bold text-gray-900">
+                                    ¥{Math.round(parseFloat(String(latestOrder.total_amount))).toLocaleString()}
+                                </span>
                             </div>
                         </div>
-                    ) : (
-                        <div className="bg-white rounded-2xl p-6 shadow-xl border border-green-50 text-center">
-                            <h3 className="text-lg font-bold text-gray-800 mb-2">はじめての方へ</h3>
-                            <p className="text-sm text-gray-500 mb-4">まずは一覧から気になる野菜を探してみましょう</p>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => navigate('/products')}
-                                    className="flex-1 bg-green-600 text-white font-bold py-3 rounded-xl shadow hover:bg-green-700 transition-colors"
-                                >
-                                    野菜を探す
-                                </button>
-                                <button
-                                    onClick={() => navigate('/farmers')}
-                                    className="flex-1 bg-white text-green-700 border border-green-200 font-bold py-3 rounded-xl shadow-sm hover:bg-green-50 transition-colors"
-                                >
-                                    生産者を見る
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* 2. Featured Products (Carousel styling) */}
-                <section className="animate-enter animate-delay-200">
-                    <div className="flex items-center justify-between mb-3 px-1">
-                        <h2 className="text-lg font-bold text-gray-800 flex items-center">
-                            <Sparkles className="w-5 h-5 text-yellow-400 mr-2" />
-                            <span>今週のおすすめ</span>
-                        </h2>
                         <button
-                            onClick={() => navigate('/products')}
-                            className="text-xs font-bold text-green-600 flex items-center hover:underline"
+                            onClick={() => handleReorder(latestOrder)}
+                            className="w-full bg-[#4a8a5a] text-white font-bold py-3.5 rounded-xl shadow-md hover:bg-[#3d7a4d] active:scale-[0.98] transition-all flex items-center justify-center text-sm"
                         >
-                            もっと見る <ChevronRight size={14} />
+                            この内容で再注文する
                         </button>
                     </div>
+                ) : (
+                    // 初回ユーザー向け
+                    <div className="bg-white rounded-2xl p-6 shadow-md border border-gray-100 text-center">
+                        <h3 className="text-lg font-bold text-gray-900 mb-2">ようこそ、ベジコベへ</h3>
+                        <p className="text-sm text-gray-500 mb-4">まずは一覧から気になる野菜を探してみましょう</p>
+                        <button
+                            onClick={() => navigate('/products')}
+                            className="w-full bg-[#4a8a5a] text-white font-bold py-3.5 rounded-xl shadow-md hover:bg-[#3d7a4d] transition-colors"
+                        >
+                            野菜を探す
+                        </button>
+                    </div>
+                )}
 
-                    {/* Use a slight negative margin to allow cards to bleed to edge if desired, keeping grid for now */}
-                    <div className="grid grid-cols-2 gap-4">
+                {/* 2. 旬のおすすめ食材（横スクロールカルーセル） */}
+                <section>
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold text-gray-900">旬のおすすめ食材</h2>
+                    </div>
+
+                    <div className="flex overflow-x-auto space-x-3 pb-4 -mx-5 px-5 scrollbar-hide">
                         {featuredData?.items?.map((product: Product) => (
-                            <ProductCard key={product.id} product={product} />
+                            <div
+                                key={product.id}
+                                onClick={() => navigate(`/products/${product.id}`)}
+                                className="flex-shrink-0 w-36 cursor-pointer active:scale-95 transition-transform"
+                            >
+                                <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 shadow-sm">
+                                    {product.image_url ? (
+                                        <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                                            <Leaf className="w-8 h-8 text-gray-300" />
+                                        </div>
+                                    )}
+                                    {/* グラデーションオーバーレイ */}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+
+                                    {/* テキスト情報 */}
+                                    <div className="absolute bottom-2 left-2 right-2 text-white">
+                                        <p className="font-bold text-sm truncate drop-shadow-md">{product.name}</p>
+                                        <p className="text-xs font-medium opacity-90">¥{Math.floor(Number(product.price)).toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            </div>
                         ))}
                     </div>
                     {featuredData?.items?.length === 0 && (
-                        <div className="bg-white rounded-xl p-8 text-center border border-dashed border-gray-300">
+                        <div className="bg-gray-50 rounded-xl p-8 text-center border border-dashed border-gray-200">
                             <p className="text-sm text-gray-400">ただいま準備中です</p>
                         </div>
                     )}
                 </section>
 
-                {/* 3. Popular Farmers */}
-                {!isRepeater && (
-                    <section className="animate-enter animate-delay-300 pb-8">
-                        <div className="flex items-center justify-between mb-3 px-1">
-                            <h2 className="text-lg font-bold text-gray-800 flex items-center">
-                                <Users className="w-5 h-5 text-blue-500 mr-2" />
-                                <span>人気の生産者</span>
-                            </h2>
-                            <button
-                                onClick={() => navigate('/farmers')}
-                                className="text-xs font-bold text-green-600 flex items-center hover:underline"
-                            >
-                                全員見る <ChevronRight size={14} />
-                            </button>
-                        </div>
+                {/* 3. 新着アイテム（横スクロール・コンパクト） */}
+                <section>
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold text-gray-900">新着アイテム</h2>
+                    </div>
 
-                        <div className="flex overflow-x-auto space-x-4 pb-4 px-1 -mx-4 px-4 scrollbar-hide">
-                            {farmersData?.items?.map((farmer: any) => (
-                                <div
-                                    key={farmer.id}
-                                    onClick={() => navigate(`/farmers/${farmer.id}`)}
-                                    className="flex-shrink-0 w-36 bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden active:scale-95 transition-all"
-                                >
-                                    <div className="h-28 bg-gray-200 relative">
-                                        {farmer.profile_photo_url ? (
-                                            <img src={farmer.profile_photo_url} alt={farmer.name} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-300 flex items-center justify-center">
-                                                <Users className="text-gray-400" />
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="p-3">
-                                        <h3 className="font-bold text-sm text-gray-800 truncate">{farmer.name}</h3>
-                                        <div className="flex items-center mt-1">
-                                            <span className="bg-green-100 text-green-800 text-[10px] px-2 py-0.5 rounded-full truncate">
-                                                {farmer.main_crop || '野菜全般'}
-                                            </span>
+                    <div className="flex overflow-x-auto space-x-6 pb-2 -mx-5 px-5 scrollbar-hide">
+                        {newProductsData?.items?.slice(0, 6).map((product: Product) => (
+                            <div
+                                key={product.id}
+                                onClick={() => navigate(`/products/${product.id}`)}
+                                className="flex-shrink-0 flex flex-col items-center space-y-2 cursor-pointer w-20 active:opacity-80 transition-opacity"
+                            >
+                                <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 shadow-sm border border-gray-100">
+                                    {product.image_url ? (
+                                        <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                                            <Leaf className="w-6 h-6 text-gray-300" />
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
-                            ))}
-                        </div>
-                    </section>
-                )}
+                                <div className="text-center w-full">
+                                    <p className="font-bold text-sm text-gray-900 truncate w-full">{product.name}</p>
+                                    <p className="text-[10px] text-gray-500">今日の収穫</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+
+                {/* 4. 地域の生産者（横スクロール・コンパクト） */}
+                <section className="pb-8">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold text-gray-900">地域の生産者</h2>
+                    </div>
+
+                    <div className="flex overflow-x-auto space-x-6 pb-2 -mx-5 px-5 scrollbar-hide">
+                        {farmersData?.items?.map((farmer: any) => (
+                            <div
+                                key={farmer.id}
+                                onClick={() => navigate(`/farmers/${farmer.id}`)}
+                                className="flex-shrink-0 flex flex-col items-center space-y-2 cursor-pointer w-20 active:opacity-80 transition-opacity"
+                            >
+                                <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 shadow-sm border border-gray-100">
+                                    {farmer.profile_photo_url ? (
+                                        <img src={farmer.profile_photo_url} alt={farmer.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400 text-xl">
+                                            👨‍🌾
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="text-center w-full">
+                                    <p className="font-bold text-sm text-gray-900 truncate w-full">{farmer.name}</p>
+                                    <p className="text-[10px] text-gray-500 truncate w-full">今日の収穫</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
             </div>
         </div>
     )
