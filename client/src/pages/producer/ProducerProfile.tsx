@@ -4,9 +4,6 @@ import { useForm } from 'react-hook-form';
 import { Camera, Save, Loader2, MapPin, Image as ImageIcon } from 'lucide-react';
 import { producerApi, uploadApi } from '../../services/api';
 import { toast } from 'sonner';
-import ChefCommentsEditor from '@/components/ChefCommentsEditor';
-import { ChefComment } from '@/types';
-import { compressImage } from '../../utils/imageUtils';
 
 interface ProfileFormData {
     bio: string;
@@ -21,8 +18,6 @@ export default function ProducerProfile() {
     const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
     const [coverPhotoUrl, setCoverPhotoUrl] = useState('');
     const [uploading, setUploading] = useState(false);
-
-    const [chefComments, setChefComments] = useState<ChefComment[]>([]);
 
     const profileInputRef = useRef<HTMLInputElement>(null);
     const coverInputRef = useRef<HTMLInputElement>(null);
@@ -43,7 +38,6 @@ export default function ProducerProfile() {
             setValue('kodawari', f.kodawari || '');
             setProfilePhotoUrl(f.profile_photo_url || '');
             setCoverPhotoUrl(f.cover_photo_url || '');
-            setChefComments(f.chef_comments || []);
         } catch (e) {
             console.error(e);
             toast.error('プロフィールの取得に失敗しました');
@@ -58,9 +52,7 @@ export default function ProducerProfile() {
 
         setUploading(true);
         try {
-            // Compress image before upload
-            const compressedFile = await compressImage(file);
-            const res = await uploadApi.uploadImage(compressedFile);
+            const res = await uploadApi.uploadImage(file);
             if (type === 'profile') {
                 setProfilePhotoUrl(res.data.url);
             } else {
@@ -68,7 +60,6 @@ export default function ProducerProfile() {
             }
             toast.success('画像をアップロードしました');
         } catch (e) {
-            console.error('Upload error:', e);
             toast.error('アップロード失敗');
         } finally {
             setUploading(false);
@@ -80,8 +71,7 @@ export default function ProducerProfile() {
             await producerApi.updateProfile(farmerId, {
                 ...data,
                 profile_photo_url: profilePhotoUrl,
-                cover_photo_url: coverPhotoUrl,
-                chef_comments: chefComments
+                cover_photo_url: coverPhotoUrl
             });
             toast.success('プロフィールを更新しました');
             await loadProfile();
@@ -203,10 +193,7 @@ export default function ProducerProfile() {
                     </div>
 
                     <div className="border-t border-gray-100 pt-6 mt-6">
-                        <ChefCommentsEditor
-                            comments={chefComments}
-                            onChange={setChefComments}
-                        />
+                        {/* ChefCommentsEditor removed as requested */}
                     </div>
                 </div>
 
