@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { farmerApi, productApi } from '@/services/api';
 import { Farmer, Product } from '@/types';
 import {
-    ArrowLeft, Loader2, Leaf, PlayCircle, ExternalLink, ChefHat
+    ArrowLeft, Loader2, Leaf, PlayCircle, ExternalLink, ChefHat, Heart
 } from 'lucide-react';
 import ProductCard from '@/components/ProductCard';
 
@@ -13,6 +13,8 @@ export default function FarmerDetail() {
     const navigate = useNavigate();
     const [farmer, setFarmer] = useState<Farmer | null>(null);
     const [loading, setLoading] = useState(true);
+
+    const [isFollowed, setIsFollowed] = useState(false);
 
     // タブ切り替えステート: 'products' | 'story'
     const [activeTab, setActiveTab] = useState<'products' | 'story'>('products');
@@ -150,13 +152,17 @@ export default function FarmerDetail() {
                             </div>
                         )}
 
-                        {/* フォロー・問い合わせボタン */}
-                        <div className="flex gap-3 pt-4">
-                            <button className="flex-1 py-3 border-2 border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-50 transition-colors">
-                                フォローする
-                            </button>
-                            <button className="flex-1 py-3 border-2 border-green-600 rounded-xl font-bold text-green-700 hover:bg-green-50 transition-colors">
-                                問い合わせ
+                        {/* フォローボタン */}
+                        <div className="pt-4">
+                            <button
+                                onClick={() => setIsFollowed(!isFollowed)}
+                                className={`w-full py-3 border-2 rounded-xl font-bold transition-colors flex items-center justify-center gap-2 ${isFollowed
+                                    ? 'border-green-600 bg-green-50 text-green-700 hover:bg-green-100'
+                                    : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                                    }`}
+                            >
+                                <Heart size={20} className={isFollowed ? "text-green-600 fill-green-600" : "text-gray-400"} />
+                                {isFollowed ? 'フォロー中' : 'この生産者をフォローする'}
                             </button>
                         </div>
                     </div>
