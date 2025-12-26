@@ -2,16 +2,17 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { farmerApi, productApi } from '@/services/api';
-import { Farmer } from '@/types';
+import { Farmer, Product } from '@/types';
+import { useStore } from '@/store/useStore';
 import {
-    ArrowLeft, MapPin, Loader2,
-    Award, Leaf, Sprout, ChefHat, Star, TrendingUp, PlayCircle, ExternalLink
+    ArrowLeft, Loader2, Leaf, PlayCircle, ExternalLink, ShoppingCart, Plus, MapPin, Sprout, TrendingUp, Star, Award, ChefHat
 } from 'lucide-react';
 import ProductCard from '@/components/ProductCard';
 
 export default function FarmerDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { addToCart } = useStore();
     const [farmer, setFarmer] = useState<Farmer | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -43,216 +44,294 @@ export default function FarmerDetail() {
         enabled: !!id
     });
 
+    const handleAddToCart = (product: Product) => {
+        addToCart(product, 1);
+    };
+
     if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="w-8 h-8 animate-spin text-green-600" /></div>;
     if (!farmer) return <div className="p-8 text-center text-gray-500">生産者が見つかりません</div>;
 
     const products = productsData?.items || [];
-    const featuredProducts = products.filter(p => p.is_featured === 1);
-    const displayFeatured = featuredProducts.length > 0 ? featuredProducts : products.slice(0, 3);
-    const otherProducts = featuredProducts.length > 0 ? products.filter(p => p.is_featured !== 1) : products.slice(3);
 
     // データ処理
     const commitments = (farmer.commitments || []) as any[];
-    const achievements = (farmer.achievements || []) as string[]; // Assume simple string array for now
+    const videoUrls = (farmer.video_url || []) as string[];
+    const articleUrls = (farmer.article_url || []) as string[];
+    const achievements = (farmer.achievements || []) as string[];
     const chefComments = (farmer.chef_comments || []) as any[];
 
     return (
-        <div className="bg-gray-50 min-h-screen pb-24 font-sans">
-            {/* --- Hero Header --- */}
-            <div className="relative bg-white">
-                {/* Cover Image */}
-                <div className="h-64 md:h-80 overflow-hidden relative">
-                    {farmer.cover_photo_url ? (
-                        <img
-                            src={farmer.cover_photo_url}
-                            alt="cover"
-                            className="w-full h-full object-cover"
-                        />
-                    ) : (
-                        <div className="w-full h-full bg-gradient-to-r from-gray-800 to-gray-700" />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-
-                    <button onClick={() => navigate(-1)} className="absolute top-4 left-4 bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/30 transition-all z-20">
-                        <ArrowLeft size={24} />
-                    </button>
-                </div>
-
-                {/* Profile Info */}
-                <div className="px-5 pb-6 -mt-20 relative z-10">
-                    <div className="flex justify-between items-end mb-4">
-                        <div className="w-28 h-28 rounded-2xl border-4 border-white bg-white shadow-xl overflow-hidden relative">
-                            {farmer.profile_photo_url ? (
-                                <img src={farmer.profile_photo_url} alt={farmer.name} className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400"><Leaf size={32} /></div>
-                            )}
-                        </div>
-                        {/* 配送無料バッジ */}
-                        <div className="mb-3 bg-orange-500 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-1 animate-pulse">
-                            <TrendingUp size={14} />
-                            全品送料無料
-                        </div>
+        <div className="bg-white min-h-screen pb-24 font-sans">
+            {/* --- Header with Back Button and Logo --- */}
+            <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-4 h-14 flex items-center justify-between">
+                <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-gray-600">
+                    <ArrowLeft size={24} />
+                </button>
+                <div className="flex items-center space-x-2">
+                    <div className="w-8 h-8 rounded-full border border-green-600 flex items-center justify-center">
+                        <Leaf className="w-4 h-4 text-green-600" />
                     </div>
-
-                    <div>
-                        <h1 className="text-3xl font-extrabold text-white drop-shadow-sm mb-1">{farmer.name}</h1>
-                        <div className="flex items-center gap-4 text-sm text-gray-200">
-                            <div className="flex items-center gap-1">
-                                <MapPin size={14} className="text-gray-300" /> {farmer.address || '兵庫県'}
-                            </div>
-                            {farmer.main_crop && (
-                                <div className="flex items-center gap-1 text-green-300 font-bold bg-green-900/50 px-2 py-0.5 rounded-md backdrop-blur-sm">
-                                    <Sprout size={14} /> {farmer.main_crop}
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                    <span className="font-bold text-gray-900">{farmer.name}</span>
                 </div>
-
-                {/* --- Tab Navigation (Sticky) --- */}
-                <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm flex">
-                    <button
-                        onClick={() => setActiveTab('products')}
-                        className={`flex-1 py-4 text-sm font-bold border-b-2 transition-colors relative ${activeTab === 'products'
-                                ? 'border-green-600 text-green-800'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                            }`}
-                    >
-                        販売商品 ({products.length})
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('story')}
-                        className={`flex-1 py-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'story'
-                                ? 'border-green-600 text-green-800'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                            }`}
-                    >
-                        こだわり・実績
-                    </button>
-                </div>
+                <div className="w-10" /> {/* Spacer for centering */}
             </div>
 
-            {/* --- Main Content --- */}
-            <div className="max-w-3xl mx-auto">
-
-                {/* === TAB 1: 商品一覧 (Products) === */}
-                {activeTab === 'products' && (
-                    <div className="p-5 space-y-10 animate-in fade-in duration-300">
-                        {/* おすすめセクション */}
-                        {displayFeatured.length > 0 && (
-                            <div>
-                                <h2 className="text-xl font-extrabold text-gray-800 mb-4 flex items-center gap-2">
-                                    <div className="bg-yellow-100 p-1.5 rounded-lg">
-                                        <Star size={20} className="text-yellow-600 fill-yellow-600" />
-                                    </div>
-                                    <span className="bg-gradient-to-r from-yellow-600 to-orange-500 bg-clip-text text-transparent">
-                                        {farmer.name}のおすすめ
-                                    </span>
-                                </h2>
-                                <div className="grid grid-cols-2 gap-4">
-                                    {displayFeatured.map(p => <ProductCard key={p.id} product={p} />)}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* 通常商品 */}
-                        {otherProducts.length > 0 && (
-                            <div>
-                                <h2 className="text-lg font-bold text-gray-800 mb-4 border-l-4 border-green-600 pl-3">
-                                    すべての野菜
-                                </h2>
-                                <div className="grid grid-cols-2 gap-4">
-                                    {otherProducts.map(p => <ProductCard key={p.id} product={p} />)}
-                                </div>
-                            </div>
-                        )}
-
-                        {products.length === 0 && (
-                            <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300 mx-4">
-                                <Leaf className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                                <p className="text-gray-500 font-bold">現在販売中の商品はありません</p>
-                                <p className="text-xs text-gray-400 mt-1">次回の収穫をお待ちください</p>
-                            </div>
-                        )}
+            {/* --- Cover Image --- */}
+            <div className="relative h-56 w-full overflow-hidden">
+                {farmer.cover_photo_url ? (
+                    <img
+                        src={farmer.cover_photo_url}
+                        alt="cover"
+                        className="w-full h-full object-cover"
+                    />
+                ) : (
+                    <div className="w-full h-full bg-gradient-to-r from-green-100 to-green-50 flex items-center justify-center">
+                        <Leaf className="w-16 h-16 text-green-200" />
                     </div>
                 )}
 
-                {/* === TAB 2: ストーリー・こだわり (Story) === */}
-                {activeTab === 'story' && (
-                    <div className="p-5 space-y-8 animate-in fade-in duration-300">
+                {/* Profile Photo Overlay */}
+                <div className="absolute bottom-4 left-4">
+                    <div className="w-20 h-20 rounded-full border-4 border-white bg-white shadow-lg overflow-hidden">
+                        {farmer.profile_photo_url ? (
+                            <img src={farmer.profile_photo_url} alt={farmer.name} className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400 text-2xl">
+                                👨‍🌾
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
 
-                        {/* 1. 実績・権威性ブロック (Trust) */}
+            {/* --- Farmer Info --- */}
+            <div className="px-4 pt-4 pb-4">
+                <h1 className="text-2xl font-bold text-gray-900 mb-1">{farmer.name}</h1>
+                {farmer.bio && (
+                    <p className="text-gray-600 text-sm leading-relaxed">{farmer.bio.split('\n')[0]}</p>
+                )}
+            </div>
+
+            {/* --- Tab Navigation --- */}
+            <div className="sticky top-14 z-30 bg-white border-b border-gray-200 flex">
+                <button
+                    onClick={() => setActiveTab('products')}
+                    className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'products'
+                        ? 'border-green-600 text-green-700'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                        }`}
+                >
+                    販売商品 ({products.length})
+                </button>
+                <button
+                    onClick={() => setActiveTab('story')}
+                    className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'story'
+                        ? 'border-green-600 text-green-700'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                        }`}
+                >
+                    こだわり・実績
+                </button>
+            </div>
+
+            {/* --- Main Content --- */}
+            <div className="px-4 py-4">
+
+                {/* === TAB 1: 販売商品 (Products) === */}
+                {activeTab === 'products' && (
+                    <div className="space-y-4">
+                        <h2 className="text-lg font-bold text-gray-900">販売中の野菜</h2>
+
+                        {products.length > 0 ? (
+                            <div className="flex overflow-x-auto space-x-3 pb-2 -mx-4 px-4 scrollbar-hide">
+                                {products.map((product: Product) => (
+                                    <div
+                                        key={product.id}
+                                        className="flex-shrink-0 w-40 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden"
+                                    >
+                                        <div
+                                            onClick={() => navigate(`/products/${product.id}`)}
+                                            className="cursor-pointer"
+                                        >
+                                            <div className="relative aspect-square bg-gray-100">
+                                                {product.image_url ? (
+                                                    <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                                                        <Leaf className="w-8 h-8 text-gray-300" />
+                                                    </div>
+                                                )}
+                                                {/* 商品名と価格オーバーレイ */}
+                                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 pt-6">
+                                                    <p className="text-white font-bold text-sm truncate">{product.name}</p>
+                                                    <p className="text-white/90 text-xs">¥{Math.floor(Number(product.price)).toLocaleString()}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => handleAddToCart(product)}
+                                            className="w-full py-2.5 bg-green-600 text-white text-sm font-bold flex items-center justify-center gap-1 hover:bg-green-700 active:bg-green-800 transition-colors"
+                                        >
+                                            <ShoppingCart size={14} />
+                                            カートに入れる
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                                <Leaf className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                                <p className="text-gray-500 font-medium">現在販売中の商品はありません</p>
+                                <p className="text-xs text-gray-400 mt-1">次回の収穫をお待ちください</p>
+                            </div>
+                        )}
+
+                        {/* フォロー・問い合わせボタン */}
+                        <div className="flex gap-3 pt-4">
+                            <button className="flex-1 py-3 border-2 border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-50 transition-colors">
+                                フォローする
+                            </button>
+                            <button className="flex-1 py-3 border-2 border-green-600 rounded-xl font-bold text-green-700 hover:bg-green-50 transition-colors">
+                                問い合わせ
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* === TAB 2: こだわり・実績 (Story) === */}
+                {activeTab === 'story' && (
+                    <div className="space-y-6">
+
+                        {/* こだわりセクション */}
+                        <div>
+                            <h2 className="text-lg font-bold text-gray-900 mb-3">こだわり</h2>
+                            {farmer.kodawari ? (
+                                <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
+                                    {farmer.kodawari}
+                                </p>
+                            ) : farmer.bio ? (
+                                <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
+                                    {farmer.bio}
+                                </p>
+                            ) : (
+                                <p className="text-gray-400 text-sm">こだわり情報はまだありません</p>
+                            )}
+                        </div>
+
+                        {/* こだわりブロック（画像付き） */}
+                        {commitments.length > 0 && (
+                            <div className="space-y-4">
+                                {commitments.map((block, idx) => (
+                                    <div key={idx} className="bg-gray-50 rounded-xl overflow-hidden">
+                                        {block.image && (
+                                            <img src={block.image} alt={block.title} className="w-full h-40 object-cover" />
+                                        )}
+                                        <div className="p-4">
+                                            <h3 className="font-bold text-gray-900 mb-2">{block.title}</h3>
+                                            <p className="text-sm text-gray-600 leading-relaxed">{block.body}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* 動画埋め込みセクション */}
+                        {videoUrls.length > 0 && (
+                            <div>
+                                <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                    <PlayCircle size={20} className="text-red-500" />
+                                    動画で見る
+                                </h2>
+                                <div className="space-y-3">
+                                    {videoUrls.map((url, idx) => (
+                                        <div key={idx} className="rounded-xl overflow-hidden bg-gray-100">
+                                            {url.includes('youtube.com') || url.includes('youtu.be') ? (
+                                                <iframe
+                                                    src={convertToYouTubeEmbed(url)}
+                                                    title={`${farmer.name} の動画 ${idx + 1}`}
+                                                    className="w-full aspect-video"
+                                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                    allowFullScreen
+                                                />
+                                            ) : (
+                                                <a
+                                                    href={url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center justify-center py-8 text-red-600 hover:text-red-700"
+                                                >
+                                                    <PlayCircle size={48} />
+                                                </a>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* インタビュー記事リンクセクション */}
+                        {articleUrls.length > 0 && (
+                            <div>
+                                <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                    <ExternalLink size={20} className="text-blue-500" />
+                                    インタビュー記事
+                                </h2>
+                                <div className="space-y-2">
+                                    {articleUrls.map((url, idx) => (
+                                        <a
+                                            key={idx}
+                                            href={url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center justify-between p-4 bg-blue-50 rounded-xl border border-blue-100 hover:bg-blue-100 transition-colors"
+                                        >
+                                            <span className="font-medium text-blue-700 text-sm">
+                                                記事を読む {articleUrls.length > 1 ? `(${idx + 1})` : ''}
+                                            </span>
+                                            <ExternalLink size={16} className="text-blue-500" />
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 実績セクション */}
                         {achievements.length > 0 && (
-                            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-50 rounded-full -translate-y-1/2 translate-x-1/2 opacity-50" />
-                                <h3 className="text-xs font-extrabold text-gray-400 mb-4 flex items-center gap-1 uppercase tracking-wider">
-                                    <Award size={14} /> Achievements
-                                </h3>
-                                <ul className="space-y-3 relative z-10">
-                                    {achievements.map((item, i) => (
-                                        <li key={i} className="flex items-start gap-3">
-                                            <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-yellow-500 flex-shrink-0 shadow-[0_0_8px_rgba(234,179,8,0.6)]" />
-                                            <span className="font-bold text-gray-800 text-sm md:text-base leading-relaxed">{item}</span>
+                            <div>
+                                <h2 className="text-lg font-bold text-gray-900 mb-3">実績・受賞歴</h2>
+                                <ul className="space-y-2">
+                                    {achievements.map((achievement, idx) => (
+                                        <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                                            <span className="text-yellow-500 mt-0.5">🏆</span>
+                                            <span>{achievement}</span>
                                         </li>
                                     ))}
                                 </ul>
                             </div>
                         )}
 
-                        {/* 2. ストーリー・挨拶 (Bio) */}
-                        <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
-                            <h2 className="text-xl font-extrabold text-gray-900 mb-6 border-b pb-4 border-gray-100">
-                                {farmer.main_crop ? `${farmer.main_crop}作り` : '農業'}に懸ける想い
-                            </h2>
-                            <div className="text-gray-700 leading-8 text-[15px] whitespace-pre-wrap font-medium">
-                                {farmer.bio || 'メッセージはまだありません。'}
+                        {/* 認証・栽培方法 */}
+                        {(farmer.farming_method || farmer.certifications) && (
+                            <div className="bg-green-50 rounded-xl p-4">
+                                <h3 className="font-bold text-green-800 mb-2">栽培について</h3>
+                                {farmer.farming_method && (
+                                    <p className="text-sm text-green-700 mb-1">
+                                        <span className="font-medium">栽培方法:</span> {farmer.farming_method}
+                                    </p>
+                                )}
+                                {farmer.certifications && (
+                                    <p className="text-sm text-green-700">
+                                        <span className="font-medium">認証:</span> {farmer.certifications}
+                                    </p>
+                                )}
                             </div>
-                        </div>
+                        )}
 
-                        {/* 3. こだわりブロック (Feature Cards) */}
-                        <div className="space-y-6">
-                            <h2 className="text-xl font-extrabold text-gray-900 px-1">おいしさの理由</h2>
-                            {commitments.length > 0 ? commitments.map((block, idx) => (
-                                <div key={idx} className="bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-lg flex flex-col md:flex-row group hover:border-green-300 transition-colors">
-                                    {block.image && (
-                                        <div className="h-48 md:w-2/5 md:h-auto bg-gray-100 relative overflow-hidden">
-                                            <img src={block.image} alt={block.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                                        </div>
-                                    )}
-                                    <div className="p-6 md:w-3/5 flex flex-col justify-center">
-                                        <h3 className="text-lg font-bold text-green-800 mb-3">{block.title}</h3>
-                                        <p className="text-sm text-gray-600 leading-relaxed">
-                                            {block.body}
-                                        </p>
-
-                                        {/* メディアリンクがあれば表示 */}
-                                        {(block.video_url || block.article_url) && (
-                                            <div className="mt-4 flex gap-2">
-                                                {block.video_url && (
-                                                    <a href={block.video_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-full hover:bg-red-100 transition-colors">
-                                                        <PlayCircle size={14} /> 動画を見る
-                                                    </a>
-                                                )}
-                                                {block.article_url && (
-                                                    <a href={block.article_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors">
-                                                        <ExternalLink size={14} /> 記事を読む
-                                                    </a>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )) : (
-                                <div className="text-center text-gray-400 py-8 bg-white rounded-xl border border-dashed">こだわり情報はまだありません</div>
-                            )}
-                        </div>
-
-                        {/* 4. シェフの声 (Social Proof) */}
+                        {/* シェフの声 (Social Proof) */}
                         {chefComments.length > 0 && (
                             <div className="space-y-4">
-                                <h2 className="text-xl font-extrabold text-gray-900 px-1 flex items-center gap-2">
-                                    <ChefHat size={24} className="text-gray-400" />
+                                <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                    <ChefHat size={20} className="text-gray-400" />
                                     シェフからの推薦
                                 </h2>
 
@@ -293,4 +372,26 @@ export default function FarmerDetail() {
             </div>
         </div>
     );
+}
+
+// YouTube URLを埋め込み用URLに変換するヘルパー関数
+function convertToYouTubeEmbed(url: string): string {
+    // youtu.be/VIDEO_ID 形式
+    const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+    if (shortMatch) {
+        return `https://www.youtube.com/embed/${shortMatch[1]}`;
+    }
+
+    // youtube.com/watch?v=VIDEO_ID 形式
+    const longMatch = url.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/);
+    if (longMatch) {
+        return `https://www.youtube.com/embed/${longMatch[1]}`;
+    }
+
+    // 既に埋め込み形式の場合はそのまま返す
+    if (url.includes('youtube.com/embed/')) {
+        return url;
+    }
+
+    return url;
 }

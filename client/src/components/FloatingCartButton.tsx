@@ -6,9 +6,9 @@ export default function FloatingCartButton() {
     const navigate = useNavigate();
     const cart = useStore((state) => state.cart);
 
-    // Calculate total items and price
-    const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-    const totalPrice = cart.reduce((sum, item) => sum + parseInt(item.product.price) * item.quantity, 0);
+    // Calculate total items and price - ensure numeric conversion
+    const totalItems = cart.reduce((sum, item) => sum + Number(item.quantity), 0);
+    const totalPrice = cart.reduce((sum, item) => sum + parseFloat(String(item.product.price)) * Number(item.quantity), 0);
 
     // Don't show if cart is empty
     if (totalItems === 0) return null;
@@ -27,7 +27,7 @@ export default function FloatingCartButton() {
             </div>
             <div className="flex flex-col items-start leading-tight">
                 <span className="text-[10px] font-medium opacity-90">合計金額</span>
-                <span className="text-sm font-bold">¥{totalPrice.toLocaleString()}</span>
+                <span className="text-sm font-bold">¥{Math.round(totalPrice).toLocaleString()}</span>
             </div>
         </button>
     );
