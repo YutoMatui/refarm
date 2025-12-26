@@ -37,7 +37,7 @@ export default function OrderComplete() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600">注文が見つかりません</p>
-          <button onClick={() => navigate('/catalog')} className="btn-primary mt-4">
+          <button onClick={() => navigate('/products')} className="btn-primary mt-4">
             ホームへ戻る
           </button>
         </div>
@@ -192,7 +192,7 @@ export default function OrderComplete() {
         {/* Next Actions */}
         <div className="flex gap-4">
           <button
-            onClick={() => navigate('/catalog')}
+            onClick={() => navigate('/products')}
             className="btn-primary flex-1 flex items-center justify-center gap-2"
           >
             <Home className="w-5 h-5" />

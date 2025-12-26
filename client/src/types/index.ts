@@ -124,7 +124,7 @@ export interface OrderItem extends TimestampFields {
   id: number
   order_id: number
   product_id: number
-  quantity: number
+  quantity: number | string
   unit_price: string
   tax_rate: number
   subtotal: string
@@ -188,7 +188,7 @@ export interface ApiError {
 // Cart Item (Frontend only)
 export interface CartItem {
   product: Product
-  quantity: number
+  quantity: number | string
 }
 
 // Order Create Request
@@ -202,7 +202,7 @@ export interface OrderCreateRequest {
   notes?: string
   items: Array<{
     product_id: number
-    quantity: number
+    quantity: number | string
   }>
 }
 
@@ -215,7 +215,7 @@ export interface OrderUpdateRequest {
   notes?: string
   items?: Array<{
     product_id: number
-    quantity: number
+    quantity: number | string
   }>
 }
 
@@ -232,7 +232,7 @@ export interface FavoriteToggleResponse {
 // Procurement Summary (Daily Aggregation)
 export interface AggregatedProduct {
   product_name: string
-  quantity: number
+  quantity: number | string
   unit: string
 }
 

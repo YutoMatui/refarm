@@ -90,21 +90,8 @@ export default function Dashboard() {
             <div className="flex justify-center pt-8 pb-6">
                 <div className="flex flex-col items-center">
                     {/* Logo Circle */}
-                    <div className="w-24 h-24 rounded-full border border-gray-100 flex items-center justify-center bg-white shadow-[0_2px_10px_rgba(0,0,0,0.05)] mb-2">
-                        <div className="flex flex-col items-center justify-center">
-                            <div className="relative">
-                                <Leaf className="w-8 h-8 text-green-500 transform -rotate-12" fill="currentColor" />
-                                <div className="absolute -top-1 -right-2 text-blue-400">
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                                    </svg>
-                                </div>
-                            </div>
-                            <div className="text-center mt-1">
-                                <span className="block text-sm font-extrabold text-green-600 leading-none tracking-tight">ベジ</span>
-                                <span className="block text-sm font-extrabold text-blue-500 leading-none tracking-tight">コベ</span>
-                            </div>
-                        </div>
+                    <div className="w-24 h-24 rounded-full border border-gray-100 flex items-center justify-center bg-white shadow-[0_2px_10px_rgba(0,0,0,0.05)] mb-2 overflow-hidden">
+                        <img src="/logo.png" alt="ベジコベ ロゴ" className="w-full h-full object-cover" />
                     </div>
                     <p className="text-[10px] text-gray-400 font-medium tracking-wide">KOBE Veggie Ecosystem</p>
                 </div>

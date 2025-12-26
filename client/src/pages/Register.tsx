@@ -49,7 +49,7 @@ export default function Register() {
                 setRestaurant(restaurant)
                 setLineUserId(line_user_id)
                 toast.success('登録が完了しました')
-                navigate('/catalog')
+                navigate('/products')
             } else {
                 throw new Error('登録に失敗しました')
             }

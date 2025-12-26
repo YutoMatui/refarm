@@ -9,7 +9,7 @@ export default function BottomNav() {
     const isActive = (path: string) => location.pathname === path
 
     const navItems = [
-        { path: '/catalog', icon: Home, label: 'ホーム' },
+        { path: '/products', icon: Home, label: 'ホーム' },
         { path: '/farmers', icon: Users, label: '生産者' },
         { path: '/cart', icon: ShoppingCart, label: 'カート', badge: cartCount },
         { path: '/favorites', icon: Heart, label: 'お気に入り' },

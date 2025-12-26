@@ -142,7 +142,7 @@ export default function Cart() {
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">カートは空です</h2>
           <p className="text-gray-500 mb-8">商品を追加して、注文を作成しましょう</p>
-          <button onClick={() => navigate('/catalog')} className="btn-primary w-full max-w-xs">
+          <button onClick={() => navigate('/products')} className="btn-primary w-full max-w-xs">
             野菜一覧へ
           </button>
         </div>

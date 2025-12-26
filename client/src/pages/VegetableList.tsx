@@ -79,7 +79,7 @@ export default function VegetableList() {
         is_outlet: 0
       }
 
-      addToCart(product, item.quantity)
+      addToCart(product, Number(item.quantity))
       addedCount++
     })
 
