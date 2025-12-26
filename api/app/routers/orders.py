@@ -324,6 +324,87 @@ async def download_delivery_slip(order_id: int, db: AsyncSession = Depends(get_d
     )
 
 
+@router.get("/invoice/monthly")
+async def download_monthly_invoice(
+    restaurant_id: int,
+    target_month: str = Query(..., description="対象月 (YYYY-MM)"),
+    db: AsyncSession = Depends(get_db)
+):
+    """月次請求書をダウンロード"""
+    from app.services.invoice import generate_monthly_invoice_pdf
+    from app.models.restaurant import Restaurant
+    from datetime import timedelta
+    import calendar
+
+    # 1. Get Restaurant
+    stmt = select(Restaurant).where(Restaurant.id == restaurant_id)
+    result = await db.execute(stmt)
+    restaurant = result.scalar_one_or_none()
+    
+    if not restaurant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="飲食店が見つかりません")
+
+    # 2. Determine Date Range based on closing_date
+    try:
+        year_str, month_str = target_month.split('-')
+        year = int(year_str)
+        month = int(month_str)
+        
+        closing_day = restaurant.closing_date or 99 # Default to end of month
+        
+        if closing_day >= 28: # End of month logic
+            start_date = datetime(year, month, 1).date()
+            _, last_day = calendar.monthrange(year, month)
+            end_date = datetime(year, month, last_day).date()
+        else:
+            # e.g. closing 20th. Target 2025-12 means 2025-11-21 to 2025-12-20
+            # Calculate Previous Month
+            if month == 1:
+                prev_month_year = year - 1
+                prev_month = 12
+            else:
+                prev_month_year = year
+                prev_month = month - 1
+            
+            start_date = datetime(prev_month_year, prev_month, closing_day + 1).date()
+            end_date = datetime(year, month, closing_day).date()
+            
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+
+    # 3. Fetch Orders in Range
+    # Use delivery_date for invoice calculation usually
+    stmt = select(Order).where(
+        Order.restaurant_id == restaurant_id,
+        func.date(Order.delivery_date) >= start_date,
+        func.date(Order.delivery_date) <= end_date,
+        Order.status != OrderStatus.CANCELLED
+    ).order_by(Order.delivery_date)
+    
+    result = await db.execute(stmt)
+    orders = result.scalars().all()
+    
+    if not orders:
+        # Allow empty invoice generation? Usually better to warn.
+        # But for UI consistency, maybe generate a zero invoice or error.
+        pass 
+
+    # 4. Generate PDF
+    # Format period string
+    period_str = f"{start_date.strftime('%Y/%m/%d')} - {end_date.strftime('%Y/%m/%d')}"
+    target_month_label = f"{year}年{month}月度"
+    
+    pdf_content = generate_monthly_invoice_pdf(restaurant, orders, target_month_label, period_str)
+    
+    return StreamingResponse(
+        io.BytesIO(pdf_content),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=invoice_monthly_{restaurant_id}_{target_month}.pdf"
+        }
+    )
+
+
 @router.get("/aggregation/daily", response_model=list[dict])
 async def get_daily_aggregation(
     date: str = Query(..., description="集計日 (YYYY-MM-DD)"),

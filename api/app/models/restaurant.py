@@ -101,6 +101,32 @@ class Restaurant(Base, TimestampMixin, SoftDeleteMixin):
         default=1,
         comment="アクティブフラグ (0: 無効, 1: 有効)"
     )
+
+    # Enhanced Profile
+    profile_photo_url = Column(
+        String(500),
+        nullable=True,
+        comment="アイコン・プロフィール画像URL"
+    )
+
+    cuisine_type = Column(
+        String(100),
+        nullable=True,
+        comment="業種（イタリアン、フレンチ、居酒屋など）"
+    )
+
+    kodawari = Column(
+        String(1000), # Using String/Text for sqlite compatibility in simple setup
+        nullable=True,
+        comment="こだわり・お店の紹介"
+    )
+
+    closing_date = Column(
+        Integer,
+        default=99,
+        nullable=True,
+        comment="締め日 (1-28, 99=末日)"
+    )
     
     # Relationships
     orders = relationship(

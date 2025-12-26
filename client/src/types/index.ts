@@ -66,6 +66,10 @@ export interface Restaurant extends TimestampFields {
   longitude?: string
   delivery_window_start?: string
   delivery_window_end?: string
+  profile_photo_url?: string
+  cuisine_type?: string
+  kodawari?: string
+  closing_date?: number
 }
 
 // Chef Comment

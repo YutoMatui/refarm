@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>月次請求書</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 20mm;
+        }
+
+        body {
+            font-family: "ipaexg", sans-serif;
+            font-size: 10pt;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+
+        .title {
+            font-size: 20pt;
+            font-weight: bold;
+            text-align: center;
+            border-bottom: 2px solid #333;
+            margin-bottom: 20px;
+            padding-bottom: 5px;
+        }
+
+        .client-info {
+            width: 50%;
+            float: left;
+        }
+
+        .client-name {
+            font-size: 16pt;
+            border-bottom: 1px solid #333;
+            padding-bottom: 2px;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+
+        .sender-info {
+            width: 40%;
+            float: right;
+            text-align: right;
+            font-size: 9pt;
+        }
+
+        .sender-name {
+            font-size: 12pt;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .summary-box {
+            clear: both;
+            margin-top: 150px;
+            margin-bottom: 20px;
+            border: 2px solid #333;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .total-amount {
+            font-size: 18pt;
+            font-weight: bold;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #888;
+            padding: 6px;
+            font-size: 9pt;
+        }
+
+        th {
+            background-color: #f0f0f0;
+            text-align: center;
+        }
+
+        td.date {
+            text-align: center;
+            width: 15%;
+        }
+
+        td.desc {
+            width: 65%;
+        }
+
+        td.amount {
+            text-align: right;
+            width: 20%;
+        }
+
+        .footer {
+            margin-top: 30px;
+            font-size: 9pt;
+        }
+
+        .bank-info {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-top: 10px;
+            width: 60%;
+        }
+
+        .reg-num {
+            font-size: 9pt;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="title">{{ title }}</div>
+
+    <div class="header">
+        <div style="float: right; text-align: right;">
+            <div>請求日: {{ invoice_date }}</div>
+            <div>No. {{ invoice_number }}</div>
+        </div>
+    </div>
+
+    <div class="client-info">
+        <div class="client-name">{{ client_name }}</div>
+        <div>対象期間: {{ period }}</div>
+        <div>対象月度: {{ target_month }}</div>
+    </div>
+
+    <div class="sender-info">
+        <div class="sender-name">{{ sender_name }}</div>
+        <div>〒{{ sender_zip }}<br>{{ sender_address }} {{ sender_building }}</div>
+        <div>TEL: {{ sender_tel }}</div>
+        <div>担当: {{ sender_pic }}</div>
+        <div class="reg-num">登録番号: {{ sender_reg_num }}</div>
+    </div>
+
+    <div class="summary-box">
+        ご請求金額 &nbsp;&nbsp;&nbsp; <span class="total-amount">¥ {{ "{:,}".format(total_amount_incl_tax) }} -</span> (税込)
+    </div>
+
+    <div class="bank-info">
+        <strong>お振込先:</strong><br>
+        {{ bank_name }} {{ bank_branch }} {{ bank_type }} {{ bank_number }}<br>
+        <strong>お支払期限:</strong> {{ due_date }}
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>日付</th>
+                <th>摘要</th>
+                <th>金額 (税込)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in daily_items %}
+            <tr>
+                <td class="date">{{ item.date }}</td>
+                <td class="desc">{{ item.description }}</td>
+                <td class="amount">¥ {{ "{:,}".format(item.amount) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <th colspan="2" style="text-align: right;">小計 (税抜)</th>
+                <td class="amount">¥ {{ "{:,}".format(subtotal) }}</td>
+            </tr>
+            <tr>
+                <th colspan="2" style="text-align: right;">消費税等</th>
+                <td class="amount">¥ {{ "{:,}".format(tax_amount) }}</td>
+            </tr>
+            <tr>
+                <th colspan="2" style="text-align: right;">合計</th>
+                <td class="amount" style="font-weight: bold;">¥ {{ "{:,}".format(total_amount_incl_tax) }}</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <div style="margin-top: 20px; font-size: 8pt;">
+        ※本請求書はインボイス制度（適格請求書等保存方式）に対応した形式で発行しております。<br>
+        ※軽減税率対象品目（8%）と標準税率対象品目（10%）の区分については、各納品書をご参照ください。<br>
+        （本システム上では便宜上、日次合計に対して税額計算を行っています）
+    </div>
+</body>
+
+</html>

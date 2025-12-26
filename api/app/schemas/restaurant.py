@@ -19,6 +19,10 @@ class RestaurantBase(BaseModel):
     business_hours: Optional[str] = Field(None, max_length=200, description="営業時間")
     notes: Optional[str] = Field(None, max_length=1000, description="備考")
     is_active: int = Field(default=1, description="アクティブフラグ")
+    profile_photo_url: Optional[str] = Field(None, max_length=500, description="アイコン画像URL")
+    cuisine_type: Optional[str] = Field(None, max_length=100, description="業種")
+    kodawari: Optional[str] = Field(None, max_length=1000, description="こだわり")
+    closing_date: int = Field(default=99, description="締め日 (1-28, 99=末日)")
 
 
 class RestaurantCreate(RestaurantBase):
@@ -39,6 +43,10 @@ class RestaurantUpdate(BaseModel):
     business_hours: Optional[str] = Field(None, max_length=200)
     notes: Optional[str] = Field(None, max_length=1000)
     is_active: Optional[int] = None
+    profile_photo_url: Optional[str] = None
+    cuisine_type: Optional[str] = Field(None, max_length=100)
+    kodawari: Optional[str] = Field(None, max_length=1000)
+    closing_date: Optional[int] = None
 
 
 class RestaurantResponse(RestaurantBase, TimestampSchema, BaseSchema):

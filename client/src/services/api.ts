@@ -323,6 +323,14 @@ export const orderApi = {
     return response.data
   },
 
+  downloadMonthlyInvoice: async (restaurantId: number, targetMonth: string) => {
+    const response = await apiClient.get(`/orders/invoice/monthly`, {
+      params: { restaurant_id: restaurantId, target_month: targetMonth },
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
   downloadDeliverySlip: async (id: number) => {
     const response = await apiClient.get(`/orders/${id}/delivery_slip`, {
       responseType: 'blob',
@@ -392,7 +400,6 @@ export const uploadApi = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-      timeout: 60000, // Increase timeout for uploads to 60s
     })
   },
 }

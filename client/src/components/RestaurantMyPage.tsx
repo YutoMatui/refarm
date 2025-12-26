@@ -1,15 +1,16 @@
-import { useState, useMemo } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useState, useMemo, useRef } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { orderApi, restaurantApi } from '@/services/api';
+import { orderApi, restaurantApi, uploadApi } from '@/services/api';
 import { useStore } from '@/store/useStore';
 import {
     FileText, Package, Edit3, Save, X, Truck, Building2, Phone, MapPin,
-    Download, CheckCircle2, Loader2
+    Download, Camera, UtensilsCrossed, Calendar, Loader2
 } from 'lucide-react';
 import Loading from '@/components/Loading';
-import { OrderStatus } from '@/types';
+import { Order, OrderStatus } from '@/types';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 
 // Status styling helper
 const getStatusStyle = (status: string) => {
@@ -36,11 +37,24 @@ interface EditProfileForm {
     phone_number: string;
     address: string;
     notes: string; // 配送特記事項
+    cuisine_type: string;
+    kodawari: string;
+    closing_date: number;
 }
 
 export default function RestaurantMyPage() {
     const { restaurant, setRestaurant } = useStore();
+    const queryClient = useQueryClient();
     const [isEditing, setIsEditing] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [profilePhotoUrl, setProfilePhotoUrl] = useState(restaurant?.profile_photo_url || '');
+
+    // For Invoice Download
+    const [invoiceMonth, setInvoiceMonth] = useState(new Date());
+
+    // For Order Details Modal
+    const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
     // Form setup
     const { register, handleSubmit, formState: { isSubmitting } } = useForm<EditProfileForm>({
@@ -48,11 +62,14 @@ export default function RestaurantMyPage() {
             name: restaurant?.name || '',
             phone_number: restaurant?.phone_number || '',
             address: restaurant?.address || '',
-            notes: restaurant?.notes || ''
+            notes: restaurant?.notes || '',
+            cuisine_type: restaurant?.cuisine_type || '',
+            kodawari: restaurant?.kodawari || '',
+            closing_date: restaurant?.closing_date || 99
         }
     });
 
-    // 1. Fetch Orders (for History & Calculation)
+    // 1. Fetch Orders
     const { data: ordersData, isLoading: isOrdersLoading } = useQuery({
         queryKey: ['my-orders', restaurant?.id],
         queryFn: async () => {
@@ -63,36 +80,56 @@ export default function RestaurantMyPage() {
         enabled: !!restaurant
     });
 
-    // 2. Calculate Monthly Usage (Current Month)
+    // 2. Calculate Monthly Usage (Dynamic based on closing date)
     const monthlyUsage = useMemo(() => {
-        if (!ordersData?.items) return 0;
+        if (!ordersData?.items || !restaurant) return 0;
+
         const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
+        const closingDay = restaurant.closing_date || 99;
+
+        let startDate, endDate;
+
+        if (closingDay >= 28) {
+            // End of month logic: 1st to End
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+        } else {
+            // e.g. 20th: Prev 21st to Curr 20th
+            if (now.getDate() > closingDay) {
+                // Current period: This Month 21st to Next Month 20th? No, usually invoice period is past or current.
+                // Let's assume "Current Billing Cycle"
+                startDate = new Date(now.getFullYear(), now.getMonth(), closingDay + 1);
+                endDate = new Date(now.getFullYear(), now.getMonth() + 1, closingDay, 23, 59, 59);
+            } else {
+                // Current period: Prev Month 21st to This Month 20th
+                startDate = new Date(now.getFullYear(), now.getMonth() - 1, closingDay + 1);
+                endDate = new Date(now.getFullYear(), now.getMonth(), closingDay, 23, 59, 59);
+            }
+        }
 
         return ordersData.items.reduce((sum, order) => {
-            const orderDate = new Date(order.created_at);
-            // Count confirmed/delivered orders for current month
+            const orderDate = new Date(order.delivery_date); // Use delivery_date for billing
             if (
-                orderDate.getMonth() === currentMonth &&
-                orderDate.getFullYear() === currentYear &&
+                orderDate >= startDate &&
+                orderDate <= endDate &&
                 order.status !== OrderStatus.CANCELLED
             ) {
                 return sum + parseInt(order.total_amount);
             }
             return sum;
         }, 0);
-    }, [ordersData]);
+    }, [ordersData, restaurant]);
 
     // 3. Profile Update Mutation
     const updateProfileMutation = useMutation({
         mutationFn: async (data: EditProfileForm) => {
             if (!restaurant) throw new Error('No restaurant');
-            const res = await restaurantApi.update(restaurant.id, data);
+            const payload = { ...data, profile_photo_url: profilePhotoUrl };
+            const res = await restaurantApi.update(restaurant.id, payload);
             return res.data;
         },
         onSuccess: (updatedRestaurant) => {
-            setRestaurant(updatedRestaurant); // Update global store
+            setRestaurant(updatedRestaurant);
             setIsEditing(false);
             toast.success('店舗情報を更新しました');
         },
@@ -101,35 +138,67 @@ export default function RestaurantMyPage() {
         }
     });
 
-    // 4. Invoice Download Handler (Latest)
-    const handleDownloadLatestInvoice = async () => {
-        // Logic to find latest delivered order or monthly invoice endpoint
-        // For now, downloading the latest non-cancelled order's invoice
-        const latestOrder = ordersData?.items.find(o => o.status !== OrderStatus.CANCELLED);
-        if (latestOrder) {
-            try {
-                const blob = await orderApi.downloadInvoice(latestOrder.id);
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `invoice_${latestOrder.id}.pdf`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-                toast.success('請求書をダウンロードしました');
-            } catch (e) {
-                toast.error('ダウンロードに失敗しました');
-            }
-        } else {
-            toast.info('請求書が見つかりません');
+    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploading(true);
+        try {
+            const res = await uploadApi.uploadImage(file);
+            setProfilePhotoUrl(res.data.url);
+            toast.success('画像をアップロードしました');
+        } catch (e) {
+            toast.error('アップロード失敗');
+        } finally {
+            setUploading(false);
         }
     };
+
+    // 4. Monthly Invoice Download
+    const handleDownloadMonthlyInvoice = async () => {
+        if (!restaurant) return;
+        const monthStr = format(invoiceMonth, 'yyyy-MM');
+
+        try {
+            const blob = await orderApi.downloadMonthlyInvoice(restaurant.id, monthStr);
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `invoice_monthly_${monthStr}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            toast.success('請求書をダウンロードしました');
+        } catch (e) {
+            toast.error('ダウンロードに失敗しました');
+        }
+    };
+
+    // 5. Cancel Order
+    const cancelOrderMutation = useMutation({
+        mutationFn: (id: number) => orderApi.cancel(id),
+        onSuccess: () => {
+            toast.success('注文をキャンセルしました');
+            queryClient.invalidateQueries({ queryKey: ['my-orders'] });
+            setSelectedOrder(null);
+        },
+        onError: () => toast.error('キャンセルに失敗しました')
+    });
 
     if (!restaurant) return <div className="p-8 text-center">ログインしてください</div>;
     if (isOrdersLoading) return <Loading message="データを読み込み中..." />;
 
     const recentOrders = ordersData?.items.slice(0, 5) || [];
+
+    // Helper for "Current Month" Display
+    const currentMonthLabel = () => {
+        const closingDay = restaurant.closing_date || 99;
+        if (closingDay >= 28) return `${new Date().getMonth() + 1}月度`;
+        // If today is before closing day, it's current month billing. If after, it's next.
+        // Simplified for display: just show "Current Usage"
+        return "今月のご利用金額";
+    };
 
     return (
         <div className="max-w-3xl mx-auto pb-24 px-4 font-sans text-gray-800">
@@ -137,29 +206,21 @@ export default function RestaurantMyPage() {
             <header className="py-6 mb-2">
                 <h1 className="text-2xl font-bold flex items-center gap-2">
                     <Building2 className="text-green-600" />
-                    経営管理ダッシュボード
+                    マイページ
                 </h1>
-                <p className="text-sm text-gray-500 mt-1">店舗情報と利用状況を一元管理</p>
             </header>
 
             <div className="space-y-6">
                 {/* A. Monthly Usage Card */}
-                <section className="bg-gradient-to-br from-gray-900 to-gray-800 text-white rounded-2xl p-6 shadow-lg">
+                <section className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
                     <div className="flex justify-between items-start mb-2">
-                        <h2 className="text-sm font-medium text-gray-300">
-                            {new Date().getFullYear()}年{new Date().getMonth() + 1}月のご利用金額
+                        <h2 className="text-sm font-bold text-gray-500">
+                            {currentMonthLabel()}
                         </h2>
-                        <div className="bg-white/10 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-                            <CheckCircle2 size={12} className="text-green-400" />
-                            優良会員
-                        </div>
                     </div>
-                    <div className="text-4xl font-extrabold tracking-tight mt-1 mb-4">
+                    <div className="text-4xl font-extrabold tracking-tight mt-1 text-gray-900">
                         ¥{monthlyUsage.toLocaleString()}
                     </div>
-                    <p className="text-xs text-gray-400 border-t border-gray-700 pt-3">
-                        ※ 確定済みの注文合計（税込）です。実際の請求額と異なる場合があります。
-                    </p>
                 </section>
 
                 {/* B. Profile & Settings */}
@@ -167,7 +228,7 @@ export default function RestaurantMyPage() {
                     <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                         <h2 className="font-bold flex items-center gap-2">
                             <Building2 size={18} className="text-gray-500" />
-                            店舗情報・納品設定
+                            店舗情報
                         </h2>
                         {!isEditing ? (
                             <button
@@ -189,39 +250,82 @@ export default function RestaurantMyPage() {
                     <div className="p-6">
                         {isEditing ? (
                             <form onSubmit={handleSubmit((data) => updateProfileMutation.mutate(data))} className="space-y-5">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">店舗名</label>
+                                {/* Icon Upload */}
+                                <div className="flex justify-center mb-4">
+                                    <div
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="w-24 h-24 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer relative overflow-hidden group"
+                                    >
+                                        {profilePhotoUrl ? (
+                                            <img src={profilePhotoUrl} alt="icon" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <Camera className="text-gray-400" />
+                                        )}
+                                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Edit3 className="text-white" size={20} />
+                                        </div>
+                                    </div>
                                     <input
-                                        {...register('name', { required: true })}
-                                        className="w-full border-gray-300 rounded-lg text-sm p-2.5 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-green-500 transition-all"
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={handleImageChange}
                                     />
                                 </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">店舗名</label>
+                                        <input {...register('name', { required: true })} className="input-field" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">業種 (イタリアン等)</label>
+                                        <input {...register('cuisine_type')} className="input-field" />
+                                    </div>
+                                </div>
+
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 mb-1">電話番号</label>
-                                    <input
-                                        {...register('phone_number', { required: true })}
-                                        className="w-full border-gray-300 rounded-lg text-sm p-2.5 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-green-500 transition-all"
-                                    />
+                                    <input {...register('phone_number', { required: true })} className="input-field" />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 mb-1">住所</label>
-                                    <input
-                                        {...register('address', { required: true })}
-                                        className="w-full border-gray-300 rounded-lg text-sm p-2.5 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-green-500 transition-all"
-                                    />
+                                    <input {...register('address', { required: true })} className="input-field" />
                                 </div>
+
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">配送ドライバーへの伝言</label>
-                                    <textarea
-                                        {...register('notes')}
-                                        placeholder="例: 14時〜16時は休憩中のため、裏口の保冷ボックスに入れてください"
-                                        rows={3}
-                                        className="w-full border-gray-300 rounded-lg text-sm p-2.5 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-green-500 transition-all"
-                                    />
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">お店のこだわり・紹介</label>
+                                    <textarea {...register('kodawari')} rows={3} className="input-field" />
                                 </div>
+
+                                <div className="p-4 bg-gray-50 rounded-xl space-y-4">
+                                    <h3 className="font-bold text-sm text-gray-700">設定</h3>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">請求書の締め日</label>
+                                        <select {...register('closing_date', { valueAsNumber: true })} className="input-field">
+                                            <option value={99}>末日</option>
+                                            <option value={20}>20日</option>
+                                            <option value={25}>25日</option>
+                                            <option value={15}>15日</option>
+                                            <option value={10}>10日</option>
+                                            <option value={5}>5日</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">配送ドライバーへの伝言</label>
+                                        <textarea
+                                            {...register('notes')}
+                                            placeholder="例: 14時〜16時は休憩中のため、裏口の保冷ボックスに入れてください"
+                                            rows={2}
+                                            className="input-field"
+                                        />
+                                    </div>
+                                </div>
+
                                 <button
                                     type="submit"
-                                    disabled={isSubmitting}
+                                    disabled={isSubmitting || uploading}
                                     className="w-full bg-green-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-green-700 active:scale-[0.98] transition-all flex justify-center items-center gap-2"
                                 >
                                     {isSubmitting ? <Loader2 className="animate-spin" /> : <Save size={18} />}
@@ -229,35 +333,37 @@ export default function RestaurantMyPage() {
                                 </button>
                             </form>
                         ) : (
-                            <div className="space-y-4">
-                                <div className="flex items-start gap-3">
-                                    <Building2 className="w-5 h-5 text-gray-400 mt-0.5" />
+                            <div className="space-y-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-16 h-16 rounded-full bg-gray-100 overflow-hidden border border-gray-200">
+                                        {restaurant.profile_photo_url ? (
+                                            <img src={restaurant.profile_photo_url} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                                <Building2 size={32} />
+                                            </div>
+                                        )}
+                                    </div>
                                     <div>
-                                        <p className="text-xs text-gray-400 font-bold mb-0.5">店舗名</p>
-                                        <p className="font-medium text-gray-900">{restaurant.name}</p>
+                                        <h3 className="font-bold text-lg text-gray-900">{restaurant.name}</h3>
+                                        <p className="text-sm text-gray-500">{restaurant.cuisine_type || '業種未設定'}</p>
                                     </div>
                                 </div>
-                                <div className="flex items-start gap-3">
-                                    <Phone className="w-5 h-5 text-gray-400 mt-0.5" />
-                                    <div>
-                                        <p className="text-xs text-gray-400 font-bold mb-0.5">電話番号</p>
-                                        <p className="font-medium text-gray-900">{restaurant.phone_number}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
-                                    <div>
-                                        <p className="text-xs text-gray-400 font-bold mb-0.5">住所</p>
-                                        <p className="font-medium text-gray-900">{restaurant.address}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-3 bg-yellow-50 p-3 rounded-lg border border-yellow-100">
-                                    <Truck className="w-5 h-5 text-yellow-600 mt-0.5" />
-                                    <div>
-                                        <p className="text-xs text-yellow-700 font-bold mb-0.5">配送ドライバーへの伝言</p>
-                                        <p className="text-sm text-gray-800 leading-relaxed">
-                                            {restaurant.notes || '特記事項なし'}
-                                        </p>
+
+                                <div className="space-y-3">
+                                    <InfoRow icon={Phone} label="電話番号" value={restaurant.phone_number} />
+                                    <InfoRow icon={MapPin} label="住所" value={restaurant.address} />
+                                    <InfoRow icon={UtensilsCrossed} label="こだわり" value={restaurant.kodawari} />
+                                    <InfoRow icon={Calendar} label="締め日" value={restaurant.closing_date === 99 || !restaurant.closing_date ? '末日' : `${restaurant.closing_date}日`} />
+
+                                    <div className="flex items-start gap-3 bg-yellow-50 p-3 rounded-lg border border-yellow-100">
+                                        <Truck className="w-5 h-5 text-yellow-600 mt-0.5" />
+                                        <div>
+                                            <p className="text-xs text-yellow-700 font-bold mb-0.5">配送ドライバーへの伝言</p>
+                                            <p className="text-sm text-gray-800 leading-relaxed">
+                                                {restaurant.notes || '特記事項なし'}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -265,22 +371,30 @@ export default function RestaurantMyPage() {
                     </div>
                 </section>
 
-                {/* C. Documents */}
-                <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center justify-between">
-                    <div>
-                        <h2 className="font-bold flex items-center gap-2 mb-1">
-                            <FileText size={18} className="text-gray-500" />
-                            請求書・領収書
-                        </h2>
-                        <p className="text-xs text-gray-500">直近の取引の帳票をダウンロードできます</p>
+                {/* C. Monthly Invoice */}
+                <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                    <h2 className="font-bold flex items-center gap-2 mb-4">
+                        <FileText size={18} className="text-gray-500" />
+                        月次請求書 (インボイス対応)
+                    </h2>
+                    <div className="flex items-center gap-3">
+                        <input
+                            type="month"
+                            value={format(invoiceMonth, 'yyyy-MM')}
+                            onChange={(e) => setInvoiceMonth(new Date(e.target.value))}
+                            className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                        />
+                        <button
+                            onClick={handleDownloadMonthlyInvoice}
+                            className="bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded-lg text-sm flex items-center gap-2 transition-colors shadow-sm"
+                        >
+                            <Download size={16} />
+                            ダウンロード
+                        </button>
                     </div>
-                    <button
-                        onClick={handleDownloadLatestInvoice}
-                        className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2.5 px-4 rounded-xl text-sm flex items-center gap-2 transition-colors"
-                    >
-                        <Download size={16} />
-                        最新分 (PDF)
-                    </button>
+                    <p className="text-xs text-gray-500 mt-2">
+                        ※ 設定された締め日に基づいて集計されます（現在は日次集計のみ対応）
+                    </p>
                 </section>
 
                 {/* D. Order History */}
@@ -309,7 +423,10 @@ export default function RestaurantMyPage() {
                                 </div>
                                 <div className="text-right">
                                     <p className="font-bold text-gray-900">¥{parseInt(order.total_amount).toLocaleString()}</p>
-                                    <button className="text-xs text-green-600 font-bold hover:underline mt-1">
+                                    <button
+                                        onClick={() => setSelectedOrder(order)}
+                                        className="text-xs text-green-600 font-bold hover:underline mt-1"
+                                    >
                                         詳細を見る
                                     </button>
                                 </div>
@@ -320,15 +437,80 @@ export default function RestaurantMyPage() {
                             </div>
                         )}
                     </div>
-                    {recentOrders.length > 0 && (
-                        <div className="p-3 border-t border-gray-100 text-center">
-                            <button className="text-sm font-bold text-green-600 hover:text-green-700">
-                                すべての履歴を見る
-                            </button>
-                        </div>
-                    )}
                 </section>
             </div>
+
+            {/* Order Details Modal */}
+            {selectedOrder && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                        <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white">
+                            <h3 className="font-bold text-lg">注文詳細 #{selectedOrder.id}</h3>
+                            <button onClick={() => setSelectedOrder(null)}><X size={24} className="text-gray-400" /></button>
+                        </div>
+                        <div className="p-4 space-y-4">
+                            <div className="bg-gray-50 p-3 rounded-lg text-sm space-y-1">
+                                <div className="flex justify-between">
+                                    <span className="text-gray-500">配送日</span>
+                                    <span className="font-bold">{format(new Date(selectedOrder.delivery_date), 'yyyy/MM/dd')}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-500">時間帯</span>
+                                    <span className="font-bold">{selectedOrder.delivery_time_slot}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-500">ステータス</span>
+                                    <span className={`px-2 rounded-full text-xs ${getStatusStyle(selectedOrder.status)}`}>
+                                        {STATUS_LABEL[selectedOrder.status]}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 className="font-bold mb-2 text-sm">注文商品</h4>
+                                <ul className="space-y-2">
+                                    {selectedOrder.items.map(item => (
+                                        <li key={item.id} className="flex justify-between text-sm border-b border-gray-100 pb-2">
+                                            <span>{item.product_name}</span>
+                                            <span>{item.quantity}{item.product_unit}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+
+                            <div className="flex justify-between items-center border-t pt-4">
+                                <span className="font-bold">合計金額</span>
+                                <span className="text-xl font-bold text-green-700">¥{parseInt(selectedOrder.total_amount).toLocaleString()}</span>
+                            </div>
+
+                            {/* Cancel Button (Only if pending) */}
+                            {selectedOrder.status === OrderStatus.PENDING && (
+                                <button
+                                    onClick={() => {
+                                        if (confirm('キャンセルしますか？')) cancelOrderMutation.mutate(selectedOrder.id);
+                                    }}
+                                    className="w-full py-3 bg-red-50 text-red-600 font-bold rounded-lg mt-4 border border-red-100 hover:bg-red-100"
+                                >
+                                    注文をキャンセルする
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
+}
+
+function InfoRow({ icon: Icon, label, value }: { icon: any, label: string, value?: string | null | number }) {
+    if (!value) return null;
+    return (
+        <div className="flex items-start gap-3">
+            <Icon className="w-5 h-5 text-gray-400 mt-0.5" />
+            <div>
+                <p className="text-xs text-gray-400 font-bold mb-0.5">{label}</p>
+                <p className="font-medium text-gray-900 whitespace-pre-wrap">{value}</p>
+            </div>
+        </div>
+    )
 }
