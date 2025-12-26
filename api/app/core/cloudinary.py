@@ -28,7 +28,11 @@ def upload_image(file_obj, folder: str = "refarm"):
         dict: Upload result from Cloudinary
     """
     if not settings.CLOUDINARY_CLOUD_NAME:
-        logger.error("Attempted upload but Cloudinary is not configured.")
+        logger.error("Attempted upload but CLOUDINARY_CLOUD_NAME is not configured.")
+        return None
+    
+    if not settings.CLOUDINARY_API_KEY or not settings.CLOUDINARY_API_SECRET:
+        logger.error("Attempted upload but CLOUDINARY_API_KEY or CLOUDINARY_API_SECRET is missing.")
         return None
 
     try:
@@ -39,5 +43,8 @@ def upload_image(file_obj, folder: str = "refarm"):
         )
         return response
     except Exception as e:
-        logger.error(f"Cloudinary upload error: {str(e)}", exc_info=True)
+        # Log specific error details from Cloudinary
+        error_msg = str(e)
+        # Some Cloudinary errors are in the message or args
+        logger.error(f"Cloudinary upload error: {error_msg}")
         return None

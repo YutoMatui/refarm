@@ -15,12 +15,16 @@ import os
 from app.core.config import settings
 from app.core.database import init_db
 
-# Configure logging
 logging.basicConfig(
     level=logging.DEBUG if settings.DEBUG else logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+# Silence noisy debug logs
+logging.getLogger("multipart").setLevel(logging.INFO)
+logging.getLogger("urllib3").setLevel(logging.INFO)
+logging.getLogger("cloudinary").setLevel(logging.INFO)
 
 
 @asynccontextmanager
