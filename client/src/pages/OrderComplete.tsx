@@ -126,7 +126,7 @@ export default function OrderComplete() {
             <div className="space-y-2">
               {order.items.map((item) => (
                 <div key={item.id} className="flex justify-between text-sm">
-                  <span>{item.product_name} × {Number(item.quantity)}{item.product_unit}</span>
+                  <span>{item.product_name} × {Number(item.quantity)} {item.product_unit}</span>
                   <span className="font-medium">¥{Math.floor(parseFloat(item.total_amount)).toLocaleString()}</span>
                 </div>
               ))}

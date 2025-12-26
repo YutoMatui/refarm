@@ -121,12 +121,24 @@ export default function Dashboard() {
             </div>
 
             <div className="px-4 space-y-8">
+                {/* App Info / Guide for new users - Moved to top as requested */}
+                {!isRepeater && (
+                    <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+                        <h3 className="font-bold text-gray-800 mb-2">はじめての方へ：使い方ガイド</h3>
+                        <ol className="list-decimal list-inside text-sm text-gray-600 space-y-2">
+                            <li>「さがす」から欲しい野菜を見つける</li>
+                            <li>カートに入れて注文を確定</li>
+                            <li>指定した日時に店舗へお届け</li>
+                        </ol>
+                    </div>
+                )}
+
                 {/* Featured Products */}
                 <section>
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-lg font-bold text-gray-800 flex items-center">
                             <Sparkles className="w-5 h-5 text-yellow-500 mr-2" fill="currentColor" />
-                            今週のおすすめ
+                            今週のおすすめ野菜（特集）
                         </h2>
                         <button
                             onClick={() => navigate('/products')}
@@ -152,7 +164,7 @@ export default function Dashboard() {
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-lg font-bold text-gray-800 flex items-center">
                                 <Users className="w-5 h-5 text-blue-500 mr-2" />
-                                人気の生産者
+                                人気の生産者ランキング
                             </h2>
                             <button
                                 onClick={() => navigate('/farmers')}
@@ -184,17 +196,7 @@ export default function Dashboard() {
                     </section>
                 )}
 
-                {/* App Info / Guide for new users */}
-                {!isRepeater && (
-                    <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
-                        <h3 className="font-bold text-gray-800 mb-2">Refarmの使い方</h3>
-                        <ol className="list-decimal list-inside text-sm text-gray-600 space-y-2">
-                            <li>「さがす」から欲しい野菜を見つける</li>
-                            <li>カートに入れて注文を確定</li>
-                            <li>指定した日時に店舗へお届け</li>
-                        </ol>
-                    </div>
-                )}
+
             </div>
         </div>
     )

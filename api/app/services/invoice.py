@@ -73,7 +73,7 @@ def _generate_pdf(order, title):
     # 本体価格 = 合計 / 1.08
     # 消費税 = 合計 - 本体価格
     # B2Bの場合、端数処理などがあるが、ここでは簡易的にバック計算で税額を表示する
-    tax_val = int(order.tax_amount)
+    tax_val = int(order.tax_amount or 0)
     if tax_val == 0:
         # DBに税額が入っていない場合、合計金額から割り戻す (切り捨て)
         price_excl_tax = math.ceil(total_val / 1.08)
@@ -107,7 +107,7 @@ def _generate_pdf(order, title):
         "title": title,
         "invoice_date": invoice_date.strftime('%Y/%m/%d'),
         "invoice_number": f"{1000 + order.id}",
-        "client_name": order.restaurant.name,
+        "client_name": f"{order.restaurant.name} 様 御中",
         "sender_name": sender_info["name"],
         "sender_zip": sender_info["zip"],
         "sender_address": sender_info["address"],

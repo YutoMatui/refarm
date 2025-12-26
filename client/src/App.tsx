@@ -9,6 +9,7 @@ import { useStore } from './store/useStore'
 import { authApi } from './services/api'
 import { liffService } from './services/liff'
 import Layout from './components/Layout'
+import Dashboard from './pages/Dashboard'
 import ProductSearchLayout from './pages/ProductSearchLayout'
 import History from './pages/History'
 import Favorites from './pages/Favorites'
@@ -163,7 +164,7 @@ function App() {
             </AuthGuard>
           }>
             {/* New Routing Structure */}
-            <Route index element={<Navigate to="/history" replace />} /> {/* Default to history as requested */}
+            <Route index element={<Dashboard />} />
             <Route path="history" element={<History />} />
             <Route path="products" element={<ProductSearchLayout />} />
             <Route path="farmers" element={<Farmers />} />

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Package, Truck, Calendar as CalendarIcon, Loader2 } from 'lucide-react';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { producerApi } from '../../services/api';
 
@@ -21,6 +21,23 @@ export default function ProducerSchedule() {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [items, setItems] = useState<ScheduleItem[]>([]);
     const [loading, setLoading] = useState(false);
+
+    // Monthly sales data (used for calendar dots)
+    const [monthlyData, setMonthlyData] = useState<{ day: number, amount: number }[]>([]);
+
+    // Fetch monthly data for indicators
+    useEffect(() => {
+        const fetchMonthly = async () => {
+            try {
+                const monthStr = format(currentDate, 'yyyy-MM');
+                const res = await producerApi.getSales(farmerId, monthStr);
+                setMonthlyData(res.data.dailySales || []);
+            } catch (e) {
+                console.error("Failed to fetch monthly sales for calendar:", e);
+            }
+        };
+        fetchMonthly();
+    }, [currentDate, farmerId]);
 
     // Fetch data when selectedDate or farmerId changes
     useEffect(() => {
@@ -89,6 +106,9 @@ export default function ProducerSchedule() {
                         const isSelected = isSameDay(day, selectedDate);
                         const isToday = isSameDay(day, new Date());
 
+                        // Check if this day has orders
+                        const hasOrder = monthlyData.some((d: { day: number, amount: number }) => d.day === day.getDate() && d.amount > 0 && isSameMonth(day, currentDate));
+
                         return (
                             <button
                                 key={day.toString()}
@@ -102,6 +122,9 @@ export default function ProducerSchedule() {
                                 <span className={`text-sm ${isSelected ? 'font-bold' : ''}`}>
                                     {format(day, 'd')}
                                 </span>
+                                {hasOrder && (
+                                    <span className={`w-1.5 h-1.5 rounded-full mt-1 ${isSelected ? 'bg-white' : 'bg-orange-400'}`} />
+                                )}
                             </button>
                         );
                     })}
@@ -126,7 +149,7 @@ export default function ProducerSchedule() {
                 ) : (
                     <div className="divide-y divide-gray-100">
                         {items.length > 0 ? (
-                            items.map((item) => (
+                            items.map((item: ScheduleItem) => (
                                 <div key={item.id} className="p-4 flex items-center">
                                     <div className={`
                                         w-10 h-10 rounded-full flex items-center justify-center mr-4 flex-shrink-0
