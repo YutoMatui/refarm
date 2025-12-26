@@ -54,7 +54,7 @@ export default function History() {
         // Other fields would be defaults or fetched if needed
         is_active: 1
       }
-      addToCart(product, item.quantity)
+      addToCart(product, Number(item.quantity))
       addedCount++
     })
 

@@ -128,7 +128,7 @@ export default function Cart() {
   }
 
   const subtotal = cart.reduce((sum, item) => {
-    return sum + parseFloat(item.product.price) * item.quantity
+    return sum + parseFloat(item.product.price) * Number(item.quantity)
   }, 0)
 
   const totalWithTax = getCartTotal()
@@ -181,14 +181,14 @@ export default function Cart() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-1">
                     <button
-                      onClick={() => updateCartQuantity(item.product.id, item.quantity - 1)}
+                      onClick={() => updateCartQuantity(item.product.id, Number(item.quantity) - 1)}
                       className="w-7 h-7 flex items-center justify-center bg-white rounded shadow-sm text-gray-600"
                     >
                       -
                     </button>
                     <span className="font-bold text-sm w-4 text-center">{item.quantity}</span>
                     <button
-                      onClick={() => updateCartQuantity(item.product.id, item.quantity + 1)}
+                      onClick={() => updateCartQuantity(item.product.id, Number(item.quantity) + 1)}
                       className="w-7 h-7 flex items-center justify-center bg-white rounded shadow-sm text-gray-600"
                     >
                       +

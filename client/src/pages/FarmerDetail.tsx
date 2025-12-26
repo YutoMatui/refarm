@@ -5,9 +5,8 @@ import { farmerApi, productApi } from '@/services/api';
 import { Farmer, Product } from '@/types';
 import { useStore } from '@/store/useStore';
 import {
-    ArrowLeft, Loader2, Leaf, PlayCircle, ExternalLink, ShoppingCart, Plus, MapPin, Sprout, TrendingUp, Star, Award, ChefHat
+    ArrowLeft, Loader2, Leaf, PlayCircle, ExternalLink, ShoppingCart, ChefHat
 } from 'lucide-react';
-import ProductCard from '@/components/ProductCard';
 
 export default function FarmerDetail() {
     const { id } = useParams();

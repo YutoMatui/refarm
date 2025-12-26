@@ -94,7 +94,7 @@ export default function Dashboard() {
                 {/* Content */}
                 <div className="relative h-full flex flex-col items-center justify-center text-center p-6 pt-10">
                     <div className="mb-2 flex items-center justify-center space-x-2 bg-white/20 backdrop-blur-md px-4 py-1 rounded-full text-white text-xs font-bold tracking-wider border border-white/30">
-                        <Leaf size={12} fill="currentColor" />
+                        <Leaf size={14} />
                         <span>KOBE VEGGIE WORKS</span>
                     </div>
 
@@ -170,7 +170,7 @@ export default function Dashboard() {
                 <section className="animate-enter animate-delay-200">
                     <div className="flex items-center justify-between mb-3 px-1">
                         <h2 className="text-lg font-bold text-gray-800 flex items-center">
-                            <Sparkles className="w-5 h-5 text-yellow-400 mr-2 fill-current" />
+                            <Sparkles className="w-5 h-5 text-yellow-400 mr-2" />
                             <span>今週のおすすめ</span>
                         </h2>
                         <button
