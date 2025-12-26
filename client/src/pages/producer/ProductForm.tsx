@@ -5,6 +5,7 @@ import { Camera, ArrowLeft, Loader2, Save } from 'lucide-react';
 import { producerApi, uploadApi, productApi } from '../../services/api';
 import { HarvestStatus } from '../../types';
 import { toast } from 'sonner';
+import { compressImage } from '../../utils/imageUtils';
 
 interface ProductFormData {
     name: string;
@@ -67,12 +68,13 @@ export default function ProductForm() {
 
         setUploading(true);
         try {
-            // Compress logic could go here, skipping for now
-            const res = await uploadApi.uploadImage(file);
+            // Compress image before upload
+            const compressedFile = await compressImage(file);
+            const res = await uploadApi.uploadImage(compressedFile);
             setImageUrl(res.data.url);
             toast.success('画像をアップロードしました');
         } catch (e) {
-            console.error(e);
+            console.error('Upload error:', e);
             toast.error('画像のアップロードに失敗しました');
         } finally {
             setUploading(false);

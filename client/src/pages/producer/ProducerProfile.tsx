@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { Camera, Save, Loader2, MapPin, Image as ImageIcon, Plus, Trash2 } from 'lucide-react';
 import { producerApi, uploadApi } from '../../services/api';
 import { toast } from 'sonner';
+import { compressImage } from '../../utils/imageUtils';
 
 interface Commitment {
     title: string;
@@ -58,7 +59,9 @@ export default function ProducerProfile() {
 
         setUploading(true);
         try {
-            const res = await uploadApi.uploadImage(file);
+            // Compress image before upload
+            const compressedFile = await compressImage(file);
+            const res = await uploadApi.uploadImage(compressedFile);
             if (type === 'profile') {
                 setProfilePhotoUrl(res.data.url);
             } else {
@@ -66,23 +69,28 @@ export default function ProducerProfile() {
             }
             toast.success('画像をアップロードしました');
         } catch (e) {
+            console.error('Upload error:', e);
             toast.error('アップロード失敗');
         } finally {
             setUploading(false);
         }
     };
+
     const handleCommitmentImageChange = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
         setUploading(true);
         try {
-            const res = await uploadApi.uploadImage(file);
+            // Compress image before upload
+            const compressedFile = await compressImage(file);
+            const res = await uploadApi.uploadImage(compressedFile);
             const newCommitments = [...commitments];
             newCommitments[index].image = res.data.url;
             setCommitments(newCommitments);
             toast.success('画像をアップロードしました');
         } catch (e) {
+            console.error('Upload error:', e);
             toast.error('アップロード失敗');
         } finally {
             setUploading(false);

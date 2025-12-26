@@ -5,6 +5,7 @@ import { Farmer } from '@/types'
 import { Plus, Edit2, Save, X, Upload, FileText, Trash2, Video } from 'lucide-react'
 import Loading from '@/components/Loading'
 import ImageCropperModal from '@/components/ImageCropperModal'
+import { compressImage } from '@/utils/imageUtils'
 
 export default function FarmerManagement() {
     const queryClient = useQueryClient()
@@ -67,8 +68,9 @@ export default function FarmerManagement() {
     const handleCropComplete = async (blob: Blob) => {
         if (!targetId) return
         try {
-            const file = new File([blob], "profile.jpg", { type: "image/jpeg" })
-            const uploadResponse = await uploadApi.uploadImage(file)
+            // Compress the cropped blob further to ensure it stays well within limits
+            const compressedFile = await compressImage(blob, { maxWidth: 1200, maxHeight: 1200 });
+            const uploadResponse = await uploadApi.uploadImage(compressedFile)
             await farmerApi.update(targetId, { profile_photo_url: uploadResponse.data.url })
             alert('画像を更新しました')
             queryClient.invalidateQueries({ queryKey: ['admin-farmers'] })
