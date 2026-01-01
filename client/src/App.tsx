@@ -112,6 +112,12 @@ function App() {
         if (liffService.isInClient()) {
           liffService.login()
         } else {
+          // Allow login in web browser for production/staging
+          if (window.location.hostname !== 'localhost') {
+            liffService.login()
+            return
+          }
+
           // Dev mode logic...
           console.warn('Not in LIFF environment. Using mock data.')
           // ... existing mock logic ...

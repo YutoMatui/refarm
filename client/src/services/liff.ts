@@ -22,7 +22,17 @@ export class LIFFService {
   async init(): Promise<void> {
     if (this.initialized) return
 
-    const liffId = import.meta.env.VITE_LIFF_ID
+    // Dynamic LIFF ID selection based on URL parameters
+    const params = new URLSearchParams(window.location.search);
+    const type = params.get('type');
+
+    // Default to Restaurant LIFF ID, but check for Farmer param
+    let liffId = import.meta.env.VITE_LIFF_ID;
+
+    // Also check path for /producer, /invite/farmer etc.
+    if (type === 'farmer' || window.location.pathname.startsWith('/producer')) {
+      liffId = import.meta.env.VITE_FARMER_LIFF_ID || liffId;
+    }
 
     if (!liffId || liffId === 'mock-liff-id-for-development') {
       console.warn('LIFF ID not configured. Using mock mode.')
@@ -34,7 +44,7 @@ export class LIFFService {
     try {
       await liff.init({ liffId })
       this.initialized = true
-      console.log('LIFF initialized successfully')
+      console.log('LIFF initialized successfully with ID:', liffId)
     } catch (error) {
       console.error('LIFF initialization failed:', error)
       throw error
