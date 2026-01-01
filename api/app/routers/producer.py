@@ -282,6 +282,67 @@ async def update_producer_product(
 
 
 
+@router.get("/profile", response_model=FarmerResponse)
+async def get_producer_profile(
+    farmer_id: int = Query(..., description="生産者ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """生産者プロフィールを取得"""
+    stmt = select(Farmer).where(Farmer.id == farmer_id, Farmer.deleted_at.is_(None))
+    result = await db.execute(stmt)
+    farmer = result.scalar_one_or_none()
+    
+    if not farmer:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
+    
+    return farmer
+
+
+@router.put("/profile", response_model=FarmerResponse)
+async def update_producer_profile(
+    data: FarmerUpdate,
+    farmer_id: int = Query(..., description="生産者ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """生産者プロフィールを更新"""
+    stmt = select(Farmer).where(Farmer.id == farmer_id, Farmer.deleted_at.is_(None))
+    result = await db.execute(stmt)
+    farmer = result.scalar_one_or_none()
+    
+    if not farmer:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
+    
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(farmer, field, value)
+    
+    await db.commit()
+    await db.refresh(farmer)
+    return farmer
+
+
+@router.post("/{farmer_id}/unlink_line")
+async def unlink_farmer_line(
+    farmer_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """LINE連携を解除"""
+    stmt = select(Farmer).where(Farmer.id == farmer_id, Farmer.deleted_at.is_(None))
+    result = await db.execute(stmt)
+    farmer = result.scalar_one_or_none()
+    
+    if not farmer:
+        raise HTTPException(status_code=404, detail="生産者が見つかりません")
+    
+    farmer.line_user_id = None
+    farmer.invite_token = None
+    farmer.invite_code = None
+    farmer.invite_expires_at = None
+    
+    await db.commit()
+    return {"message": "LINE連携を解除しました", "success": True}
+
+
 @router.post("/", response_model=FarmerResponse, status_code=status.HTTP_201_CREATED)
 async def create_farmer(farmer_data: FarmerCreate, db: AsyncSession = Depends(get_db)):
     """生産者を新規登録"""

@@ -398,16 +398,19 @@ export const producerApi = {
     apiClient.put<Product>(`/producer/products/${productId}?farmer_id=${farmerId}`, data),
 
   getProfile: (farmerId: number) =>
-    apiClient.get<Farmer>(`/producer/${farmerId}`),
+    apiClient.get<Farmer>(`/producer/profile?farmer_id=${farmerId}`),
 
   updateProfile: (farmerId: number, data: any) =>
-    apiClient.put<Farmer>(`/producer/${farmerId}`, data),
+    apiClient.put<Farmer>(`/producer/profile?farmer_id=${farmerId}`, data),
 
   getSales: (farmerId: number, month: string) =>
     apiClient.get<any>(`/producer/dashboard/sales?farmer_id=${farmerId}&month=${month}`),
 
   getSchedule: (farmerId: number, date: string) =>
     apiClient.get<any>(`/producer/dashboard/schedule?farmer_id=${farmerId}&date=${date}`),
+
+  unlinkLine: (farmerId: number) =>
+    apiClient.post<{ message: string; success: boolean }>(`/producer/${farmerId}/unlink_line`),
 }
 
 // Upload API

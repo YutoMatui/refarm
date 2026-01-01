@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { farmerApi, invitationApi } from '@/services/api';
+import { farmerApi, invitationApi, producerApi } from '@/services/api';
 import { Farmer, ChefComment } from '@/types';
-import { Edit2, Loader2, X, Link as LinkIcon, Copy } from 'lucide-react';
+import { Edit2, Loader2, X, Link as LinkIcon, Copy, Unlink } from 'lucide-react';
 import Loading from '@/components/Loading';
 import { toast } from 'sonner';
 import ChefCommentsEditor from '@/components/ChefCommentsEditor';
@@ -54,6 +54,20 @@ export default function FarmerManagement() {
             toast.success('招待リンクを発行しました');
         } catch (e) {
             toast.error('発行に失敗しました');
+        }
+    };
+
+    const handleUnlinkLine = async (farmer: Farmer) => {
+        if (!confirm(`${farmer.name}さんのLINE連携を解除しますか？\n生産者はログインできなくなります。再連携には新しい招待リンクが必要です。`)) {
+            return;
+        }
+
+        try {
+            await producerApi.unlinkLine(farmer.id);
+            toast.success('LINE連携を解除しました');
+            queryClient.invalidateQueries({ queryKey: ['admin-farmers'] });
+        } catch (e) {
+            toast.error('連携解除に失敗しました');
         }
     };
 
@@ -171,9 +185,19 @@ export default function FarmerManagement() {
                                     <td className="px-6 py-4 text-sm text-gray-500">
                                         {/* @ts-ignore - line_user_id might not be in type yet */}
                                         {farmer.line_user_id ? (
-                                            <span className="text-green-600 flex items-center gap-1 text-xs font-bold">
-                                                <div className="w-2 h-2 bg-green-500 rounded-full"></div> 連携済
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-green-600 flex items-center gap-1 text-xs font-bold">
+                                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div> 連携済
+                                                </span>
+                                                <button
+                                                    onClick={() => handleUnlinkLine(farmer)}
+                                                    className="text-xs bg-red-50 text-red-600 px-2 py-1 rounded border border-red-100 hover:bg-red-100 flex items-center gap-1"
+                                                    title="連携を解除"
+                                                >
+                                                    <Unlink size={12} />
+                                                    解除
+                                                </button>
+                                            </div>
                                         ) : (
                                             <span className="text-gray-400 text-xs">未連携</span>
                                         )}
