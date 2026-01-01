@@ -54,9 +54,8 @@ function App() {
   const setLineUserId = useStore(state => state.setLineUserId)
 
   useEffect(() => {
-    // Skip initialization if we are on the invite page (it handles its own auth flow partially)
-    if (window.location.pathname.startsWith('/invite/')) {
-      // Still init liff for the invite page
+    // Skip initialization if we are on the invite page
+    if (window.location.pathname.startsWith('/invite/') || window.location.search.includes('token=')) {
       liffService.init().then(() => setLoading(false));
       return;
     }
@@ -164,6 +163,7 @@ function App() {
       <Router>
         <InviteHandler />
         <Routes>
+          <Route path="/invite/:code" element={<InviteHandler />} />
 
           <Route path="/register" element={
             !restaurant && lineUserId ? <Register /> : <Navigate to="/" replace />

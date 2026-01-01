@@ -18,9 +18,15 @@ export default function InviteHandler() {
     const setStoreLineUserId = useStore(state => state.setLineUserId);
 
     useEffect(() => {
-        // 1. Get token from URL
+        // 1. Get token from URL (query param or path param)
         const params = new URLSearchParams(location.search);
-        const token = params.get('token');
+        let token = params.get('token');
+
+        // If not in query, check path (for legacy or alternative URL formats)
+        if (!token && location.pathname.startsWith('/invite/')) {
+            token = location.pathname.split('/')[2];
+        }
+
         if (token) {
             setInviteToken(token);
             // Initialize LIFF to get user ID
@@ -76,7 +82,10 @@ export default function InviteHandler() {
                 navigate('/');
             }
         } catch (error: any) {
-            console.error(error);
+            console.error("Invitation linking error detail:", error);
+            if (error.response) {
+                console.error("API Error Response:", error.response.data);
+            }
             toast.error(error.response?.data?.detail || "コードが間違っているか、URLの有効期限が切れています。");
         } finally {
             setIsLoading(false);

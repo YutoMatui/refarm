@@ -64,6 +64,9 @@ async def create_producer_product(
     new_product = Product(
         farmer_id=product_data.farmer_id,
         name=product_data.name,
+        variety=product_data.variety,
+        farming_method=product_data.farming_method,
+        weight=product_data.weight,
         unit=product_data.unit,
         cost_price=product_data.cost_price,
         # Selling price = cost / 0.7 (approx 30% margin)
