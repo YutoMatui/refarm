@@ -55,8 +55,10 @@ function App() {
 
   useEffect(() => {
     // Skip initialization if we are on the invite page
+    // BUT we still need to initialize LIFF to get the user ID for linking
     if (window.location.pathname.startsWith('/invite/') || window.location.search.includes('token=')) {
-      liffService.init().then(() => setLoading(false));
+      // InviteHandler will handle initialization
+      setLoading(false);
       return;
     }
     initializeApp()

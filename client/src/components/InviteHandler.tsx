@@ -68,19 +68,31 @@ export default function InviteHandler() {
             toast.success(`${res.data.name}様のアカウント連携が完了しました！`);
 
             // Redirect based on role
-            if (res.data.role === 'farmer') {
-                navigate(`/producer?farmer_id=${res.data.target_id || ''}`); // Backend should return ID, or fetch 'me'
-            } else {
-                // Refresh auth state
-                const idToken = liffService.getIDToken();
-                if (idToken) {
-                    const authRes = await authApi.verify(idToken);
-                    if (authRes.data.restaurant) {
-                        setRestaurant(authRes.data.restaurant);
+            // Important: Add a small delay to ensure toast is seen
+            setTimeout(async () => {
+                if (res.data.role === 'farmer') {
+                    // For farmers, we might need to refresh the page to update LIFF context if it changed
+                    // But usually navigate is enough if the app structure supports it.
+                    // Force refresh to be safe and ensure clean state
+                    window.location.href = `/producer?farmer_id=${res.data.target_id || ''}`;
+                } else {
+                    // Refresh auth state before redirecting
+                    // We need to re-verify token because the user role has changed (is_registered became true)
+                    try {
+                        const idToken = liffService.getIDToken();
+                        if (idToken) {
+                            const authRes = await authApi.verify(idToken);
+                            if (authRes.data.restaurant) {
+                                setRestaurant(authRes.data.restaurant);
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Failed to refresh auth state", e);
                     }
+                    navigate('/');
                 }
-                navigate('/');
-            }
+            }, 1000);
+
         } catch (error: any) {
             console.error("Invitation linking error detail:", error);
             if (error.response) {
