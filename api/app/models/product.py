@@ -57,9 +57,9 @@ class Product(Base, TimestampMixin, SoftDeleteMixin):
     )
 
     farming_method = Column(
-        Enum(FarmingMethod),
+        String(50),
         nullable=True,
-        default=FarmingMethod.CONVENTIONAL,
+        default=FarmingMethod.CONVENTIONAL.value,
         comment="栽培方法"
     )
 
@@ -83,9 +83,9 @@ class Product(Base, TimestampMixin, SoftDeleteMixin):
     )
     
     harvest_status = Column(
-        Enum(HarvestStatus),
+        String(50),
         nullable=True,
-        default=HarvestStatus.HARVESTABLE,
+        default=HarvestStatus.HARVESTABLE.value,
         comment="収穫状況"
     )
     
