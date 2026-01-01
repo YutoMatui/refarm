@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
-import { restaurantApi } from '../../services/api'
+import { Plus, Pencil, Trash2, Link as LinkIcon, Copy } from 'lucide-react'
+import { restaurantApi, invitationApi } from '../../services/api'
+import { toast } from 'sonner'
 import type { Restaurant } from '../../types'
 
 export default function RestaurantManagement() {
@@ -9,6 +10,7 @@ export default function RestaurantManagement() {
     const [loading, setLoading] = useState(true)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingRestaurant, setEditingRestaurant] = useState<Restaurant | null>(null)
+    const [inviteInfo, setInviteInfo] = useState<{ url: string, code: string, targetId: number } | null>(null);
 
     const { register, handleSubmit, reset, setValue } = useForm<Partial<Restaurant>>()
 
@@ -75,10 +77,83 @@ export default function RestaurantManagement() {
         setIsModalOpen(true)
     }
 
+    const handleGenerateInvite = async (restaurant: Restaurant) => {
+        try {
+            const res = await invitationApi.generateRestaurantInvite(restaurant.id);
+            setInviteInfo({
+                url: res.data.invite_url,
+                code: res.data.access_code,
+                targetId: restaurant.id
+            });
+            toast.success('招待リンクを発行しました');
+        } catch (e) {
+            toast.error('発行に失敗しました');
+        }
+    };
+
     if (loading) return <div>Loading...</div>
 
     return (
         <div className="space-y-6">
+            {inviteInfo && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white p-6 rounded-lg max-w-lg w-full">
+                        <h3 className="text-lg font-bold mb-4">招待リンク発行完了</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">招待URL</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        readOnly
+                                        value={inviteInfo.url}
+                                        className="flex-1 bg-gray-50 border p-2 rounded text-sm"
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(inviteInfo.url);
+                                            toast.success('コピーしました');
+                                        }}
+                                        className="p-2 bg-gray-200 rounded hover:bg-gray-300"
+                                    >
+                                        <Copy size={18} />
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">連携パスワード (PIN)</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        readOnly
+                                        value={inviteInfo.code}
+                                        className="flex-1 bg-gray-50 border p-2 rounded text-lg font-mono font-bold tracking-widest text-center"
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(inviteInfo.code);
+                                            toast.success('コピーしました');
+                                        }}
+                                        className="p-2 bg-gray-200 rounded hover:bg-gray-300"
+                                    >
+                                        <Copy size={18} />
+                                    </button>
+                                </div>
+                            </div>
+                            <p className="text-sm text-red-500 bg-red-50 p-3 rounded">
+                                ※このURLとパスワードを飲食店に共有してください。
+                            </p>
+                        </div>
+                        <div className="mt-6 text-center">
+                            <button
+                                onClick={() => setInviteInfo(null)}
+                                className="px-6 py-2 bg-green-600 text-white rounded font-bold hover:bg-green-700"
+                            >
+                                閉じる
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold text-gray-900">飲食店管理</h2>
                 <button
@@ -97,6 +172,7 @@ export default function RestaurantManagement() {
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">店舗名</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">連絡先</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">住所</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">連携状況</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                         </tr>
                     </thead>
@@ -106,11 +182,27 @@ export default function RestaurantManagement() {
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{restaurant.name}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{restaurant.phone_number}</td>
                                 <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{restaurant.address}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <button onClick={() => openEdit(restaurant)} className="text-indigo-600 hover:text-indigo-900 mr-4">
+                                <td className="px-6 py-4 text-sm text-gray-500">
+                                    {restaurant.line_user_id ? (
+                                        <span className="text-green-600 flex items-center gap-1 text-xs font-bold">
+                                            <div className="w-2 h-2 bg-green-500 rounded-full"></div> 連携済
+                                        </span>
+                                    ) : (
+                                        <span className="text-gray-400 text-xs">未連携</span>
+                                    )}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end gap-2">
+                                    <button
+                                        onClick={() => handleGenerateInvite(restaurant)}
+                                        className="text-green-600 hover:text-green-800 p-1 bg-green-50 rounded"
+                                        title="招待リンク発行"
+                                    >
+                                        <LinkIcon className="w-4 h-4" />
+                                    </button>
+                                    <button onClick={() => openEdit(restaurant)} className="text-indigo-600 hover:text-indigo-900 p-1">
                                         <Pencil className="w-4 h-4" />
                                     </button>
-                                    <button onClick={() => handleDelete(restaurant.id)} className="text-red-600 hover:text-red-900">
+                                    <button onClick={() => handleDelete(restaurant.id)} className="text-red-600 hover:text-red-900 p-1">
                                         <Trash2 className="w-4 h-4" />
                                     </button>
                                 </td>
@@ -135,7 +227,7 @@ export default function RestaurantManagement() {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">LINE User ID</label>
-                                    <input {...register('line_user_id', { required: true })} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
+                                    <input {...register('line_user_id')} placeholder="自動連携のため空欄推奨" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 bg-gray-50" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">電話番号</label>

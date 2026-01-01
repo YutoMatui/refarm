@@ -128,6 +128,11 @@ class Restaurant(Base, TimestampMixin, SoftDeleteMixin):
         comment="締め日 (1-28, 99=末日)"
     )
     
+    # Invitation System
+    invite_token = Column(String(64), nullable=True, index=True)
+    invite_code = Column(String(10), nullable=True)
+    invite_expires_at = Column(DateTime, nullable=True)
+
     # Relationships
     orders = relationship(
         "Order",

@@ -3,7 +3,7 @@
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Restaurant, Product, CartItem } from '@/types'
+import type { Restaurant, Farmer, Product, CartItem } from '@/types'
 
 interface AppState {
   // User & Auth
@@ -11,6 +11,10 @@ interface AppState {
   setRestaurant: (restaurant: Restaurant | null) => void
   lineUserId: string | null
   setLineUserId: (id: string | null) => void
+  farmer: Farmer | null
+  setFarmer: (farmer: Farmer | null) => void
+  userRole: 'restaurant' | 'farmer' | 'admin' | null
+  setUserRole: (role: 'restaurant' | 'farmer' | 'admin' | null) => void
 
   // Cart
   cart: CartItem[]
@@ -40,6 +44,10 @@ export const useStore = create<AppState>()(
       setRestaurant: (restaurant) => set({ restaurant }),
       lineUserId: null,
       setLineUserId: (id) => set({ lineUserId: id }),
+      farmer: null,
+      setFarmer: (farmer) => set({ farmer }),
+      userRole: null,
+      setUserRole: (role) => set({ userRole: role }),
 
       // Cart
       cart: [],
@@ -118,6 +126,8 @@ export const useStore = create<AppState>()(
       partialize: (state) => ({
         restaurant: state.restaurant,
         lineUserId: state.lineUserId,
+        farmer: state.farmer,
+        userRole: state.userRole,
         cart: state.cart,
         favoriteIds: Array.from(state.favoriteIds), // Convert Set to Array for persistence
       }),

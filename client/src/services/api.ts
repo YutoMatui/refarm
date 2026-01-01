@@ -426,4 +426,26 @@ export const logisticsApi = {
     apiClient.post<FullRouteResponse>('/logistics/route/delivery', data),
 }
 
+// Invitation API (Enhanced)
+export const invitationApi = {
+  // Admin: Generate Invite
+  generateFarmerInvite: (farmerId: number) =>
+    apiClient.post<{ invite_url: string; access_code: string; expires_at: string }>(
+      `/farmers/${farmerId}/generate_invite`
+    ),
+
+  generateRestaurantInvite: (restaurantId: number) =>
+    apiClient.post<{ invite_url: string; access_code: string; expires_at: string }>(
+      `/restaurants/${restaurantId}/generate_invite`
+    ),
+
+  // Client: Link Account
+  linkAccount: (lineUserId: string, inviteToken: string, inputCode: string) =>
+    apiClient.post<{ message: string; name: string; role: string; target_id?: number }>('/auth/link_account', {
+      line_user_id: lineUserId,
+      invite_token: inviteToken,
+      input_code: inputCode
+    })
+}
+
 export default apiClient

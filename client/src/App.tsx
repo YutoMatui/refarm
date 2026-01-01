@@ -29,10 +29,14 @@ import ProducerSchedule from './pages/producer/ProducerSchedule'
 import ProducerSales from './pages/producer/ProducerSales'
 import Loading from './components/Loading'
 
+import InviteHandler from './components/InviteHandler'
+
 // Auth Guard Component
 const AuthGuard = ({ children }: { children: JSX.Element }) => {
   const restaurant = useStore(state => state.restaurant)
   const lineUserId = useStore(state => state.lineUserId)
+
+  // NOTE: If role based routing is needed later, add logic here
 
   if (!lineUserId) return <Navigate to="/login" replace />
   if (!restaurant) return <Navigate to="/register" replace />
@@ -45,9 +49,17 @@ function App() {
   const restaurant = useStore(state => state.restaurant)
   const lineUserId = useStore(state => state.lineUserId)
   const setRestaurant = useStore(state => state.setRestaurant)
+  const setFarmer = useStore(state => state.setFarmer)
+  const setUserRole = useStore(state => state.setUserRole)
   const setLineUserId = useStore(state => state.setLineUserId)
 
   useEffect(() => {
+    // Skip initialization if we are on the invite page (it handles its own auth flow partially)
+    if (window.location.pathname.startsWith('/invite/')) {
+      // Still init liff for the invite page
+      liffService.init().then(() => setLoading(false));
+      return;
+    }
     initializeApp()
   }, [])
 
@@ -65,16 +77,17 @@ function App() {
           // Verify token with backend and get restaurant info
           try {
             const response = await authApi.verify(idToken)
-            const { line_user_id, restaurant, is_registered } = response.data
+            const { line_user_id, restaurant, farmer, role, is_registered } = response.data
 
             setLineUserId(line_user_id)
+            setUserRole(role as any)
 
-            if (is_registered && restaurant) {
-              setRestaurant(restaurant)
+            if (is_registered) {
+              if (role === 'restaurant') setRestaurant(restaurant!)
+              if (role === 'farmer') setFarmer(farmer!)
             } else {
-              console.log('Restaurant not registered')
+              console.log('User not registered')
               // User is authenticated with LINE but not registered in our DB
-              // The Router will handle redirection to /register based on state
             }
           } catch (err: any) {
             console.error('Authentication failed:', err)
@@ -83,13 +96,13 @@ function App() {
             if (idToken === 'mock-id-token') {
               console.warn('Backend verification failed for mock token, falling back to local mock data');
 
-              // Set dummy data locally (Use fixed ID to match seed data if user runs it)
+              // Set dummy data locally
               const mockLineUserId = 'Uk-id-token'
               setLineUserId(mockLineUserId)
 
-              // 修正: 初回登録画面の確認のため、強制的に未登録状態とする
-              // 開発用デモ店舗データはセットせず、新規ユーザーとして振る舞う
+              // For dev purposes, if mock fails, assume new user
               setRestaurant(null)
+              setFarmer(null)
             } else {
               setError('認証に失敗しました')
             }
@@ -100,27 +113,23 @@ function App() {
         if (liffService.isInClient()) {
           liffService.login()
         } else {
-          // Development mode: use mock data
+          // Dev mode logic...
           console.warn('Not in LIFF environment. Using mock data.')
-
-          // Try to get mock data from backend
+          // ... existing mock logic ...
           try {
             const response = await authApi.verify('mock-id-token')
-            const { line_user_id, restaurant, is_registered } = response.data
+            const { line_user_id, restaurant, farmer, role, is_registered } = response.data
 
             setLineUserId(line_user_id)
+            setUserRole(role as any)
 
-            if (is_registered && restaurant) {
-              setRestaurant(restaurant)
+            if (is_registered) {
+              if (role === 'restaurant') setRestaurant(restaurant!)
+              if (role === 'farmer') setFarmer(farmer!)
             }
-          } catch (err) {
-            console.error('Mock authentication failed:', err)
-            // Fallback to local mock if backend fails
-            const mockLineUserId = 'Uk-id-token' // Fixed ID to match seed data
-            setLineUserId(mockLineUserId)
-
-            // 修正: 初回登録画面の確認のため、強制的に未登録状態とする
-            // 開発用デモ店舗データはセットせず、新規ユーザーとして振る舞う
+          } catch (e) {
+            // Fallback
+            setLineUserId('Uk-id-token')
             setRestaurant(null)
           }
         }
@@ -153,7 +162,9 @@ function App() {
     <>
       <Toaster position="top-center" richColors />
       <Router>
+        <InviteHandler />
         <Routes>
+
           <Route path="/register" element={
             !restaurant && lineUserId ? <Register /> : <Navigate to="/" replace />
           } />

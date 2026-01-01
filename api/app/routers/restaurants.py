@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
+import secrets
+from datetime import datetime, timedelta
 
 from app.core.database import get_db
 from app.models import Restaurant
@@ -239,3 +241,37 @@ async def delete_restaurant(
         message="飲食店を削除しました",
         success=True
     )
+
+
+@router.post("/{restaurant_id}/generate_invite", summary="招待URL生成")
+async def generate_restaurant_invite(restaurant_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    飲食店向けの招待URLと認証コードを生成します。
+    """
+    stmt = select(Restaurant).where(Restaurant.id == restaurant_id, Restaurant.deleted_at.is_(None))
+    result = await db.execute(stmt)
+    restaurant = result.scalar_one_or_none()
+    
+    if not restaurant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="飲食店が見つかりません")
+    
+    # 1. Generate secure token and easy code
+    new_token = secrets.token_urlsafe(32)
+    new_code = str(secrets.randbelow(10000)).zfill(4)
+    
+    # 2. Update DB
+    restaurant.invite_token = new_token
+    restaurant.invite_code = new_code
+    restaurant.invite_expires_at = datetime.now() + timedelta(days=7)
+    
+    await db.commit()
+    
+    # 3. Return info
+    # TODO: Make base URL configurable
+    liff_base_url = "https://liff.line.me/2006733221-7O009wjj" # Example ID
+    
+    return {
+        "invite_url": f"{liff_base_url}?token={new_token}",
+        "access_code": new_code,
+        "expires_at": restaurant.invite_expires_at
+    }

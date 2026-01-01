@@ -157,6 +157,11 @@ class Farmer(Base, TimestampMixin, SoftDeleteMixin):
         comment="アクティブフラグ (0: 無効, 1: 有効)"
     )
     
+    # Invitation System
+    invite_token = Column(String(64), nullable=True, index=True)
+    invite_code = Column(String(10), nullable=True)
+    invite_expires_at = Column(DateTime, nullable=True)
+    
     # Relationships
     products = relationship(
         "Product",

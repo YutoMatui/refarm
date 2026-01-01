@@ -4,6 +4,8 @@ Farmer API Router - 生産者管理
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+import secrets
+from datetime import datetime, timedelta
 
 from app.core.database import get_db
 from app.models import Farmer
@@ -117,3 +119,37 @@ async def delete_farmer(farmer_id: int, db: AsyncSession = Depends(get_db)):
     await db.commit()
     
     return ResponseMessage(message="生産者を削除しました", success=True)
+
+
+@router.post("/{farmer_id}/generate_invite", summary="招待URL生成")
+async def generate_farmer_invite(farmer_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    農家向けの招待URLと認証コードを生成します。
+    """
+    stmt = select(Farmer).where(Farmer.id == farmer_id, Farmer.deleted_at.is_(None))
+    result = await db.execute(stmt)
+    farmer = result.scalar_one_or_none()
+    
+    if not farmer:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
+    
+    # 1. Generate secure token and easy code
+    new_token = secrets.token_urlsafe(32)
+    new_code = str(secrets.randbelow(10000)).zfill(4)
+    
+    # 2. Update DB
+    farmer.invite_token = new_token
+    farmer.invite_code = new_code
+    farmer.invite_expires_at = datetime.now() + timedelta(days=7)
+    
+    await db.commit()
+    
+    # 3. Return info
+    # TODO: Make base URL configurable
+    liff_base_url = "https://liff.line.me/2006733221-7O009wjj" # Example ID, should be env var
+    
+    return {
+        "invite_url": f"{liff_base_url}?token={new_token}",
+        "access_code": new_code,
+        "expires_at": farmer.invite_expires_at
+    }

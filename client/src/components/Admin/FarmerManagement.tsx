@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { farmerApi } from '@/services/api';
+import { farmerApi, invitationApi } from '@/services/api';
 import { Farmer, ChefComment } from '@/types';
-import { Edit2, Loader2, X } from 'lucide-react';
+import { Edit2, Loader2, X, Link as LinkIcon, Copy } from 'lucide-react';
 import Loading from '@/components/Loading';
 import { toast } from 'sonner';
 import ChefCommentsEditor from '@/components/ChefCommentsEditor';
@@ -11,6 +11,7 @@ export default function FarmerManagement() {
     const queryClient = useQueryClient();
     const [filterText, setFilterText] = useState('');
     const [editingFarmer, setEditingFarmer] = useState<Farmer | null>(null);
+    const [inviteInfo, setInviteInfo] = useState<{ url: string, code: string, targetId: number } | null>(null);
 
     const { data: farmersData, isLoading } = useQuery({
         queryKey: ['admin-farmers'],
@@ -42,6 +43,20 @@ export default function FarmerManagement() {
         );
     }, [farmersData, filterText]);
 
+    const handleGenerateInvite = async (farmer: Farmer) => {
+        try {
+            const res = await invitationApi.generateFarmerInvite(farmer.id);
+            setInviteInfo({
+                url: res.data.invite_url,
+                code: res.data.access_code,
+                targetId: farmer.id
+            });
+            toast.success('招待リンクを発行しました');
+        } catch (e) {
+            toast.error('発行に失敗しました');
+        }
+    };
+
     const handleSave = () => {
         if (!editingFarmer) return;
         updateFarmerMutation.mutate({ id: editingFarmer.id, data: editingFarmer });
@@ -51,6 +66,65 @@ export default function FarmerManagement() {
 
     return (
         <div className="bg-white rounded-lg shadow">
+            {inviteInfo && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white p-6 rounded-lg max-w-lg w-full">
+                        <h3 className="text-lg font-bold mb-4">招待リンク発行完了</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">招待URL</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        readOnly
+                                        value={inviteInfo.url}
+                                        className="flex-1 bg-gray-50 border p-2 rounded text-sm"
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(inviteInfo.url);
+                                            toast.success('コピーしました');
+                                        }}
+                                        className="p-2 bg-gray-200 rounded hover:bg-gray-300"
+                                    >
+                                        <Copy size={18} />
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">連携パスワード (PIN)</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        readOnly
+                                        value={inviteInfo.code}
+                                        className="flex-1 bg-gray-50 border p-2 rounded text-lg font-mono font-bold tracking-widest text-center"
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(inviteInfo.code);
+                                            toast.success('コピーしました');
+                                        }}
+                                        className="p-2 bg-gray-200 rounded hover:bg-gray-300"
+                                    >
+                                        <Copy size={18} />
+                                    </button>
+                                </div>
+                            </div>
+                            <p className="text-sm text-red-500 bg-red-50 p-3 rounded">
+                                ※このURLとパスワードを生産者に共有してください。
+                            </p>
+                        </div>
+                        <div className="mt-6 text-center">
+                            <button
+                                onClick={() => setInviteInfo(null)}
+                                className="px-6 py-2 bg-green-600 text-white rounded font-bold hover:bg-green-700"
+                            >
+                                閉じる
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="p-6 border-b flex justify-between items-center">
                 <div>
                     <h2 className="text-xl font-bold">生産者管理</h2>
@@ -77,6 +151,7 @@ export default function FarmerManagement() {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">画像</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">生産者名</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">主要作物</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">連携状況</th>
                                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">操作</th>
                             </tr>
                         </thead>
@@ -93,10 +168,28 @@ export default function FarmerManagement() {
                                     </td>
                                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{farmer.name}</td>
                                     <td className="px-6 py-4 text-sm text-gray-500">{farmer.main_crop}</td>
-                                    <td className="px-6 py-4 text-center">
+                                    <td className="px-6 py-4 text-sm text-gray-500">
+                                        {/* @ts-ignore - line_user_id might not be in type yet */}
+                                        {farmer.line_user_id ? (
+                                            <span className="text-green-600 flex items-center gap-1 text-xs font-bold">
+                                                <div className="w-2 h-2 bg-green-500 rounded-full"></div> 連携済
+                                            </span>
+                                        ) : (
+                                            <span className="text-gray-400 text-xs">未連携</span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4 text-center flex items-center justify-center gap-2">
+                                        <button
+                                            onClick={() => handleGenerateInvite(farmer)}
+                                            className="text-green-600 hover:text-green-800 p-2 bg-green-50 rounded-full"
+                                            title="招待リンク発行"
+                                        >
+                                            <LinkIcon size={18} />
+                                        </button>
                                         <button
                                             onClick={() => setEditingFarmer(farmer)}
-                                            className="text-blue-600 hover:text-blue-800 p-2"
+                                            className="text-blue-600 hover:text-blue-800 p-2 bg-blue-50 rounded-full"
+                                            title="編集"
                                         >
                                             <Edit2 size={18} />
                                         </button>

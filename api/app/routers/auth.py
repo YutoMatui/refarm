@@ -5,13 +5,80 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
+import secrets
+from datetime import datetime, timedelta
 
 from app.core.database import get_db
 from app.core.dependencies import get_line_user_id
-from app.models import Restaurant
-from app.schemas import RestaurantResponse
+from app.models import Restaurant, Farmer
+from app.schemas import RestaurantResponse, FarmerResponse
+from typing import Optional
 
 router = APIRouter()
+
+
+class LinkAccountRequest(BaseModel):
+    """Request schema for linking account."""
+    line_user_id: str
+    invite_token: str
+    input_code: str
+
+
+@router.post("/link_account", summary="アカウント連携（招待コード）")
+async def link_account(
+    req: LinkAccountRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    招待URLと認証コードを使用して、LINEアカウントを既存の生産者・飲食店データに紐付けます。
+    """
+    # 1. Check Farmer invitations
+    stmt_farmer = select(Farmer).where(
+        Farmer.invite_token == req.invite_token,
+        Farmer.invite_expires_at > datetime.now()
+    )
+    result_farmer = await db.execute(stmt_farmer)
+    farmer = result_farmer.scalar_one_or_none()
+
+    if farmer:
+        # Verify code
+        if farmer.invite_code != req.input_code:
+            raise HTTPException(status_code=400, detail="認証コードが間違っています。")
+        
+        # Link account
+        farmer.line_user_id = req.line_user_id
+        # Invalidate token
+        farmer.invite_token = None
+        farmer.invite_code = None
+        farmer.invite_expires_at = None
+        
+        await db.commit()
+        return {"message": "連携が完了しました！", "name": farmer.name, "role": "farmer", "target_id": farmer.id}
+
+    # 2. Check Restaurant invitations
+    stmt_restaurant = select(Restaurant).where(
+        Restaurant.invite_token == req.invite_token,
+        Restaurant.invite_expires_at > datetime.now()
+    )
+    result_restaurant = await db.execute(stmt_restaurant)
+    restaurant = result_restaurant.scalar_one_or_none()
+
+    if restaurant:
+        # Verify code
+        if restaurant.invite_code != req.input_code:
+            raise HTTPException(status_code=400, detail="認証コードが間違っています。")
+            
+        # Link account
+        restaurant.line_user_id = req.line_user_id
+        # Invalidate token
+        restaurant.invite_token = None
+        restaurant.invite_code = None
+        restaurant.invite_expires_at = None
+        
+        await db.commit()
+        return {"message": "連携が完了しました！", "name": restaurant.name, "role": "restaurant", "target_id": restaurant.id}
+
+    raise HTTPException(status_code=400, detail="招待URLが無効か、期限切れです。管理者に再発行を依頼してください。")
 
 
 class AuthRequest(BaseModel):
@@ -23,6 +90,8 @@ class AuthResponse(BaseModel):
     """Authentication response."""
     line_user_id: str
     restaurant: RestaurantResponse | None
+    farmer: FarmerResponse | None = None
+    role: str | None = None  # 'restaurant', 'farmer', or None
     is_registered: bool
     message: str
 
@@ -125,12 +194,20 @@ async def verify_line_token(
     result = await db.execute(stmt)
     restaurant = result.scalar_one_or_none()
 
+    # Check if farmer is registered
+    stmt_farmer = select(Farmer).where(
+        Farmer.line_user_id == line_user_id,
+        Farmer.deleted_at.is_(None)
+    )
+    result_farmer = await db.execute(stmt_farmer)
+    farmer = result_farmer.scalar_one_or_none()
+
     # DEBUG MODE: If restaurant not found but it's a mock user, return a mock restaurant
     from app.core.config import settings
     # Check if it's a mock scenario
     is_mock_token = auth_request.id_token == 'mock-id-token' or auth_request.id_token.startswith('mock-') or len(auth_request.id_token) < 50
     
-    if not restaurant and settings.DEBUG and is_mock_token:
+    if not restaurant and not farmer and settings.DEBUG and is_mock_token:
          from datetime import datetime
          dummy_restaurant = {
              "id": 999,
@@ -148,6 +225,7 @@ async def verify_line_token(
          return AuthResponse(
             line_user_id=line_user_id,
             restaurant=dummy_restaurant,
+            role="restaurant",
             is_registered=True,
             message="認証成功: 開発用デモ店舗（モック）"
         )
@@ -156,15 +234,26 @@ async def verify_line_token(
         return AuthResponse(
             line_user_id=line_user_id,
             restaurant=restaurant,
+            role="restaurant",
             is_registered=True,
             message="認証成功: 飲食店情報が見つかりました"
+        )
+    elif farmer:
+        return AuthResponse(
+            line_user_id=line_user_id,
+            restaurant=None,
+            farmer=farmer,
+            role="farmer",
+            is_registered=True,
+            message="認証成功: 生産者情報が見つかりました"
         )
     else:
         return AuthResponse(
             line_user_id=line_user_id,
             restaurant=None,
+            role=None,
             is_registered=False,
-            message="認証成功: 飲食店の登録が必要です"
+            message="認証成功: アカウントの登録または連携が必要です"
         )
 
 
