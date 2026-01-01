@@ -398,10 +398,10 @@ export const producerApi = {
     apiClient.put<Product>(`/producer/products/${productId}?farmer_id=${farmerId}`, data),
 
   getProfile: (farmerId: number) =>
-    apiClient.get<Farmer>(`/producer/profile?farmer_id=${farmerId}`),
+    apiClient.get<Farmer>(`/producer/${farmerId}`),
 
   updateProfile: (farmerId: number, data: any) =>
-    apiClient.put<Farmer>(`/producer/profile?farmer_id=${farmerId}`, data),
+    apiClient.put<Farmer>(`/producer/${farmerId}`, data),
 
   getSales: (farmerId: number, month: string) =>
     apiClient.get<any>(`/producer/dashboard/sales?farmer_id=${farmerId}&month=${month}`),
