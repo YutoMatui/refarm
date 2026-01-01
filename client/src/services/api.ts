@@ -43,9 +43,20 @@ apiClient.interceptors.request.use(
     // Or get Admin Token
     const adminToken = localStorage.getItem('admin_token')
 
-    if (idToken) {
+    // Check if it's an admin request based on URL
+    // NOTE: This check depends on backend URL structure.
+    // If backend URL for admin APIs starts with /api/admin, we can check config.url
+    const isAdminApi = config.url?.startsWith('/admin') || config.url?.includes('/admin/');
+    const isAdminPage = window.location.pathname.startsWith('/admin');
+
+    if ((isAdminPage || isAdminApi) && adminToken) {
+      // Priority: Admin Token for Admin pages/APIs
+      config.headers.Authorization = `Bearer ${adminToken}`
+    } else if (idToken) {
+      // Otherwise: LIFF Token
       config.headers.Authorization = `Bearer ${idToken}`
     } else if (adminToken) {
+      // Fallback: Admin Token if available
       config.headers.Authorization = `Bearer ${adminToken}`
     }
 
