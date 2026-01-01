@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 import secrets
+import os
 from datetime import datetime, timedelta
 
 from app.core.database import get_db
@@ -145,8 +146,9 @@ async def generate_farmer_invite(farmer_id: int, db: AsyncSession = Depends(get_
     await db.commit()
     
     # 3. Return info
-    # TODO: Make base URL configurable
-    liff_base_url = "https://liff.line.me/2006733221-7O009wjj" # Example ID, should be env var
+    # Get LIFF ID from env or use default
+    liff_id = os.environ.get("LIFF_ID", "2006733221-7O009wjj") 
+    liff_base_url = f"https://liff.line.me/{liff_id}"
     
     return {
         "invite_url": f"{liff_base_url}?token={new_token}",

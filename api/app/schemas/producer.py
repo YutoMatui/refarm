@@ -1,12 +1,12 @@
 from typing import Optional
 from pydantic import BaseModel, Field
-from app.models.enums import HarvestStatus
+from app.models.enums import HarvestStatus, FarmingMethod
 
 class ProducerProductCreate(BaseModel):
     """Schema for creating a product by a producer."""
     name: str = Field(..., min_length=1, max_length=200, description="野菜の名前")
     variety: Optional[str] = Field(None, max_length=200, description="品種")
-    farming_method: Optional[str] = Field(None, description="栽培方法")
+    farming_method: Optional[FarmingMethod] = Field(None, description="栽培方法")
     weight: Optional[int] = Field(None, description="重量(g)")
     unit: str = Field(..., max_length=20, description="単位")
     cost_price: int = Field(..., gt=0, description="仕入れ値")
@@ -20,7 +20,7 @@ class ProducerProductUpdate(BaseModel):
     """Schema for updating a product by a producer."""
     name: Optional[str] = Field(None, min_length=1, max_length=200)
     variety: Optional[str] = None
-    farming_method: Optional[str] = None
+    farming_method: Optional[FarmingMethod] = None
     weight: Optional[int] = None
     unit: Optional[str] = Field(None, max_length=20)
     cost_price: Optional[int] = Field(None, gt=0)

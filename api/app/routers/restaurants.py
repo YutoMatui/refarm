@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 import secrets
+import os
 from datetime import datetime, timedelta
 
 from app.core.database import get_db
@@ -267,11 +268,13 @@ async def generate_restaurant_invite(restaurant_id: int, db: AsyncSession = Depe
     await db.commit()
     
     # 3. Return info
-    # TODO: Make base URL configurable
-    liff_base_url = "https://liff.line.me/2006733221-7O009wjj" # Example ID
+    # Get LIFF ID from env or use default (Restaurant specific)
+    liff_id = os.environ.get("RESTAURANT_LIFF_ID", "2008674356-P5YFllFd")
+    liff_base_url = f"https://liff.line.me/{liff_id}"
     
+    # Add type=restaurant param
     return {
-        "invite_url": f"{liff_base_url}?token={new_token}",
+        "invite_url": f"{liff_base_url}?token={new_token}&type=restaurant",
         "access_code": new_code,
         "expires_at": restaurant.invite_expires_at
     }
