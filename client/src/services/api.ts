@@ -98,6 +98,34 @@ export const adminApi = {
         'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
       }
     }),
+
+  listUsers: () =>
+    apiClient.get<any[]>('/admin/users/', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+      }
+    }),
+
+  createUser: (data: any) =>
+    apiClient.post<any>('/admin/users/', data, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+      }
+    }),
+
+  updateUser: (id: number, data: any) =>
+    apiClient.put<any>(`/admin/users/${id}`, data, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+      }
+    }),
+
+  deleteUser: (id: number) =>
+    apiClient.delete(`/admin/users/${id}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+      }
+    }),
 }
 
 // Restaurant API
