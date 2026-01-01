@@ -178,9 +178,11 @@ from app.routers import (
     producer,
     settings as settings_router,
     logistics,
+    admin_auth,
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(admin_auth.router, prefix="/api/admin/auth", tags=["Admin Authentication"])
 app.include_router(logistics.router, prefix="/api/logistics", tags=["Logistics"])
 app.include_router(restaurants.router, prefix="/api/restaurants", tags=["Restaurants"])
 app.include_router(farmers.router, prefix="/api/farmers", tags=["Farmers"])

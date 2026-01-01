@@ -66,6 +66,10 @@ apiClient.interceptors.response.use(
   }
 )
 
+/**
+ * Service APIs
+ */
+
 // Authentication API
 export const authApi = {
   verify: (idToken: string) =>
@@ -76,6 +80,24 @@ export const authApi = {
 
   register: (data: RegisterRequest) =>
     apiClient.post('/auth/register', data),
+}
+
+// Admin API
+export const adminApi = {
+  login: (data: FormData) =>
+    apiClient.post<{ access_token: string; token_type: string }>('/admin/auth/token', data, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      }
+    }),
+
+  getMe: () =>
+    apiClient.get<{ id: number; email: string; role: string }>('/admin/auth/me', {
+      headers: {
+        // For admin API, we use the stored admin token if it exists
+        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+      }
+    }),
 }
 
 // Restaurant API
@@ -107,7 +129,6 @@ export const farmerApi = {
       return response
     } catch (error) {
       console.warn('Farmer API failed, falling back to mock data', error)
-      // Use type assertion to satisfy TypeScript check
       const mockFarmers: Farmer[] = [
         {
           id: 1,
@@ -182,7 +203,6 @@ export const productApi = {
       return response
     } catch (error) {
       console.warn('Product API failed, falling back to mock data', error)
-      // Mock Data for development
       const mockProducts: Product[] = [
         {
           id: 1,
@@ -251,7 +271,7 @@ export const productApi = {
           is_kobe_veggie: true
         }
       ]
-      // Simple filtering for mock data
+
       let filtered = mockProducts
       if (params?.stock_type) filtered = filtered.filter(p => p.stock_type === params.stock_type)
       if (params?.category) filtered = filtered.filter(p => p.category === params.category)
@@ -274,7 +294,6 @@ export const productApi = {
     limit?: number
     search?: string
   }) => {
-    // Get purchased products history
     const response = await apiClient.get<PaginatedResponse<Product>>('/products/purchased', { params })
     return response.data
   },
@@ -394,8 +413,6 @@ export const uploadApi = {
   uploadImage: (file: File) => {
     const formData = new FormData()
     formData.append('file', file)
-    // エンドポイントを修正: /upload/image -> /upload/image (バックエンドの修正に合わせて)
-    // 前回のバックエンド修正で /api/upload/image になっています
     return apiClient.post<{ url: string; public_id: string }>('/upload/image', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -418,7 +435,6 @@ export const logisticsApi = {
   getCollectionRoute: (startAddress: string) =>
     apiClient.post<RouteResponse>('/logistics/route/collection', { start_address: startAddress }),
 
-  // Deprecated/Changed in backend but kept for compatibility just in case
   getDeliveryRouteOld: (date: string) =>
     apiClient.post<RouteResponse>('/logistics/route/delivery_old', { date }),
 
@@ -426,9 +442,8 @@ export const logisticsApi = {
     apiClient.post<FullRouteResponse>('/logistics/route/delivery', data),
 }
 
-// Invitation API (Enhanced)
+// Invitation API
 export const invitationApi = {
-  // Admin: Generate Invite
   generateFarmerInvite: (farmerId: number) =>
     apiClient.post<{ invite_url: string; access_code: string; expires_at: string }>(
       `/farmers/${farmerId}/generate_invite`
@@ -439,7 +454,6 @@ export const invitationApi = {
       `/restaurants/${restaurantId}/generate_invite`
     ),
 
-  // Client: Link Account
   linkAccount: (lineUserId: string, inviteToken: string, inputCode: string) =>
     apiClient.post<{ message: string; name: string; role: string; target_id?: number }>('/auth/link_account', {
       line_user_id: lineUserId,

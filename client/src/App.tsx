@@ -30,6 +30,9 @@ import ProducerSales from './pages/producer/ProducerSales'
 import Loading from './components/Loading'
 
 import InviteHandler from './components/InviteHandler'
+import AdminLogin from '@/pages/AdminLogin'
+import AdminRoute from '@/components/AdminRoute'
+
 
 // Auth Guard Component
 const AuthGuard = ({ children }: { children: JSX.Element }) => {
@@ -177,6 +180,11 @@ function App() {
             !restaurant && lineUserId ? <Register /> : <Navigate to="/" replace />
           } />
 
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin" element={<AdminRoute />}>
+            <Route index element={<Admin />} />
+          </Route>
+
           <Route path="/" element={
             <AuthGuard>
               <Layout />
@@ -220,8 +228,6 @@ function App() {
             <Route path="schedule" element={<ProducerSchedule />} />
             <Route path="sales" element={<ProducerSales />} />
           </Route>
-
-          <Route path="/admin" element={<Admin />} />
         </Routes>
       </Router>
     </>

@@ -59,6 +59,8 @@ class Settings(BaseSettings):
     
     # LINE LIFF
     LIFF_ID: str = ""
+    FARMER_LIFF_ID: str = ""
+    RESTAURANT_LIFF_ID: str = ""
     LINE_CHANNEL_ID: str = ""
     LINE_CHANNEL_SECRET: str = ""
 

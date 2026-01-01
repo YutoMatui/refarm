@@ -132,3 +132,38 @@ async def get_current_user_from_token(id_token: str) -> dict:
     else:
         # Production mode: verify with LINE's server
         return await verify_line_id_token(id_token)
+
+from datetime import datetime, timedelta, timezone
+import bcrypt
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a plain password against its hash using direct bcrypt."""
+    try:
+        if isinstance(hashed_password, str):
+            hashed_password = hashed_password.encode('utf-8')
+        return bcrypt.checkpw(
+            plain_password.encode('utf-8'),
+            hashed_password
+        )
+    except Exception as e:
+        logger.error(f"Password verification error: {e}")
+        return False
+
+def get_password_hash(password: str) -> str:
+    """Hash a password using direct bcrypt."""
+    pwd_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(pwd_bytes, salt)
+    return hashed.decode('utf-8')
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """Create a new JWT access token."""
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return encoded_jwt
