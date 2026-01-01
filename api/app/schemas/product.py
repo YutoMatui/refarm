@@ -33,6 +33,9 @@ class ProductBase(BaseModel):
 
 class ProductCreate(ProductBase):
     """Schema for creating a product."""
+    price: Optional[Decimal] = Field(None, gt=0, description="単価(税抜)")
+    tax_rate: Optional[TaxRate] = Field(None, description="税率")
+    stock_type: Optional[StockType] = Field(None, description="種別(KOBE/OTHER)")
     farmer_id: Optional[int] = Field(None, description="生産者ID")
 
 

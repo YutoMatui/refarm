@@ -246,7 +246,26 @@ async def create_producer_product(
     db: AsyncSession = Depends(get_db)
 ):
     """商品を新規登録"""
-    db_product = Product(**product_data.model_dump())
+    from app.models.enums import TaxRate, StockType
+    from app.core.utils import calculate_retail_price
+
+    data = product_data.model_dump()
+    
+    # Producer submission defaults
+    if data.get("price") is None:
+        # 卸値から販売価格を自動計算 (卸値 / 0.7, 1の位四捨五入)
+        if data.get("cost_price"):
+            data["price"] = calculate_retail_price(data["cost_price"])
+        else:
+            data["price"] = Decimal(0)
+            
+    if data.get("tax_rate") is None:
+        data["tax_rate"] = TaxRate.REDUCED
+        
+    if data.get("stock_type") is None:
+        data["stock_type"] = StockType.KOBE
+
+    db_product = Product(**data)
     db.add(db_product)
     await db.commit()
     await db.refresh(db_product)
@@ -261,6 +280,7 @@ async def update_producer_product(
     db: AsyncSession = Depends(get_db)
 ):
     """商品情報を更新"""
+    from app.core.utils import calculate_retail_price
     stmt = select(Product).where(Product.id == product_id, Product.deleted_at.is_(None))
     result = await db.execute(stmt)
     product = result.scalar_one_or_none()
@@ -273,6 +293,11 @@ async def update_producer_product(
          raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="この商品を編集する権限がありません")
 
     update_data = product_data.model_dump(exclude_unset=True)
+    
+    # 卸値が更新された場合、販売価格を自動再計算
+    if "cost_price" in update_data and "price" not in update_data:
+        update_data["price"] = calculate_retail_price(update_data["cost_price"])
+
     for field, value in update_data.items():
         setattr(product, field, value)
     
