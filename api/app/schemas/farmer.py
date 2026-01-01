@@ -64,6 +64,7 @@ class FarmerUpdate(BaseModel):
 class FarmerResponse(FarmerBase, TimestampSchema, BaseSchema):
     """Schema for farmer response."""
     id: int
+    line_user_id: Optional[str] = None
     
     class Config:
         json_schema_extra = {

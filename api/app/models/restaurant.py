@@ -28,7 +28,7 @@ class Restaurant(Base, TimestampMixin, SoftDeleteMixin):
     line_user_id = Column(
         String(100),
         unique=True,
-        nullable=False,
+        nullable=True,
         index=True,
         comment="LINE User ID (認証用)"
     )

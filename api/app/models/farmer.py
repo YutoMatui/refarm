@@ -75,6 +75,14 @@ class Farmer(Base, TimestampMixin, SoftDeleteMixin):
         comment="農園所在地"
     )
 
+    line_user_id = Column(
+        String(100),
+        unique=True,
+        nullable=True,
+        index=True,
+        comment="LINE User ID (認証用)"
+    )
+
     latitude = Column(
         String(50),
         nullable=True,

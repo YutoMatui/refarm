@@ -27,7 +27,7 @@ class RestaurantBase(BaseModel):
 
 class RestaurantCreate(RestaurantBase):
     """Schema for creating a restaurant."""
-    line_user_id: str = Field(..., min_length=1, max_length=100, description="LINE User ID")
+    line_user_id: Optional[str] = Field(None, max_length=100, description="LINE User ID")
 
 
 class RestaurantUpdate(BaseModel):
@@ -52,7 +52,7 @@ class RestaurantUpdate(BaseModel):
 class RestaurantResponse(RestaurantBase, TimestampSchema, BaseSchema):
     """Schema for restaurant response."""
     id: int
-    line_user_id: str
+    line_user_id: Optional[str] = None
     
     class Config:
         json_schema_extra = {
