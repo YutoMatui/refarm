@@ -41,7 +41,6 @@ async def list_products(
     farmer_id: int = Query(None, description="生産者IDで絞り込み"),
     is_active: int = Query(None, description="販売状態で絞り込み"),
     is_featured: int = Query(None, description="おすすめ商品のみ"),
-    is_outlet: int = Query(None, description="訳あり商品のみ(deprecated)"),
     is_wakeari: int = Query(None, description="訳あり商品のみ"),
     search: str = Query(None, description="商品名で検索"),
     db: AsyncSession = Depends(get_db)
@@ -59,8 +58,6 @@ async def list_products(
         query = query.where(Product.is_active == is_active)
     if is_featured is not None:
         query = query.where(Product.is_featured == is_featured)
-    if is_outlet is not None:
-        query = query.where(Product.is_outlet == is_outlet)
     if is_wakeari is not None:
         query = query.where(Product.is_wakeari == is_wakeari)
     if search:

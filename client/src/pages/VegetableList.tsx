@@ -75,8 +75,7 @@ export default function VegetableList() {
         tax_rate: item.tax_rate === 8 ? TaxRate.REDUCED : TaxRate.STANDARD,
         stock_type: StockType.KOBE, // Default
         price_with_tax: String(parseInt(item.unit_price) * (1 + item.tax_rate / 100)),
-        is_kobe_veggie: false,
-        is_outlet: 0
+        is_kobe_veggie: false
       }
 
       addToCart(product, Number(item.quantity))

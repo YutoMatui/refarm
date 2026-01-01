@@ -56,6 +56,7 @@ class ProductUpdate(BaseModel):
     media_url: Optional[str] = Field(None, max_length=500)
     is_active: Optional[int] = None
     is_featured: Optional[int] = None
+    is_wakeari: Optional[int] = None
     display_order: Optional[int] = None
     farmer_id: Optional[int] = None
 

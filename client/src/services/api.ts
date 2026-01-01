@@ -195,7 +195,7 @@ export const productApi = {
     farmer_id?: number
     is_active?: number
     is_featured?: number
-    is_outlet?: number
+    is_wakeari?: number
     search?: string
   }) => {
     try {
@@ -219,7 +219,6 @@ export const productApi = {
           image_url: 'https://images.unsplash.com/photo-1618889482923-38250401d84e?w=800&auto=format&fit=crop&q=60',
           is_active: 1,
           is_featured: 1,
-          is_outlet: 0,
           is_wakeari: 0,
           display_order: 1,
           created_at: new Date().toISOString(),
@@ -241,7 +240,6 @@ export const productApi = {
           image_url: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=60',
           is_active: 1,
           is_featured: 0,
-          is_outlet: 0,
           is_wakeari: 0,
           display_order: 2,
           created_at: new Date().toISOString(),
@@ -263,7 +261,6 @@ export const productApi = {
           image_url: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=800&auto=format&fit=crop&q=60',
           is_active: 1,
           is_featured: 1,
-          is_outlet: 0,
           is_wakeari: 0,
           display_order: 3,
           created_at: new Date().toISOString(),
