@@ -3,13 +3,16 @@ Farmer API Router - 生産者管理
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, extract, desc, and_, or_
+from sqlalchemy.orm import selectinload
 import secrets
 import os
 from datetime import datetime, timedelta
+import calendar
 
 from app.core.database import get_db
-from app.models import Farmer, Product
+from app.models import Farmer, Product, Order, OrderItem
+from app.models.enums import OrderStatus
 from app.services.route_service import route_service
 from app.schemas import (
     FarmerCreate,
@@ -24,6 +27,194 @@ from app.schemas import (
 )
 
 router = APIRouter()
+
+
+@router.get("/dashboard/schedule")
+async def get_producer_schedule(
+    farmer_id: int = Query(..., description="生産者ID"),
+    date: str = Query(..., description="日付 (YYYY-MM-DD)"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    生産者のスケジュール（出荷・準備）を取得
+    """
+    try:
+        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    schedule_items = []
+
+    # 1. Shipping Tasks (Orders delivering on target_date)
+    # 配送日が target_date の注文明細を取得
+    shipping_query = (
+        select(
+            Product.name,
+            Product.unit,
+            func.sum(OrderItem.quantity).label("total_quantity")
+        )
+        .join(OrderItem.order)
+        .join(OrderItem.product)
+        .where(
+            Product.farmer_id == farmer_id,
+            func.date(Order.delivery_date) == target_date,
+            Order.status != OrderStatus.CANCELLED,
+            Order.status != OrderStatus.DELIVERED  # 完了したものは表示しない？一旦表示する方針で
+        )
+        .group_by(Product.id, Product.name, Product.unit)
+    )
+    
+    shipping_result = await db.execute(shipping_query)
+    for row in shipping_result:
+        schedule_items.append({
+            "id": f"shipping-{row.name}",
+            "name": row.name,
+            "amount": float(row.total_quantity),
+            "unit": row.unit,
+            "type": "shipping"
+        })
+
+    # 2. Preparation Tasks (Orders delivering on target_date + 1)
+    # 配送日が翌日の注文明細を取得（前日準備）
+    next_day = target_date + timedelta(days=1)
+    prep_query = (
+        select(
+            Product.name,
+            Product.unit,
+            func.sum(OrderItem.quantity).label("total_quantity")
+        )
+        .join(OrderItem.order)
+        .join(OrderItem.product)
+        .where(
+            Product.farmer_id == farmer_id,
+            func.date(Order.delivery_date) == next_day,
+            Order.status != OrderStatus.CANCELLED
+        )
+        .group_by(Product.id, Product.name, Product.unit)
+    )
+    
+    prep_result = await db.execute(prep_query)
+    for row in prep_result:
+        schedule_items.append({
+            "id": f"prep-{row.name}",
+            "name": row.name,
+            "amount": float(row.total_quantity),
+            "unit": row.unit,
+            "type": "preparation"
+        })
+
+    return schedule_items
+
+
+@router.get("/dashboard/sales")
+async def get_producer_sales(
+    farmer_id: int = Query(..., description="生産者ID"),
+    month: str = Query(..., description="月 (YYYY-MM)"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    生産者の売上データを取得
+    """
+    try:
+        target_month = datetime.strptime(month, "%Y-%m")
+        # Start and end of month
+        start_date = target_month.replace(day=1)
+        _, last_day = calendar.monthrange(start_date.year, start_date.month)
+        end_date = start_date.replace(day=last_day, hour=23, minute=59, second=59)
+        
+        # Previous month for comparison
+        prev_month_start = (start_date - timedelta(days=1)).replace(day=1)
+        _, prev_last_day = calendar.monthrange(prev_month_start.year, prev_month_start.month)
+        prev_month_end = prev_month_start.replace(day=prev_last_day, hour=23, minute=59, second=59)
+        
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
+
+    # Helper function to get sales for a period
+    async def get_period_sales(start, end):
+        query = (
+            select(
+                func.sum(OrderItem.total_amount).label("total_sales"),
+                func.count(func.distinct(Order.id)).label("order_count")
+            )
+            .join(OrderItem.order)
+            .join(OrderItem.product)
+            .where(
+                Product.farmer_id == farmer_id,
+                Order.delivery_date >= start,
+                Order.delivery_date <= end,
+                Order.status != OrderStatus.CANCELLED
+            )
+        )
+        result = await db.execute(query)
+        row = result.one()
+        return float(row.total_sales or 0), int(row.order_count or 0)
+
+    # Current month sales
+    total_sales, total_orders = await get_period_sales(start_date, end_date)
+    
+    # Last month sales
+    last_month_sales, _ = await get_period_sales(prev_month_start, prev_month_end)
+    
+    # Average order price
+    avg_order_price = total_sales / total_orders if total_orders > 0 else 0
+
+    # Daily sales
+    daily_query = (
+        select(
+            func.extract('day', Order.delivery_date).label("day"),
+            func.sum(OrderItem.total_amount).label("daily_total")
+        )
+        .join(OrderItem.order)
+        .join(OrderItem.product)
+        .where(
+            Product.farmer_id == farmer_id,
+            Order.delivery_date >= start_date,
+            Order.delivery_date <= end_date,
+            Order.status != OrderStatus.CANCELLED
+        )
+        .group_by(func.extract('day', Order.delivery_date))
+    )
+    daily_result = await db.execute(daily_query)
+    daily_sales = [{"day": int(row.day), "amount": float(row.daily_total)} for row in daily_result]
+
+    # Top products
+    product_query = (
+        select(
+            Product.name,
+            func.sum(OrderItem.total_amount).label("product_sales"),
+            func.sum(OrderItem.quantity).label("product_count")
+        )
+        .join(OrderItem.order)
+        .join(OrderItem.product)
+        .where(
+            Product.farmer_id == farmer_id,
+            Order.delivery_date >= start_date,
+            Order.delivery_date <= end_date,
+            Order.status != OrderStatus.CANCELLED
+        )
+        .group_by(Product.id, Product.name)
+        .order_by(desc("product_sales"))
+        .limit(5)
+    )
+    product_result = await db.execute(product_query)
+    top_products = [
+        {
+            "name": row.name, 
+            "amount": float(row.product_sales), 
+            "count": float(row.product_count)
+        } 
+        for row in product_result
+    ]
+
+    return {
+        "totalSales": total_sales,
+        "lastMonthSales": last_month_sales,
+        "totalOrders": total_orders,
+        "avgOrderPrice": avg_order_price,
+        "dailySales": daily_sales,
+        "topProducts": top_products
+    }
 
 
 @router.get("/products", response_model=ProductListResponse)
