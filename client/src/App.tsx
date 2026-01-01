@@ -32,7 +32,7 @@ import Loading from './components/Loading'
 import InviteHandler from './components/InviteHandler'
 import AdminLogin from '@/pages/AdminLogin'
 import AdminRoute from '@/components/AdminRoute'
-
+import Login from '@/pages/Login'
 
 // Auth Guard Component
 const AuthGuard = ({ children }: { children: JSX.Element }) => {
@@ -174,6 +174,7 @@ function App() {
       <Router>
         <InviteHandler />
         <Routes>
+          <Route path="/login" element={<Login />} />
           <Route path="/invite/:code" element={<InviteHandler />} />
 
           <Route path="/register" element={
