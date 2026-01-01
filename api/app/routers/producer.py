@@ -9,6 +9,7 @@ import secrets
 import os
 from datetime import datetime, timedelta
 import calendar
+from decimal import Decimal
 
 from app.core.database import get_db
 from app.models import Farmer, Product, Order, OrderItem
