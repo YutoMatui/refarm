@@ -9,7 +9,7 @@ import os
 from datetime import datetime, timedelta
 
 from app.core.database import get_db
-from app.models import Farmer
+from app.models import Farmer, Product
 from app.services.route_service import route_service
 from app.schemas import (
     FarmerCreate,
@@ -17,9 +17,78 @@ from app.schemas import (
     FarmerResponse,
     FarmerListResponse,
     ResponseMessage,
+    ProductCreate,
+    ProductUpdate,
+    ProductResponse,
+    ProductListResponse,
 )
 
 router = APIRouter()
+
+
+@router.get("/products", response_model=ProductListResponse)
+async def list_producer_products(
+    farmer_id: int = Query(..., description="生産者ID"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    db: AsyncSession = Depends(get_db)
+):
+    """生産者の商品一覧を取得"""
+    query = select(Product).where(
+        Product.farmer_id == farmer_id,
+        Product.deleted_at.is_(None)
+    )
+    
+    count_query = select(func.count()).select_from(query.subquery())
+    total = await db.scalar(count_query)
+    
+    query = query.offset(skip).limit(limit)
+    result = await db.execute(query)
+    products = result.scalars().all()
+    
+    return ProductListResponse(items=products, total=total or 0, skip=skip, limit=limit)
+
+
+@router.post("/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
+async def create_producer_product(
+    product_data: ProductCreate, 
+    db: AsyncSession = Depends(get_db)
+):
+    """商品を新規登録"""
+    db_product = Product(**product_data.model_dump())
+    db.add(db_product)
+    await db.commit()
+    await db.refresh(db_product)
+    return db_product
+
+
+@router.put("/products/{product_id}", response_model=ProductResponse)
+async def update_producer_product(
+    product_id: int,
+    product_data: ProductUpdate,
+    farmer_id: int = Query(..., description="生産者ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """商品情報を更新"""
+    stmt = select(Product).where(Product.id == product_id, Product.deleted_at.is_(None))
+    result = await db.execute(stmt)
+    product = result.scalar_one_or_none()
+    
+    if not product:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="商品が見つかりません")
+    
+    # Simple ownership check
+    if product.farmer_id != farmer_id:
+         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="この商品を編集する権限がありません")
+
+    update_data = product_data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(product, field, value)
+    
+    await db.commit()
+    await db.refresh(product)
+    return product
+
 
 
 @router.post("/", response_model=FarmerResponse, status_code=status.HTTP_201_CREATED)
