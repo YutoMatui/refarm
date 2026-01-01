@@ -1,145 +1,191 @@
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { orderApi } from '@/services/api'
-import { FarmerAggregation, AggregatedProduct } from '@/types'
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
-import { format, addMonths, subMonths, addDays, subDays } from 'date-fns'
-import { ja } from 'date-fns/locale'
+import { useState, useMemo } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { productApi } from '@/services/api'
+import { Product, FarmingMethod } from '@/types'
+import { Star, Loader2, Download, Edit, Plus } from 'lucide-react'
 import Loading from '@/components/Loading'
+import { toast } from 'sonner'
+import { Link } from 'react-router-dom'
 
-export default function ProcurementManagement() {
-    const [viewMode, setViewMode] = useState<'monthly' | 'daily'>('monthly')
-    const [targetDate, setTargetDate] = useState(new Date())
+export default function ProductManagement() {
+    const queryClient = useQueryClient()
+    const [filterText, setFilterText] = useState('')
 
-    // API needs YYYY-MM for monthly, YYYY-MM-DD for daily
-    const formattedDate = viewMode === 'monthly' ? format(targetDate, 'yyyy-MM') : format(targetDate, 'yyyy-MM-dd')
-
-    const { data, isLoading } = useQuery({
-        queryKey: ['procurement', viewMode, formattedDate],
+    const { data: productsData, isLoading } = useQuery({
+        queryKey: ['admin-products'],
         queryFn: async () => {
-            if (viewMode === 'monthly') {
-                return await orderApi.getMonthlyAggregation(formattedDate)
-            } else {
-                return await orderApi.getDailyAggregation(formattedDate)
-            }
+            const response = await productApi.list({ limit: 1000 }) // Fetch all for admin
+            return response.data
         },
     })
 
-    const handlePrev = () => {
-        setTargetDate(prev => viewMode === 'monthly' ? subMonths(prev, 1) : subDays(prev, 1))
-    }
-
-    const handleNext = () => {
-        setTargetDate(prev => viewMode === 'monthly' ? addMonths(prev, 1) : addDays(prev, 1))
-    }
-
-    const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.value) {
-            setTargetDate(new Date(e.target.value))
+    const updateProductMutation = useMutation({
+        mutationFn: async ({ id, isFeatured }: { id: number; isFeatured: number }) => {
+            await productApi.update(id, { is_featured: isFeatured })
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['admin-products'] })
+            toast.success('更新しました')
+        },
+        onError: () => {
+            toast.error('更新に失敗しました')
         }
+    })
+
+    const handleToggleFeatured = (product: Product) => {
+        const newValue = product.is_featured === 1 ? 0 : 1;
+        updateProductMutation.mutate({ id: product.id, isFeatured: newValue });
     }
+
+    const handleDownloadCSV = () => {
+        if (!productsData?.items) return;
+
+        const headers = [
+            '野菜名', '品種', '規格(単位)', '重量(g)', '農家名',
+            '販売価格', 'ステータス', '栽培方法', '備考/おすすめの食べ方', '画像URL'
+        ];
+
+        const csvContent = [
+            headers.join(','),
+            ...productsData.items.map(p => {
+                const status = p.is_active ? '販売中' : '停止中';
+                // Escape quotes
+                const escape = (s: string | undefined | null) => `"${(s || '').replace(/"/g, '""')}"`;
+
+                return [
+                    escape(p.name),
+                    escape(p.variety),
+                    escape(p.unit),
+                    p.weight || '',
+                    escape(`ID:${p.farmer_id}`), // Ideally fetch farmer name, but mostly ID is available
+                    p.price,
+                    status,
+                    escape(p.farming_method),
+                    escape(p.description),
+                    escape(p.image_url)
+                ].join(',');
+            })
+        ].join('\n');
+
+        const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `products_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const filteredProducts = useMemo(() => {
+        if (!productsData?.items) return []
+        return productsData.items.filter(p =>
+            p.name.includes(filterText) ||
+            (p.description && p.description.includes(filterText))
+        )
+    }, [productsData, filterText])
+
+    if (isLoading) return <Loading message="商品情報を読み込み中..." />
 
     return (
         <div className="bg-white rounded-lg shadow">
-            <div className="p-6 border-b flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div className="p-6 border-b flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
-                    <h2 className="text-xl font-bold">仕入れ集計</h2>
-                    <p className="text-sm text-gray-600 mt-1">
-                        {viewMode === 'monthly' ? '月ごと' : '日ごと'}の農家別必要野菜数を確認できます
-                    </p>
+                    <h2 className="text-xl font-bold">商品管理</h2>
+                    <p className="text-sm text-gray-600 mt-1">商品の編集・CSV出力が可能です</p>
                 </div>
-
-                <div className="flex flex-col gap-2">
-                    <div className="flex bg-gray-100 p-1 rounded-lg self-end">
-                        <button
-                            onClick={() => setViewMode('monthly')}
-                            className={`px-3 py-1 text-sm rounded-md transition-all ${viewMode === 'monthly' ? 'bg-white shadow text-blue-600 font-medium' : 'text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            月次
-                        </button>
-                        <button
-                            onClick={() => setViewMode('daily')}
-                            className={`px-3 py-1 text-sm rounded-md transition-all ${viewMode === 'daily' ? 'bg-white shadow text-blue-600 font-medium' : 'text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            日次
-                        </button>
-                    </div>
-
-                    <div className="flex items-center gap-2 bg-white border rounded-md px-2 py-1">
-                        <button onClick={handlePrev} className="p-1 hover:bg-gray-100 rounded">
-                            <ChevronLeft className="w-4 h-4 text-gray-600" />
-                        </button>
-
-                        <div className="flex items-center gap-2 px-2">
-                            <Calendar className="w-4 h-4 text-gray-500" />
-                            {viewMode === 'monthly' ? (
-                                <span className="text-sm font-medium">
-                                    {format(targetDate, 'yyyy年MM月', { locale: ja })}
-                                </span>
-                            ) : (
-                                <input
-                                    type="date"
-                                    value={format(targetDate, 'yyyy-MM-dd')}
-                                    onChange={handleDateChange}
-                                    className="text-sm focus:outline-none"
-                                />
-                            )}
-                        </div>
-
-                        <button onClick={handleNext} className="p-1 hover:bg-gray-100 rounded">
-                            <ChevronRight className="w-4 h-4 text-gray-600" />
-                        </button>
-                    </div>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleDownloadCSV}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                        <Download size={18} />
+                        CSV保存
+                    </button>
+                    <Link
+                        to="/producer/products/new?farmer_id=1" // Default to farmer 1 for now
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        <Plus size={18} />
+                        新規登録
+                    </Link>
                 </div>
             </div>
 
-            {isLoading ? (
-                <Loading message="集計中..." />
-            ) : data && data.length > 0 ? (
-                <div className="p-6 space-y-8">
-                    {data.map((farmerGroup: FarmerAggregation, index: number) => (
-                        <div key={index} className="border rounded-lg overflow-hidden">
-                            <div className="bg-green-50 px-6 py-3 border-b flex justify-between items-center">
-                                <h3 className="font-bold text-green-900 flex items-center gap-2">
-                                    <span className="w-2 h-6 bg-green-600 rounded-full inline-block"></span>
-                                    {farmerGroup.farmer_name}
-                                </h3>
-                            </div>
-                            <table className="w-full">
-                                <thead className="bg-gray-50 border-b">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase w-2/3">商品名</th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase w-1/3">必要数量</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200">
-                                    {farmerGroup.products.map((product: AggregatedProduct, pIndex: number) => (
-                                        <tr key={pIndex} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 text-sm text-gray-900">{product.product_name}</td>
-                                            <td className="px-6 py-4 text-sm font-bold text-gray-900 text-right">
-                                                {product.quantity} <span className="text-xs font-normal text-gray-500">{product.unit}</span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                <div className="p-12 text-center text-gray-500">
-                    <p className="text-lg mb-2">データがありません</p>
-                    <p className="text-sm">
-                        指定された{viewMode === 'monthly' ? '月' : '日'}（{
-                            viewMode === 'monthly'
-                                ? format(targetDate, 'yyyy年MM月', { locale: ja })
-                                : format(targetDate, 'MM/dd', { locale: ja })
-                        }）の配送予定はありません。
-                    </p>
-                </div>
-            )}
+            <div className="p-4 border-b">
+                <input
+                    type="text"
+                    placeholder="商品名で検索..."
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm"
+                    value={filterText}
+                    onChange={(e) => setFilterText(e.target.value)}
+                />
+            </div>
+
+            <div className="overflow-x-auto">
+                <table className="w-full">
+                    <thead className="bg-gray-50 border-b">
+                        <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">画像</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">商品名/品種</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">規格/重量</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">価格</th>
+                            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">栽培</th>
+                            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">おすすめ</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                        {filteredProducts.map((product) => (
+                            <tr key={product.id} className="hover:bg-gray-50">
+                                <td className="px-6 py-4">
+                                    <Link
+                                        to={`/producer/products/${product.id}/edit?farmer_id=${product.farmer_id}`}
+                                        className="text-blue-600 hover:text-blue-800"
+                                    >
+                                        <Edit size={20} />
+                                    </Link>
+                                </td>
+                                <td className="px-6 py-4">
+                                    <div className="w-12 h-12 bg-gray-100 rounded overflow-hidden">
+                                        {product.image_url && <img src={product.image_url} alt="" className="w-full h-full object-cover" />}
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                                    <div>{product.name}</div>
+                                    <div className="text-xs text-gray-500">{product.variety}</div>
+                                </td>
+                                <td className="px-6 py-4 text-sm text-gray-500">
+                                    <div>{product.unit}</div>
+                                    {product.weight && <div className="text-xs">{product.weight}g</div>}
+                                </td>
+                                <td className="px-6 py-4 text-sm text-gray-900">
+                                    ¥{Number(product.price).toLocaleString()}
+                                </td>
+                                <td className="px-6 py-4 text-center text-sm">
+                                    {product.farming_method === FarmingMethod.ORGANIC ?
+                                        <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">有機</span> :
+                                        <span className="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded-full">慣行</span>
+                                    }
+                                </td>
+                                <td className="px-6 py-4 text-center">
+                                    <button
+                                        onClick={() => handleToggleFeatured(product)}
+                                        disabled={updateProductMutation.isPending}
+                                        className={`p-2 rounded-full transition-colors ${product.is_featured
+                                            ? 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200'
+                                            : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                                            }`}
+                                    >
+                                        {updateProductMutation.isPending ? <Loader2 className="animate-spin w-5 h-5" /> : <Star className={`w-5 h-5 ${product.is_featured ? 'fill-yellow-600' : ''}`} />}
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </div>
     )
 }

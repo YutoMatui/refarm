@@ -45,6 +45,11 @@ export enum HarvestStatus {
   ENDED = "ended"
 }
 
+export enum FarmingMethod {
+  ORGANIC = "organic",
+  CONVENTIONAL = "conventional"
+}
+
 // Base interfaces
 export interface TimestampFields {
   created_at: string
@@ -111,6 +116,9 @@ export interface Product extends TimestampFields {
   id: number
   farmer_id?: number
   name: string
+  variety?: string
+  farming_method?: FarmingMethod
+  weight?: number
   description?: string
   price: string
   tax_rate: TaxRate

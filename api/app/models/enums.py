@@ -4,6 +4,12 @@ Enum definitions for database models.
 import enum
 
 
+class FarmingMethod(str, enum.Enum):
+    """栽培方法 (Farming Method)."""
+    ORGANIC = "organic"         # 有機
+    CONVENTIONAL = "conventional"  # 慣行
+
+
 class HarvestStatus(str, enum.Enum):
     """収穫状況 (Harvest Status)."""
     HARVESTABLE = "harvestable"   # 🟢 現在収穫可能

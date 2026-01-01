@@ -5,12 +5,15 @@ from typing import Optional
 from decimal import Decimal
 from pydantic import BaseModel, Field, computed_field
 from app.schemas.base import BaseSchema, TimestampSchema
-from app.models.enums import StockType, TaxRate, ProductCategory, HarvestStatus
+from app.models.enums import StockType, TaxRate, ProductCategory, HarvestStatus, FarmingMethod
 
 
 class ProductBase(BaseModel):
     """Base product fields."""
     name: str = Field(..., min_length=1, max_length=200, description="商品名")
+    variety: Optional[str] = Field(None, max_length=200, description="品種")
+    farming_method: Optional[FarmingMethod] = Field(None, description="栽培方法")
+    weight: Optional[int] = Field(None, description="重量(g)")
     description: Optional[str] = Field(None, description="商品説明")
     price: Decimal = Field(..., gt=0, description="単価(税抜)")
     cost_price: Optional[int] = Field(None, description="仕入れ値")
@@ -36,6 +39,9 @@ class ProductCreate(ProductBase):
 class ProductUpdate(BaseModel):
     """Schema for updating a product (all fields optional)."""
     name: Optional[str] = Field(None, min_length=1, max_length=200)
+    variety: Optional[str] = None
+    farming_method: Optional[FarmingMethod] = None
+    weight: Optional[int] = None
     description: Optional[str] = None
     price: Optional[Decimal] = Field(None, gt=0)
     tax_rate: Optional[TaxRate] = None
@@ -74,6 +80,9 @@ class ProductResponse(ProductBase, TimestampSchema, BaseSchema):
                 "id": 1,
                 "farmer_id": 1,
                 "name": "神戸産 フリルレタス",
+                "variety": "ハンサムグリーン",
+                "farming_method": "organic",
+                "weight": 150,
                 "description": "新鮮な朝採りフリルレタス",
                 "price": "280.00",
                 "tax_rate": "REDUCED",

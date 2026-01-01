@@ -3,12 +3,15 @@ import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Camera, ArrowLeft, Loader2, Save } from 'lucide-react';
 import { producerApi, uploadApi, productApi } from '../../services/api';
-import { HarvestStatus } from '../../types';
+import { HarvestStatus, FarmingMethod } from '../../types';
 import { toast } from 'sonner';
 import { compressImage } from '../../utils/imageUtils';
 
 interface ProductFormData {
     name: string;
+    variety: string;
+    farming_method: FarmingMethod;
+    weight: number;
     unit: string;
     cost_price: number;
     harvest_status: HarvestStatus;
@@ -26,6 +29,7 @@ export default function ProductForm() {
     const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<ProductFormData>({
         defaultValues: {
             harvest_status: HarvestStatus.HARVESTABLE,
+            farming_method: FarmingMethod.CONVENTIONAL,
             unit: '袋',
             is_wakeari: false
         }
@@ -48,6 +52,9 @@ export default function ProductForm() {
             const res = await productApi.getById(parseInt(id!));
             const p = res.data;
             setValue('name', p.name);
+            setValue('variety', p.variety || '');
+            setValue('farming_method', p.farming_method || FarmingMethod.CONVENTIONAL);
+            setValue('weight', p.weight || 0);
             setValue('unit', p.unit);
             setValue('cost_price', p.cost_price || 0);
             setValue('harvest_status', p.harvest_status || HarvestStatus.HARVESTABLE);
@@ -148,26 +155,63 @@ export default function ProductForm() {
                 </div>
 
                 {/* Product Name */}
-                <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">野菜の品種 <span className="text-red-500">*</span></label>
-                    <input
-                        {...register('name', { required: '必須です' })}
-                        type="text"
-                        placeholder="例: 淡路島たまねぎ"
-                        className="w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-green-500 outline-none"
-                    />
-                    {errors.name && <p className="text-red-500 text-sm">{errors.name.message}</p>}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">野菜名 <span className="text-red-500">*</span></label>
+                        <input
+                            {...register('name', { required: '必須です' })}
+                            type="text"
+                            placeholder="例: たまねぎ"
+                            className="w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-green-500 outline-none"
+                        />
+                        {errors.name && <p className="text-red-500 text-sm">{errors.name.message}</p>}
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">品種</label>
+                        <input
+                            {...register('variety')}
+                            type="text"
+                            placeholder="例: 淡路島たまねぎ"
+                            className="w-full border border-gray-300 rounded-lg p-3 text-lg focus:ring-2 focus:ring-green-500 outline-none"
+                        />
+                    </div>
                 </div>
 
-                {/* Unit */}
+                {/* Farming Method */}
                 <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">規格・単位 <span className="text-red-500">*</span></label>
-                    <input
-                        {...register('unit', { required: '必須です' })}
-                        type="text"
-                        placeholder="例: 1袋, 1kg, 3個"
-                        className="w-full border border-gray-300 rounded-lg p-3 text-lg"
-                    />
+                    <label className="block text-sm font-bold text-gray-700 mb-2">栽培方法 <span className="text-red-500">*</span></label>
+                    <div className="grid grid-cols-2 gap-3">
+                        <label className={`flex items-center justify-center p-3 rounded-lg border-2 cursor-pointer transition-all ${watch('farming_method') === FarmingMethod.ORGANIC ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600'}`}>
+                            <input type="radio" value={FarmingMethod.ORGANIC} {...register('farming_method')} className="hidden" />
+                            <span className="font-bold">有機</span>
+                        </label>
+                        <label className={`flex items-center justify-center p-3 rounded-lg border-2 cursor-pointer transition-all ${watch('farming_method') === FarmingMethod.CONVENTIONAL ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600'}`}>
+                            <input type="radio" value={FarmingMethod.CONVENTIONAL} {...register('farming_method')} className="hidden" />
+                            <span className="font-bold">慣行</span>
+                        </label>
+                    </div>
+                </div>
+
+                {/* Unit & Weight */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">規格・単位 <span className="text-red-500">*</span></label>
+                        <input
+                            {...register('unit', { required: '必須です' })}
+                            type="text"
+                            placeholder="例: 1袋, 1束"
+                            className="w-full border border-gray-300 rounded-lg p-3 text-lg"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">重量 (g) <span className="text-gray-400 text-xs">※数値のみ</span></label>
+                        <input
+                            {...register('weight', { valueAsNumber: true })}
+                            type="number"
+                            placeholder="例: 150"
+                            className="w-full border border-gray-300 rounded-lg p-3 text-lg"
+                        />
+                    </div>
                 </div>
 
                 {/* Price Section */}
