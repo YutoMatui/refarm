@@ -3,7 +3,7 @@ Product Pydantic schemas.
 """
 from typing import Optional
 from decimal import Decimal
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, computed_field, field_validator
 from app.schemas.base import BaseSchema, TimestampSchema
 from app.models.enums import StockType, TaxRate, ProductCategory, HarvestStatus, FarmingMethod
 
@@ -29,6 +29,14 @@ class ProductBase(BaseModel):
     is_featured: int = Field(default=0, description="おすすめフラグ")
     is_wakeari: int = Field(default=0, description="訳ありフラグ")
     display_order: int = Field(default=0, description="表示順序")
+
+    @field_validator('harvest_status', mode='before')
+    @classmethod
+    def validate_harvest_status(cls, v):
+        """Handle case where DB has uppercase enum values."""
+        if isinstance(v, str):
+            return v.lower()
+        return v
 
 
 class ProductCreate(ProductBase):
