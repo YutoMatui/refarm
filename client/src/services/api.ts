@@ -4,11 +4,6 @@
  */
 import axios, { AxiosInstance, AxiosError } from 'axios'
 import { liffService } from './liff'
-import {
-  StockType,
-  TaxRate,
-  ProductCategory
-} from '@/types'
 import type {
   Restaurant,
   Farmer,
@@ -123,56 +118,8 @@ export const restaurantApi = {
 // Farmer API
 export const farmerApi = {
   list: async (params?: { skip?: number; limit?: number; is_active?: number }) => {
-    try {
-      const response = await apiClient.get<PaginatedResponse<Farmer>>('/farmers/', { params })
-      return response
-    } catch (error) {
-      console.warn('Farmer API failed, falling back to mock data', error)
-      // Use type assertion to satisfy TypeScript check
-      const mockFarmers: Farmer[] = [
-        {
-          id: 1,
-          name: "淡路島ファーム",
-          main_crop: "たまねぎ",
-          address: "兵庫県淡路市",
-          bio: "淡路島で3代続く玉ねぎ農家です。",
-          is_active: 1,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          phone_number: "090-1111-2222",
-          profile_photo_url: "https://placehold.co/400x300?text=Farmer+1",
-          map_url: "https://maps.google.com",
-          farming_method: "特別栽培",
-          certifications: "ひょうご安心ブランド",
-          email: "farmer1@example.com"
-        },
-        {
-          id: 2,
-          name: "六甲山農園",
-          main_crop: "人参",
-          address: "兵庫県神戸市北区",
-          bio: "六甲山の麓で有機栽培を行っています。",
-          is_active: 1,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          phone_number: "090-3333-4444",
-          profile_photo_url: "https://placehold.co/400x300?text=Farmer+2",
-          map_url: "https://maps.google.com",
-          farming_method: "有機JAS",
-          certifications: "有機JAS認定",
-          email: "farmer2@example.com"
-        }
-      ]
-
-      return {
-        data: {
-          items: mockFarmers,
-          total: mockFarmers.length,
-          skip: 0,
-          limit: 100
-        }
-      }
-    }
+    const response = await apiClient.get<PaginatedResponse<Farmer>>('/farmers/', { params })
+    return response
   },
 
   getById: (id: number) =>
@@ -198,93 +145,8 @@ export const productApi = {
     is_wakeari?: number
     search?: string
   }) => {
-    try {
-      const response = await apiClient.get<PaginatedResponse<Product>>('/products/', { params })
-      return response
-    } catch (error) {
-      console.warn('Product API failed, falling back to mock data', error)
-      // Mock Data for development
-      const mockProducts: Product[] = [
-        {
-          id: 1,
-          name: '泥付き太ねぎ',
-          description: '甘みが強く、鍋物に最適です。',
-          price: '280',
-          tax_rate: TaxRate.REDUCED,
-          unit: '束',
-          stock_type: StockType.KOBE,
-          category: ProductCategory.ROOT,
-          farmer_id: 1,
-          stock_quantity: 50,
-          image_url: 'https://images.unsplash.com/photo-1618889482923-38250401d84e?w=800&auto=format&fit=crop&q=60',
-          is_active: 1,
-          is_featured: 1,
-          is_wakeari: 0,
-          display_order: 1,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          price_with_tax: '302',
-          is_kobe_veggie: true
-        },
-        {
-          id: 2,
-          name: '完熟トマト',
-          description: '木熟れで収穫した甘いトマトです。',
-          price: '350',
-          tax_rate: TaxRate.REDUCED,
-          unit: '袋',
-          stock_type: StockType.OTHER,
-          category: ProductCategory.FRUIT_VEG,
-          farmer_id: 1,
-          stock_quantity: 30,
-          image_url: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&auto=format&fit=crop&q=60',
-          is_active: 1,
-          is_featured: 0,
-          is_wakeari: 0,
-          display_order: 2,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          price_with_tax: '378',
-          is_kobe_veggie: false
-        },
-        {
-          id: 3,
-          name: '新鮮ほうれん草',
-          description: '朝採れの新鮮なほうれん草です。',
-          price: '180',
-          tax_rate: TaxRate.REDUCED,
-          unit: '束',
-          stock_type: StockType.KOBE,
-          category: ProductCategory.LEAFY,
-          farmer_id: 2,
-          stock_quantity: 40,
-          image_url: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=800&auto=format&fit=crop&q=60',
-          is_active: 1,
-          is_featured: 1,
-          is_wakeari: 0,
-          display_order: 3,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          price_with_tax: '194',
-          is_kobe_veggie: true
-        }
-      ]
-      // Simple filtering for mock data
-      let filtered = mockProducts
-      if (params?.stock_type) filtered = filtered.filter(p => p.stock_type === params.stock_type)
-      if (params?.category) filtered = filtered.filter(p => p.category === params.category)
-      if (params?.farmer_id) filtered = filtered.filter(p => p.farmer_id === params.farmer_id)
-      if (params?.search) filtered = filtered.filter(p => p.name.includes(params.search!))
-
-      return {
-        data: {
-          items: filtered,
-          total: filtered.length,
-          skip: params?.skip || 0,
-          limit: params?.limit || 100
-        }
-      }
-    }
+    const response = await apiClient.get<PaginatedResponse<Product>>('/products/', { params })
+    return response
   },
 
   getPurchased: async (params?: {
