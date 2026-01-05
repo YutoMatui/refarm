@@ -44,14 +44,19 @@ export default function History() {
   const handleReorder = (order: Order) => {
     let addedCount = 0
     order.items.forEach(item => {
+      // Calculate price_with_tax
+      const priceVal = parseFloat(item.unit_price)
+      const taxRateVal = Number(item.tax_rate)
+      const priceWithTax = Math.floor(priceVal * (1 + taxRateVal / 100))
+
       // Reconstruct minimal product for cart
       const product: any = {
         id: item.product_id,
         name: item.product_name,
         price: item.unit_price,
         unit: item.product_unit,
-        tax_rate: item.tax_rate, // Assuming raw value
-        // Other fields would be defaults or fetched if needed
+        tax_rate: item.tax_rate,
+        price_with_tax: String(priceWithTax),
         is_active: 1
       }
       addToCart(product, Number(item.quantity))
