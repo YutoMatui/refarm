@@ -45,12 +45,18 @@ export default function History() {
     let addedCount = 0
     order.items.forEach(item => {
       // Reconstruct minimal product for cart
+      // Calculate price_with_tax needed for cart calculation
+      const price = parseFloat(item.unit_price);
+      const taxRate = Number(item.tax_rate);
+      const priceWithTax = price * (1 + taxRate / 100);
+
       const product: any = {
         id: item.product_id,
         name: item.product_name,
         price: item.unit_price,
         unit: item.product_unit,
         tax_rate: item.tax_rate, // Assuming raw value
+        price_with_tax: priceWithTax.toString(),
         // Other fields would be defaults or fetched if needed
         is_active: 1
       }

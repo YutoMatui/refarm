@@ -6,6 +6,7 @@ from decimal import Decimal
 from pydantic import BaseModel, Field, computed_field, field_validator
 from app.schemas.base import BaseSchema, TimestampSchema
 from app.models.enums import StockType, TaxRate, ProductCategory, HarvestStatus, FarmingMethod
+from app.schemas.farmer import FarmerResponse
 
 
 class ProductBase(BaseModel):
@@ -73,6 +74,7 @@ class ProductResponse(ProductBase, TimestampSchema, BaseSchema):
     """Schema for product response."""
     id: int
     farmer_id: Optional[int]
+    farmer: Optional[FarmerResponse] = None
     
     @computed_field
     @property

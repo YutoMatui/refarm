@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { productApi } from '@/services/api'
 import { Product, FarmingMethod } from '@/types'
-import { Star, Loader2, Download, Edit, Plus, Trash2 } from 'lucide-react'
+import { Star, Loader2, Download, Edit, Plus } from 'lucide-react'
 import Loading from '@/components/Loading'
 import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
@@ -32,28 +32,9 @@ export default function ProductManagement() {
         }
     })
 
-    const deleteProductMutation = useMutation({
-        mutationFn: async (id: number) => {
-            await productApi.delete(id)
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['admin-products'] })
-            toast.success('商品を削除しました')
-        },
-        onError: () => {
-            toast.error('削除に失敗しました')
-        }
-    })
-
     const handleToggleFeatured = (product: Product) => {
         const newValue = product.is_featured === 1 ? 0 : 1;
         updateProductMutation.mutate({ id: product.id, isFeatured: newValue });
-    }
-
-    const handleDelete = (id: number) => {
-        if (confirm('本当に削除しますか？')) {
-            deleteProductMutation.mutate(id);
-        }
     }
 
     const handleDownloadCSV = () => {
@@ -159,21 +140,12 @@ export default function ProductManagement() {
                         {filteredProducts.map((product) => (
                             <tr key={product.id} className="hover:bg-gray-50">
                                 <td className="px-6 py-4">
-                                    <div className="flex items-center gap-3">
-                                        <Link
-                                            to={`/producer/products/${product.id}/edit?farmer_id=${product.farmer_id}`}
-                                            className="text-blue-600 hover:text-blue-800"
-                                        >
-                                            <Edit size={20} />
-                                        </Link>
-                                        <button
-                                            onClick={() => handleDelete(product.id)}
-                                            className="text-red-500 hover:text-red-700"
-                                            disabled={deleteProductMutation.isPending}
-                                        >
-                                            <Trash2 size={20} />
-                                        </button>
-                                    </div>
+                                    <Link
+                                        to={`/producer/products/${product.id}/edit?farmer_id=${product.farmer_id}`}
+                                        className="text-blue-600 hover:text-blue-800"
+                                    >
+                                        <Edit size={20} />
+                                    </Link>
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="w-12 h-12 bg-gray-100 rounded overflow-hidden">

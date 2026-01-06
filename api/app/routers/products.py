@@ -121,7 +121,7 @@ async def list_purchased_products(
 @router.get("/{product_id}", response_model=ProductResponse)
 async def get_product(product_id: int, db: AsyncSession = Depends(get_db)):
     """商品詳細を取得"""
-    stmt = select(Product).where(Product.id == product_id, Product.deleted_at.is_(None))
+    stmt = select(Product).options(selectinload(Product.farmer)).where(Product.id == product_id, Product.deleted_at.is_(None))
     result = await db.execute(stmt)
     product = result.scalar_one_or_none()
     

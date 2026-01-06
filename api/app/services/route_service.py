@@ -176,8 +176,11 @@ class RouteService:
 
     def _format_route_response(self, data: Dict, locations: List[Dict], type_key: str) -> Dict:
         """Helper to format the messy Google Maps response into a clean Timeline."""
+        if not data.get("routes"):
+            return {"error": "No routes found", "details": f"Status: {data.get('status')}"}
+
         route = data["routes"][0]
-        waypoint_order = route["waypoint_order"]
+        waypoint_order = route.get("waypoint_order", []) # Default empty if no waypoints
         legs = route["legs"]
         
         # Calculate total info

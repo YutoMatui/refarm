@@ -11,6 +11,7 @@ import { settingsApi } from '@/services/api'
 import { DeliveryTimeSlot, type OrderCreateRequest } from '@/types'
 import { Trash2, ShoppingCart, Calendar, MapPin, ChevronLeft } from 'lucide-react'
 import { format, addDays } from 'date-fns'
+import DeliveryCalendar from '@/components/DeliveryCalendar'
 
 export default function Cart() {
   const navigate = useNavigate()
@@ -36,45 +37,6 @@ export default function Cart() {
 
   // Min date (3 days from now)
   const minDate = format(addDays(new Date(), 3), 'yyyy-MM-dd')
-
-  // Validate selected date
-  const isDateDisabled = (dateStr: string) => {
-    // If dateStr is empty, do nothing
-    if (!dateStr) return false;
-
-    // Use date-fns or simple string parsing to avoid timezone issues
-    // dateStr is usually 'YYYY-MM-DD'
-    // Create date at noon to avoid timezone shift to previous day
-    const date = new Date(dateStr + 'T12:00:00');
-
-    // Check if valid date
-    if (isNaN(date.getTime())) return false;
-
-    // 0 = Sun, 1 = Mon, ...
-    const day = date.getDay();
-
-    if (settings && settings.allowed_days && settings.allowed_days.length > 0) {
-      if (!settings.allowed_days.includes(day)) {
-        return true;
-      }
-    }
-
-    return false;
-  };
-
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    // Only validate if value is not empty (user might be clearing it or in progress)
-    // and if it's a complete date string
-    if (val) {
-      if (isDateDisabled(val)) {
-        alert('選択された曜日は配送を行っておりません。別のを選択してください。');
-        setDeliveryDate('');
-        return;
-      }
-    }
-    setDeliveryDate(val);
-  };
 
   const timeSlots: { value: DeliveryTimeSlot; label: string }[] = [
     { value: DeliveryTimeSlot.SLOT_12_14, label: '12:00 〜 14:00' },
@@ -218,15 +180,13 @@ export default function Cart() {
             <label className="block text-sm font-bold text-gray-700 mb-2">
               配送希望日 <span className="text-red-500">*</span>
             </label>
-            <input
-              type="date"
-              value={deliveryDate}
-              min={minDate}
-              onChange={handleDateChange}
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-medium"
-              required
+            <DeliveryCalendar
+              selectedDate={deliveryDate}
+              onSelect={setDeliveryDate}
+              allowedDays={settings?.allowed_days || []}
+              minDate={minDate}
             />
-            <p className="text-xs text-gray-500 mt-1">※3日後以降の日付を選択してください（配送休業日を除く）</p>
+            <p className="text-xs text-gray-500 mt-2">※3日後以降の日付を選択してください（○：可能、/：不可）</p>
           </div>
 
           {/* Delivery Time Slot */}

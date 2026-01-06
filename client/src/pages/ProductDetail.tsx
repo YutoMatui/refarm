@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { productApi } from '../services/api';
 import { Product } from '../types';
 import { useStore } from '../store/useStore';
-import { ArrowLeft, Minus, Plus, Loader2, Salad, User, MapPin } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, Loader2, Salad, User, MapPin, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function ProductDetail() {
@@ -88,13 +88,42 @@ export default function ProductDetail() {
                         <User size={18} className="text-green-700" />
                         <h3 className="font-bold text-green-900">生産者情報</h3>
                     </div>
-                    <div className="text-sm text-green-800">
-                        <p className="font-medium mb-1">生産者ID: {product.farmer_id}</p>
-                        <div className="flex items-center gap-1 text-green-700 text-xs mt-2">
-                            <MapPin size={12} />
-                            <span>兵庫県神戸市</span>
+                    {product.farmer ? (
+                        <Link
+                            to={`/farmers/${product.farmer.id}`}
+                            className="flex items-center justify-between group cursor-pointer hover:bg-green-100 p-2 rounded-lg transition-colors -mx-2"
+                        >
+                            <div className="flex items-center gap-3">
+                                {product.farmer.profile_photo_url ? (
+                                    <img
+                                        src={product.farmer.profile_photo_url}
+                                        alt={product.farmer.name}
+                                        className="w-10 h-10 rounded-full object-cover border border-green-200"
+                                    />
+                                ) : (
+                                    <div className="w-10 h-10 rounded-full bg-green-200 flex items-center justify-center text-green-700">
+                                        <User size={20} />
+                                    </div>
+                                )}
+                                <div>
+                                    <p className="font-bold text-gray-900 group-hover:text-green-800">{product.farmer.name}</p>
+                                    <div className="flex items-center gap-1 text-green-700 text-xs">
+                                        <MapPin size={12} />
+                                        <span>{product.farmer.address || '兵庫県神戸市'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <ChevronRight size={20} className="text-green-400 group-hover:text-green-600" />
+                        </Link>
+                    ) : (
+                        <div className="text-sm text-green-800">
+                            <p className="font-medium mb-1">生産者ID: {product.farmer_id}</p>
+                            <div className="flex items-center gap-1 text-green-700 text-xs mt-2">
+                                <MapPin size={12} />
+                                <span>兵庫県神戸市</span>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
 
