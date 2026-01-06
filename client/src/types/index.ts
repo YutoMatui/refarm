@@ -115,6 +115,7 @@ export interface Farmer extends TimestampFields {
 export interface Product extends TimestampFields {
   id: number
   farmer_id?: number
+  farmer?: Farmer
   name: string
   variety?: string
   farming_method?: FarmingMethod
@@ -136,7 +137,6 @@ export interface Product extends TimestampFields {
   display_order: number
   price_with_tax: string
   is_kobe_veggie: boolean
-  farmer?: Farmer
 }
 
 // Order Item
@@ -293,4 +293,14 @@ export interface FullRouteResponse {
   collection_leg?: RouteResponse | null
   delivery_leg?: RouteResponse | null
   summary: string
+}
+
+export interface DeliverySettings {
+  allowed_days: number[]; // 0=Sunday, 1=Monday...
+  closed_dates: string[]; // ["YYYY-MM-DD", ...]
+  time_slots: {
+    id: string;
+    label: string;
+    enabled: boolean;
+  }[];
 }

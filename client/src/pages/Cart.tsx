@@ -8,7 +8,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { orderApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
 import { settingsApi } from '@/services/api'
-import { DeliveryTimeSlot, type OrderCreateRequest } from '@/types'
+import { DeliveryTimeSlot, DeliverySettings, type OrderCreateRequest } from '@/types'
 import { Trash2, ShoppingCart, Calendar, MapPin, ChevronLeft } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import DeliveryCalendar from '@/components/DeliveryCalendar'
@@ -23,14 +23,22 @@ export default function Cart() {
   const [deliveryNotes, setDeliveryNotes] = useState('')
 
   // Delivery Settings
-  const { data: settings } = useQuery({
+  const { data: settings } = useQuery<DeliverySettings>({
     queryKey: ['delivery-settings'],
     queryFn: async () => {
       try {
         const res = await settingsApi.getDeliverySettings();
         return res.data;
       } catch {
-        return { allowed_days: [0, 1, 2, 3, 4, 5, 6] };
+        return {
+          allowed_days: [0, 1, 2, 3, 4, 5, 6],
+          closed_dates: [],
+          time_slots: [
+            { id: '12-14', label: '12:00 〜 14:00', enabled: true },
+            { id: '14-16', label: '14:00 〜 16:00', enabled: true },
+            { id: '16-18', label: '16:00 〜 18:00', enabled: true },
+          ]
+        };
       }
     }
   });
@@ -38,11 +46,14 @@ export default function Cart() {
   // Min date (3 days from now)
   const minDate = format(addDays(new Date(), 3), 'yyyy-MM-dd')
 
-  const timeSlots: { value: DeliveryTimeSlot; label: string }[] = [
-    { value: DeliveryTimeSlot.SLOT_12_14, label: '12:00 〜 14:00' },
-    { value: DeliveryTimeSlot.SLOT_14_16, label: '14:00 〜 16:00' },
-    { value: DeliveryTimeSlot.SLOT_16_18, label: '16:00 〜 18:00' },
-  ]
+  const timeSlots = settings?.time_slots?.filter(s => s.enabled).map(s => ({
+    value: s.id as DeliveryTimeSlot,
+    label: s.label
+  })) || [
+      { value: DeliveryTimeSlot.SLOT_12_14, label: '12:00 〜 14:00' },
+      { value: DeliveryTimeSlot.SLOT_14_16, label: '14:00 〜 16:00' },
+      { value: DeliveryTimeSlot.SLOT_16_18, label: '16:00 〜 18:00' },
+    ];
 
   const createOrderMutation = useMutation({
     mutationFn: async (orderData: OrderCreateRequest) => {
@@ -184,6 +195,7 @@ export default function Cart() {
               selectedDate={deliveryDate}
               onSelect={setDeliveryDate}
               allowedDays={settings?.allowed_days || []}
+              closedDates={settings?.closed_dates || []}
               minDate={minDate}
             />
             <p className="text-xs text-gray-500 mt-2">※3日後以降の日付を選択してください（○：可能、/：不可）</p>

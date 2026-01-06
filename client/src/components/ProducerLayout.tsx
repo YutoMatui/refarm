@@ -3,8 +3,8 @@ import { Outlet, useNavigate, useLocation, useSearchParams } from 'react-router-
 import { LayoutDashboard, User, Calendar, TrendingUp } from 'lucide-react';
 
 export default function ProducerLayout() {
-    const [searchParams, setSearchParams] = useSearchParams();
-    const [farmerId, setFarmerId] = useState<string>(searchParams.get('farmer_id') || '1');
+    const [searchParams] = useSearchParams();
+    const [farmerId] = useState<string>(searchParams.get('farmer_id') || '1');
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -12,12 +12,13 @@ export default function ProducerLayout() {
         // Keep URL in sync
         const currentParam = searchParams.get('farmer_id');
         if (currentParam !== farmerId) {
-            setSearchParams(prev => {
-                prev.set('farmer_id', farmerId);
-                return prev;
-            }, { replace: true });
+            // Keep URL in sync
+            // setSearchParams(prev => {
+            //     prev.set('farmer_id', farmerId);
+            //     return prev;
+            // }, { replace: true });
         }
-    }, [farmerId, searchParams, setSearchParams]);
+    }, [farmerId, searchParams]);
 
     const navItems = [
         { path: '/producer', icon: LayoutDashboard, label: '出品管理' },
@@ -28,8 +29,8 @@ export default function ProducerLayout() {
 
     return (
         <div className="min-h-screen bg-gray-50 pb-24">
-            {/* Debug/Farmer Switcher Header */}
-            <header className="bg-green-800 text-white p-3 sticky top-0 z-50 shadow-md">
+            {/* Debug/Farmer Switcher Header - REMOVED for production */}
+            {/* <header className="bg-green-800 text-white p-3 sticky top-0 z-50 shadow-md">
                 <div className="flex justify-between items-center max-w-md mx-auto">
                     <h1 className="font-bold text-lg">生産者管理画面</h1>
                     <select
@@ -42,7 +43,7 @@ export default function ProducerLayout() {
                         <option value="3">生産者C (ID:3)</option>
                     </select>
                 </div>
-            </header>
+            </header> */}
 
             <main className="max-w-md mx-auto p-4">
                 <Outlet context={{ farmerId: parseInt(farmerId) }} />

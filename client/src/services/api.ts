@@ -19,6 +19,7 @@ import type {
   RegisterRequest,
   RouteResponse,
   FullRouteResponse,
+  DeliverySettings,
 } from '@/types'
 
 // Create Axios instance
@@ -290,10 +291,10 @@ export const uploadApi = {
 // Settings API
 export const settingsApi = {
   getDeliverySettings: () =>
-    apiClient.get<{ allowed_days: number[] }>('/settings/delivery'),
+    apiClient.get<DeliverySettings>('/settings/delivery'),
 
-  updateDeliverySettings: (data: { allowed_days: number[] }) =>
-    apiClient.post<{ allowed_days: number[] }>('/settings/delivery', data),
+  updateDeliverySettings: (data: DeliverySettings) =>
+    apiClient.post<DeliverySettings>('/settings/delivery', data),
 }
 
 // Logistics API

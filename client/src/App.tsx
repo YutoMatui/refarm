@@ -57,9 +57,17 @@ function App() {
   const setLineUserId = useStore(state => state.setLineUserId)
 
   useEffect(() => {
+    const path = window.location.pathname;
+
+    // Admin pages do not need LIFF initialization
+    if (path.startsWith('/admin')) {
+      setLoading(false);
+      return;
+    }
+
     // Skip initialization if we are on the invite page
     // BUT we still need to initialize LIFF to get the user ID for linking
-    if (window.location.pathname.startsWith('/invite/') || window.location.search.includes('token=')) {
+    if (path.startsWith('/invite/') || window.location.search.includes('token=')) {
       // InviteHandler will handle initialization
       setLoading(false);
       return;

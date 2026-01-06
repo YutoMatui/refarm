@@ -7,10 +7,11 @@ interface DeliveryCalendarProps {
     selectedDate: string;
     onSelect: (date: string) => void;
     allowedDays: number[]; // 0=Sun, 1=Mon...
+    closedDates?: string[]; // ["YYYY-MM-DD", ...]
     minDate: string; // YYYY-MM-DD
 }
 
-export default function DeliveryCalendar({ selectedDate, onSelect, allowedDays = [], minDate }: DeliveryCalendarProps) {
+export default function DeliveryCalendar({ selectedDate, onSelect, allowedDays = [], closedDates = [], minDate }: DeliveryCalendarProps) {
     const [currentMonth, setCurrentMonth] = useState(new Date());
 
     const startDate = startOfWeek(startOfMonth(currentMonth));
@@ -29,6 +30,10 @@ export default function DeliveryCalendar({ selectedDate, onSelect, allowedDays =
 
         // Check if before minDate
         if (checkDate < minCheck) return false;
+
+        // Check closed dates
+        const dateStr = format(date, 'yyyy-MM-dd');
+        if (closedDates.includes(dateStr)) return false;
 
         // Check allowed days
         const dayOfWeek = getDay(date);

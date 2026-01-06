@@ -144,15 +144,26 @@ async def calculate_full_delivery_route(
         })
 
     # 3. Get Farmers
-    farmer_stmt = select(Farmer).join(Product, Product.farmer_id == Farmer.id)\
+    # Use distinct Farmer IDs first to avoid JSON comparison error in DISTINCT
+    farmer_id_stmt = select(distinct(Farmer.id)).join(Product, Product.farmer_id == Farmer.id)\
         .join(OrderItem, OrderItem.product_id == Product.id)\
         .join(Order, OrderItem.order_id == Order.id)\
         .where(
             Order.id.in_(order_ids)
-        ).distinct()
+        )
         
-    farmer_result = await db.execute(farmer_stmt)
-    farmers = farmer_result.scalars().all()
+    farmer_id_result = await db.execute(farmer_id_stmt)
+    farmer_ids = farmer_id_result.scalars().all()
+
+    if not farmer_ids:
+        # No farmers to visit (only market products?), but route calculation might still proceed for restaurants
+        farmers = []
+    else:
+        farmers_stmt = select(Farmer).where(Farmer.id.in_(farmer_ids))
+        farmers_result = await db.execute(farmers_stmt)
+        farmers = farmers_result.scalars().all()
+    
+    farmer_dicts = []
     
     farmer_dicts = []
     for f in farmers:

@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { settingsApi, orderApi } from '@/services/api'
-import { Order, OrderStatus } from '@/types'
-import { FileText, Truck, ChevronDown, ChevronUp, Settings } from 'lucide-react'
+import { Order, OrderStatus, DeliverySettings } from '@/types'
+import { FileText, Truck, ChevronDown, ChevronUp, Settings, Calendar, Clock } from 'lucide-react'
 import Loading from '@/components/Loading'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
@@ -11,7 +11,10 @@ export default function DeliveryManagement() {
     const queryClient = useQueryClient()
     const [expandedOrders, setExpandedOrders] = useState<Set<number>>(new Set())
 
-    const { data: settings, refetch: refetchSettings } = useQuery({
+    // For closed dates input
+    const [newClosedDate, setNewClosedDate] = useState('')
+
+    const { data: settings, refetch: refetchSettings } = useQuery<DeliverySettings>({
         queryKey: ['delivery-settings'],
         queryFn: async () => {
             const res = await settingsApi.getDeliverySettings();
@@ -20,8 +23,12 @@ export default function DeliveryManagement() {
     });
 
     const updateSettingsMutation = useMutation({
-        mutationFn: async (allowedDays: number[]) => {
-            await settingsApi.updateDeliverySettings({ allowed_days: allowedDays });
+        mutationFn: async (newSettings: Partial<DeliverySettings>) => {
+            if (!settings) return;
+            await settingsApi.updateDeliverySettings({
+                ...settings, // settings is DeliverySettings here
+                ...newSettings
+            } as DeliverySettings);
         },
         onSuccess: () => {
             refetchSettings();
@@ -35,7 +42,30 @@ export default function DeliveryManagement() {
         const current = new Set(settings.allowed_days);
         if (current.has(day)) current.delete(day);
         else current.add(day);
-        updateSettingsMutation.mutate(Array.from(current));
+        updateSettingsMutation.mutate({ allowed_days: Array.from(current) });
+    };
+
+    const handleTimeSlotToggle = (slotId: string) => {
+        if (!settings) return;
+        const newSlots = settings.time_slots.map(s =>
+            s.id === slotId ? { ...s, enabled: !s.enabled } : s
+        );
+        updateSettingsMutation.mutate({ time_slots: newSlots });
+    };
+
+    const addClosedDate = () => {
+        if (!settings || !newClosedDate) return;
+        if (settings.closed_dates.includes(newClosedDate)) {
+            alert('既に追加されています');
+            return;
+        }
+        updateSettingsMutation.mutate({ closed_dates: [...settings.closed_dates, newClosedDate].sort() });
+        setNewClosedDate('');
+    };
+
+    const removeClosedDate = (dateStr: string) => {
+        if (!settings) return;
+        updateSettingsMutation.mutate({ closed_dates: settings.closed_dates.filter(d => d !== dateStr) });
     };
 
     const toggleOrderExpand = (orderId: number) => {
@@ -105,28 +135,89 @@ export default function DeliveryManagement() {
                     <Settings className="w-5 h-5" />
                     配送設定
                 </h2>
-                <div className="mb-4">
-                    <h3 className="text-sm font-bold text-gray-700 mb-2">配送可能曜日</h3>
-                    <div className="flex flex-wrap gap-2">
-                        {weekDays.map((day, idx) => {
-                            const isAllowed = settings?.allowed_days.includes(idx);
-                            return (
-                                <button
-                                    key={idx}
-                                    onClick={() => handleDayToggle(idx)}
-                                    className={`px-4 py-2 rounded-lg text-sm font-bold border transition-all ${isAllowed
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Weekdays */}
+                    <div>
+                        <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-1">
+                            <Calendar className="w-4 h-4" /> 配送可能曜日
+                        </h3>
+                        <div className="flex flex-wrap gap-2 mb-2">
+                            {weekDays.map((day, idx) => {
+                                const isAllowed = settings?.allowed_days.includes(idx);
+                                return (
+                                    <button
+                                        key={idx}
+                                        onClick={() => handleDayToggle(idx)}
+                                        className={`px-4 py-2 rounded-lg text-sm font-bold border transition-all ${isAllowed
                                             ? 'bg-blue-600 text-white border-blue-600'
                                             : 'bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100'
-                                        }`}
-                                >
-                                    {day}
-                                </button>
-                            );
-                        })}
+                                            }`}
+                                    >
+                                        {day}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <p className="text-xs text-gray-500">※ 選択した曜日が配送可能日になります。</p>
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                        ※ 選択した曜日のみ、店舗側で配送希望日として選択可能になります。
-                    </p>
+
+                    {/* Time Slots */}
+                    <div>
+                        <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-1">
+                            <Clock className="w-4 h-4" /> 配送時間枠
+                        </h3>
+                        <div className="space-y-2 mb-2">
+                            {settings?.time_slots?.map((slot) => (
+                                <div key={slot.id} className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        id={`slot-${slot.id}`}
+                                        checked={slot.enabled}
+                                        onChange={() => handleTimeSlotToggle(slot.id)}
+                                        className="w-4 h-4 text-blue-600 rounded"
+                                    />
+                                    <label htmlFor={`slot-${slot.id}`} className={`text-sm ${slot.enabled ? 'text-gray-900' : 'text-gray-400'}`}>
+                                        {slot.label}
+                                    </label>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Closed Dates */}
+                <div className="mt-6 border-t pt-4">
+                    <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-1">
+                        <Calendar className="w-4 h-4 text-red-500" /> 特定休業日設定 (臨時休業など)
+                    </h3>
+                    <div className="flex gap-2 mb-3">
+                        <input
+                            type="date"
+                            value={newClosedDate}
+                            onChange={(e) => setNewClosedDate(e.target.value)}
+                            className="border border-gray-300 rounded px-3 py-1 text-sm"
+                        />
+                        <button
+                            onClick={addClosedDate}
+                            className="bg-red-50 text-red-600 border border-red-200 px-3 py-1 rounded text-sm hover:bg-red-100"
+                        >
+                            追加
+                        </button>
+                    </div>
+
+                    {settings?.closed_dates && settings.closed_dates.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                            {settings.closed_dates.map(dateStr => (
+                                <div key={dateStr} className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded text-sm border border-gray-200">
+                                    <span>{dateStr}</span>
+                                    <button onClick={() => removeClosedDate(dateStr)} className="text-gray-400 hover:text-red-500">×</button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-gray-400">登録された休業日はありません</p>
+                    )}
                 </div>
             </div>
 
