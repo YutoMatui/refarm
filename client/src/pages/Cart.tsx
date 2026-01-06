@@ -8,7 +8,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { orderApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
 import { settingsApi } from '@/services/api'
-import { DeliveryTimeSlot, DeliverySettings, type OrderCreateRequest } from '@/types'
+import { DeliveryTimeSlot, type OrderCreateRequest } from '@/types'
 import { Trash2, ShoppingCart, Calendar, MapPin, ChevronLeft } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import DeliveryCalendar from '@/components/DeliveryCalendar'
@@ -23,7 +23,7 @@ export default function Cart() {
   const [deliveryNotes, setDeliveryNotes] = useState('')
 
   // Delivery Settings
-  const { data: settings } = useQuery<DeliverySettings>({
+  const { data: settings } = useQuery({
     queryKey: ['delivery-settings'],
     queryFn: async () => {
       try {
@@ -101,10 +101,14 @@ export default function Cart() {
   }
 
   const subtotal = cart.reduce((sum, item) => {
-    return sum + parseFloat(item.product.price) * Number(item.quantity)
+    // Ensure price is treated as a number, defaulting to 0 if invalid
+    const price = parseFloat(String(item.product.price));
+    const qty = Number(item.quantity);
+    return sum + (isNaN(price) ? 0 : price) * qty;
   }, 0)
 
   const totalWithTax = getCartTotal()
+  const taxAmount = totalWithTax - subtotal;
 
   if (cart.length === 0) {
     return (
@@ -148,7 +152,7 @@ export default function Cart() {
               <div className="flex-1 min-w-0">
                 <h3 className="font-bold text-gray-900 truncate">{item.product.name}</h3>
                 <p className="text-sm text-gray-500 mb-2">
-                  ¥{parseFloat(item.product.price_with_tax).toLocaleString()} / {item.product.unit}
+                  ¥{parseFloat(String(item.product.price)).toLocaleString()} / {item.product.unit} <span className="text-xs text-gray-400">(税抜)</span>
                 </p>
 
                 <div className="flex items-center justify-between">
@@ -264,7 +268,7 @@ export default function Cart() {
             </div>
             <div className="flex justify-between text-sm text-gray-600">
               <span>消費税</span>
-              <span>¥{(totalWithTax - subtotal).toLocaleString()}</span>
+              <span>¥{taxAmount.toLocaleString()}</span>
             </div>
             <div className="border-t pt-3 flex justify-between items-baseline">
               <span className="font-bold text-gray-900">合計 (税込)</span>
