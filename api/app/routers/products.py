@@ -28,8 +28,11 @@ async def create_product(product_data: ProductCreate, db: AsyncSession = Depends
     db_product = Product(**product_data.model_dump())
     db.add(db_product)
     await db.commit()
-    await db.refresh(db_product)
-    return db_product
+    
+    # Re-fetch with farmer loaded
+    stmt = select(Product).options(selectinload(Product.farmer)).where(Product.id == db_product.id)
+    result = await db.execute(stmt)
+    return result.scalar_one()
 
 
 @router.get("/", response_model=ProductListResponse)
@@ -46,7 +49,7 @@ async def list_products(
     db: AsyncSession = Depends(get_db)
 ):
     """商品一覧を取得（カタログ用）"""
-    query = select(Product).where(Product.deleted_at.is_(None))
+    query = select(Product).options(selectinload(Product.farmer)).where(Product.deleted_at.is_(None))
     
     if stock_type:
         query = query.where(Product.stock_type == stock_type)
@@ -93,7 +96,8 @@ async def list_purchased_products(
         return ProductListResponse(items=[], total=0, skip=skip, limit=limit)
 
     # 購入履歴から商品情報を取得
-    query = select(Product).join(OrderItem, OrderItem.product_id == Product.id)\
+    query = select(Product).options(selectinload(Product.farmer))\
+        .join(OrderItem, OrderItem.product_id == Product.id)\
         .join(Order, Order.id == OrderItem.order_id)\
         .where(Order.restaurant_id == restaurant_id)\
         .distinct()
@@ -150,8 +154,11 @@ async def update_product(
         setattr(product, field, value)
     
     await db.commit()
-    await db.refresh(product)
-    return product
+    
+    # Re-fetch with farmer loaded
+    stmt = select(Product).options(selectinload(Product.farmer)).where(Product.id == product.id)
+    result = await db.execute(stmt)
+    return result.scalar_one()
 
 
 @router.delete("/{product_id}", response_model=ResponseMessage)

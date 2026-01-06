@@ -226,7 +226,7 @@ async def list_producer_products(
     db: AsyncSession = Depends(get_db)
 ):
     """生産者の商品一覧を取得"""
-    query = select(Product).where(
+    query = select(Product).options(selectinload(Product.farmer)).where(
         Product.farmer_id == farmer_id,
         Product.deleted_at.is_(None)
     )
@@ -269,8 +269,11 @@ async def create_producer_product(
     db_product = Product(**data)
     db.add(db_product)
     await db.commit()
-    await db.refresh(db_product)
-    return db_product
+    
+    # Re-fetch with farmer loaded
+    stmt = select(Product).options(selectinload(Product.farmer)).where(Product.id == db_product.id)
+    result = await db.execute(stmt)
+    return result.scalar_one()
 
 
 @router.put("/products/{product_id}", response_model=ProductResponse)
@@ -303,8 +306,11 @@ async def update_producer_product(
         setattr(product, field, value)
     
     await db.commit()
-    await db.refresh(product)
-    return product
+    
+    # Re-fetch with farmer loaded
+    stmt = select(Product).options(selectinload(Product.farmer)).where(Product.id == product.id)
+    result = await db.execute(stmt)
+    return result.scalar_one()
 
 
 
