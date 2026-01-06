@@ -136,6 +136,7 @@ export interface Product extends TimestampFields {
   display_order: number
   price_with_tax: string
   is_kobe_veggie: boolean
+  farmer?: Farmer
 }
 
 // Order Item

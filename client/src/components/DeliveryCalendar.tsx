@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isBefore, getDay, startOfWeek, endOfWeek } from 'date-fns';
+import { useState } from 'react';
+import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, getDay, startOfWeek, endOfWeek } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -69,7 +69,7 @@ export default function DeliveryCalendar({ selectedDate, onSelect, allowedDays =
             </div>
 
             <div className="grid grid-cols-7 border-l border-t border-gray-200">
-                {days.map((day, idx) => {
+                {days.map((day) => {
                     const dateStr = format(day, 'yyyy-MM-dd');
                     const isSelectable = isDateSelectable(day);
                     const isSelected = selectedDate === dateStr;

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Product, FarmingMethod, StockType, TaxRate, HarvestStatus, ProductCategory } from '@/types';
-import { X, Save, Loader2 } from 'lucide-react';
+import { Product, FarmingMethod, TaxRate, HarvestStatus } from '@/types';
+import { X, Loader2 } from 'lucide-react';
 import { productApi } from '@/services/api';
 import { toast } from 'sonner';
 
@@ -12,7 +12,7 @@ interface ProductEditModalProps {
 }
 
 export default function ProductEditModal({ product, onClose, onSaved }: ProductEditModalProps) {
-    const { register, handleSubmit, reset, setValue } = useForm<Partial<Product>>();
+    const { register, handleSubmit, reset } = useForm<Partial<Product>>();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
