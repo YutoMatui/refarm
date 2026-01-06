@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, ShoppingBag, Download, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, ShoppingBag, Download, Loader2, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { producerApi } from '../../services/api';
 
@@ -67,6 +67,36 @@ export default function ProducerSales() {
         ? ((data.totalSales - data.lastMonthSales) / data.lastMonthSales * 100).toFixed(1)
         : data.totalSales > 0 ? '100.0' : '0.0';
     const isPositive = parseFloat(growthRate) >= 0;
+
+    const handleDownloadCSV = () => {
+        if (!data) return;
+
+        // Header
+        const headers = ['日付', '売上金額'];
+        const rows = data.dailySales.map(d => [`${currentMonth.getFullYear()}/${currentMonth.getMonth() + 1}/${d.day}`, d.amount]);
+
+        // Add total
+        rows.push(['合計', data.totalSales]);
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.join(','))
+        ].join('\n');
+
+        const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `sales_${format(currentMonth, 'yyyyMM')}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleDownloadPaymentNotice = () => {
+        // Mock payment notice download
+        alert('支払通知書(PDF)の発行機能は準備中です。\n本来はここでサーバーからPDFをダウンロードします。');
+    };
 
     return (
         <div className="space-y-6 pb-20">
@@ -141,6 +171,36 @@ export default function ProducerSales() {
                 </div>
             </div>
 
+            {/* Daily Sales Table (Details) */}
+            <div className="bg-white rounded-xl shadow overflow-hidden">
+                <div className="p-4 border-b border-gray-100">
+                    <h3 className="font-bold text-gray-800 text-sm">日別売上詳細</h3>
+                </div>
+                <div className="overflow-x-auto max-h-60">
+                    <table className="w-full text-sm">
+                        <thead className="bg-gray-50 text-gray-600">
+                            <tr>
+                                <th className="px-4 py-2 text-left">日付</th>
+                                <th className="px-4 py-2 text-right">売上金額</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {data.dailySales.map(d => (
+                                <tr key={d.day}>
+                                    <td className="px-4 py-2">{d.day}日</td>
+                                    <td className="px-4 py-2 text-right">{formatCurrency(d.amount)}</td>
+                                </tr>
+                            ))}
+                            {data.dailySales.length === 0 && (
+                                <tr>
+                                    <td colSpan={2} className="px-4 py-4 text-center text-gray-400">データがありません</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             {/* Product Ranking */}
             <div className="bg-white rounded-xl shadow overflow-hidden">
                 <div className="p-4 border-b border-gray-100 flex justify-between items-center">
@@ -175,10 +235,22 @@ export default function ProducerSales() {
                 </div>
             </div>
 
-            <button className="w-full py-3 bg-gray-800 text-white rounded-lg flex items-center justify-center font-bold shadow-lg active:scale-95 transition-transform">
-                <Download size={18} className="mr-2" />
-                CSVデータをダウンロード
-            </button>
+            <div className="space-y-3">
+                <button
+                    onClick={handleDownloadCSV}
+                    className="w-full py-3 bg-gray-800 text-white rounded-lg flex items-center justify-center font-bold shadow-lg active:scale-95 transition-transform"
+                >
+                    <Download size={18} className="mr-2" />
+                    売上CSVをダウンロード
+                </button>
+                <button
+                    onClick={handleDownloadPaymentNotice}
+                    className="w-full py-3 bg-white border border-green-600 text-green-700 rounded-lg flex items-center justify-center font-bold shadow-sm active:bg-green-50 transition-colors"
+                >
+                    <FileText size={18} className="mr-2" />
+                    支払通知書を発行 (Refarm)
+                </button>
+            </div>
         </div>
     );
 }

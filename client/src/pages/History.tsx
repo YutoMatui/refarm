@@ -9,8 +9,9 @@ import { useStore } from '@/store/useStore'
 import { Order } from '@/types'
 import Loading from '@/components/Loading'
 import ProductCard from '@/components/ProductCard'
-import { History as HistoryIcon, Heart, RotateCcw } from 'lucide-react'
+import { History as HistoryIcon, Heart, RotateCcw, FileText, Video } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 
 type TabType = 'history' | 'favorites'
 
@@ -69,6 +70,44 @@ export default function History() {
     }
   }
 
+  const handleDownloadInvoice = async (orderId: number) => {
+    try {
+      const blob = await orderApi.downloadInvoice(orderId);
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `invoice_${orderId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('請求書をダウンロードしました');
+    } catch (error) {
+      console.error(error);
+      toast.error('ダウンロードに失敗しました');
+    }
+  };
+
+  const handleDownloadMaterials = (order: Order) => {
+    // Find items with video/media URL
+    const itemsWithMedia = order.items.filter(item => item.farmer_video_url || (item as any).media_url); // Type assertion if needed
+
+    if (itemsWithMedia.length === 0) {
+      toast.info('この注文に動画素材はありません');
+      return;
+    }
+
+    // Ideally open a modal or download all. For now, alert or mock.
+    // In a real app, this would fetch signed URLs or ZIP them.
+    // Let's assume we just navigate to a page or show links.
+
+    // Simpler approach: Alert with links or Open first one
+    if (itemsWithMedia[0].farmer_video_url) {
+      window.open(itemsWithMedia[0].farmer_video_url, '_blank');
+    } else {
+      toast.info('動画素材のリンクが見つかりません');
+    }
+  };
+
   const isLoading = isHistoryLoading || isFavoritesLoading
 
   return (
@@ -122,13 +161,31 @@ export default function History() {
                             ¥{parseInt(order.total_amount).toLocaleString()}
                           </div>
                         </div>
-                        <button
-                          onClick={() => handleReorder(order)}
-                          className="bg-green-600 text-white text-xs px-4 py-2 rounded-full font-bold shadow-md active:bg-green-700 flex items-center"
-                        >
-                          <RotateCcw size={14} className="mr-1" />
-                          再注文
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleDownloadInvoice(order.id)}
+                            className="p-2 bg-gray-100 text-gray-600 rounded-full shadow-sm active:bg-gray-200"
+                            title="請求書ダウンロード"
+                          >
+                            <FileText size={16} />
+                          </button>
+                          {order.items.some(i => i.farmer_video_url) && (
+                            <button
+                              onClick={() => handleDownloadMaterials(order)}
+                              className="p-2 bg-blue-50 text-blue-600 rounded-full shadow-sm active:bg-blue-100"
+                              title="動画素材ダウンロード"
+                            >
+                              <Video size={16} />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleReorder(order)}
+                            className="bg-green-600 text-white text-xs px-4 py-2 rounded-full font-bold shadow-md active:bg-green-700 flex items-center"
+                          >
+                            <RotateCcw size={14} className="mr-1" />
+                            再注文
+                          </button>
+                        </div>
                       </div>
                       <div className="space-y-2">
                         {order.items.map(item => (
