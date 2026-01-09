@@ -2,14 +2,16 @@ import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { productApi } from '@/services/api'
 import { Product, FarmingMethod } from '@/types'
-import { Star, Loader2, Download, Edit, Plus } from 'lucide-react'
+import { Star, Loader2, Download, Edit, Plus, Trash2 } from 'lucide-react'
 import Loading from '@/components/Loading'
 import { toast } from 'sonner'
-import { Link } from 'react-router-dom'
+import ProductEditModal from './ProductEditModal'
 
 export default function ProductManagement() {
     const queryClient = useQueryClient()
     const [filterText, setFilterText] = useState('')
+    const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
 
     const { data: productsData, isLoading } = useQuery({
         queryKey: ['admin-products'],
@@ -32,9 +34,28 @@ export default function ProductManagement() {
         }
     })
 
+    const deleteProductMutation = useMutation({
+        mutationFn: async (id: number) => {
+            await productApi.delete(id)
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['admin-products'] })
+            toast.success('商品を削除しました')
+        },
+        onError: () => {
+            toast.error('削除に失敗しました')
+        }
+    })
+
     const handleToggleFeatured = (product: Product) => {
         const newValue = product.is_featured === 1 ? 0 : 1;
         updateProductMutation.mutate({ id: product.id, isFeatured: newValue });
+    }
+
+    const handleDelete = (id: number) => {
+        if (confirm('本当に削除しますか？')) {
+            deleteProductMutation.mutate(id);
+        }
     }
 
     const handleDownloadCSV = () => {
@@ -103,13 +124,13 @@ export default function ProductManagement() {
                         <Download size={18} />
                         CSV保存
                     </button>
-                    <Link
-                        to="/producer/products/new?farmer_id=1" // Default to farmer 1 for now
+                    <button
+                        onClick={() => setIsCreateModalOpen(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >
                         <Plus size={18} />
                         新規登録
-                    </Link>
+                    </button>
                 </div>
             </div>
 
@@ -140,12 +161,21 @@ export default function ProductManagement() {
                         {filteredProducts.map((product) => (
                             <tr key={product.id} className="hover:bg-gray-50">
                                 <td className="px-6 py-4">
-                                    <Link
-                                        to={`/producer/products/${product.id}/edit?farmer_id=${product.farmer_id}`}
-                                        className="text-blue-600 hover:text-blue-800"
-                                    >
-                                        <Edit size={20} />
-                                    </Link>
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={() => setEditingProduct(product)}
+                                            className="text-blue-600 hover:text-blue-800"
+                                        >
+                                            <Edit size={20} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(product.id)}
+                                            className="text-red-500 hover:text-red-700"
+                                            disabled={deleteProductMutation.isPending}
+                                        >
+                                            <Trash2 size={20} />
+                                        </button>
+                                    </div>
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="w-12 h-12 bg-gray-100 rounded overflow-hidden">
@@ -186,6 +216,22 @@ export default function ProductManagement() {
                     </tbody>
                 </table>
             </div>
+
+            {isCreateModalOpen && (
+                <ProductEditModal
+                    product={null}
+                    onClose={() => setIsCreateModalOpen(false)}
+                    onSaved={() => queryClient.invalidateQueries({ queryKey: ['admin-products'] })}
+                />
+            )}
+
+            {editingProduct && (
+                <ProductEditModal
+                    product={editingProduct}
+                    onClose={() => setEditingProduct(null)}
+                    onSaved={() => queryClient.invalidateQueries({ queryKey: ['admin-products'] })}
+                />
+            )}
         </div>
     )
 }

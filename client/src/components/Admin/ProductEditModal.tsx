@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Product, FarmingMethod, TaxRate, HarvestStatus } from '@/types';
+import { Product, FarmingMethod, TaxRate, HarvestStatus, StockType } from '@/types';
 import { X, Loader2 } from 'lucide-react';
-import { productApi } from '@/services/api';
+import { productApi, farmerApi } from '@/services/api';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
 
 interface ProductEditModalProps {
     product: Product | null;
@@ -14,6 +15,15 @@ interface ProductEditModalProps {
 export default function ProductEditModal({ product, onClose, onSaved }: ProductEditModalProps) {
     const { register, handleSubmit, reset } = useForm<Partial<Product>>();
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Fetch farmers list for dropdown
+    const { data: farmersData } = useQuery({
+        queryKey: ['admin-farmers-list'],
+        queryFn: async () => {
+            const response = await farmerApi.list({ limit: 1000 });
+            return response.data;
+        }
+    });
 
     useEffect(() => {
         if (product) {
@@ -34,34 +44,44 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
                 is_active: product.is_active,
                 is_wakeari: product.is_wakeari,
             });
-            // Checkbox handling for numbers (0/1) needs care if react-hook-form treats them as booleans
-            // But reset handles values. The setValueAs in register handles submission.
+        } else {
+            // Defaults for new product
+            reset({
+                tax_rate: TaxRate.REDUCED,
+                farming_method: FarmingMethod.CONVENTIONAL,
+                stock_type: StockType.KOBE,
+                harvest_status: HarvestStatus.HARVESTABLE,
+                is_active: 1,
+                is_wakeari: 0
+            });
         }
     }, [product, reset]);
 
     const onSubmit = async (data: Partial<Product>) => {
-        if (!product) return;
         setIsSubmitting(true);
         try {
-            await productApi.update(product.id, data);
-            toast.success('更新しました');
+            if (product) {
+                await productApi.update(product.id, data);
+                toast.success('更新しました');
+            } else {
+                await productApi.create(data);
+                toast.success('登録しました');
+            }
             onSaved();
             onClose();
         } catch (error) {
             console.error(error);
-            toast.error('更新に失敗しました');
+            toast.error(product ? '更新に失敗しました' : '登録に失敗しました');
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    if (!product) return null;
-
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                 <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
-                    <h2 className="text-xl font-bold">商品編集 (ID: {product.id})</h2>
+                    <h2 className="text-xl font-bold">{product ? `商品編集 (ID: ${product.id})` : '商品新規登録'}</h2>
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
                         <X size={24} />
                     </button>
@@ -71,11 +91,16 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">商品名</label>
-                            <input {...register('name')} className="w-full border border-gray-300 rounded p-2" />
+                            <input {...register('name', { required: true })} className="w-full border border-gray-300 rounded p-2" />
                         </div>
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">生産者ID</label>
-                            <input {...register('farmer_id', { valueAsNumber: true })} type="number" className="w-full border border-gray-300 rounded p-2" />
+                            <label className="block text-sm font-bold text-gray-700 mb-1">生産者</label>
+                            <select {...register('farmer_id', { valueAsNumber: true, required: true })} className="w-full border border-gray-300 rounded p-2">
+                                <option value="">選択してください</option>
+                                {farmersData?.items.map(f => (
+                                    <option key={f.id} value={f.id}>{f.name} (ID:{f.id})</option>
+                                ))}
+                            </select>
                         </div>
                     </div>
 
