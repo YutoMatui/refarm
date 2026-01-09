@@ -93,9 +93,21 @@ export default function ProducerSales() {
         document.body.removeChild(link);
     };
 
-    const handleDownloadPaymentNotice = () => {
-        // Mock payment notice download
-        alert('支払通知書(PDF)の発行機能は準備中です。\n本来はここでサーバーからPDFをダウンロードします。');
+    const handleDownloadPaymentNotice = async () => {
+        try {
+            const monthStr = format(currentMonth, 'yyyy-MM');
+            const blob = await producerApi.downloadPaymentNotice(farmerId, monthStr);
+            const url = window.URL.createObjectURL(new Blob([blob]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `payment_notice_${farmerId}_${monthStr}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (error) {
+            console.error("Download failed:", error);
+            alert('ダウンロードに失敗しました');
+        }
     };
 
     return (

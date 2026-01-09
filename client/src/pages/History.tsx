@@ -88,21 +88,28 @@ export default function History() {
   };
 
   const handleDownloadMaterials = (order: Order) => {
-    // Find items with video/media URL
-    const itemsWithMedia = order.items.filter(item => item.farmer_video_url || (item as any).media_url); // Type assertion if needed
+    // Find items with video/media URL from Farmer model (accessed via product.farmer)
+    const itemsWithMedia = order.items.filter(item =>
+      (item as any).product?.farmer?.video_url &&
+      (item as any).product?.farmer?.video_url.length > 0
+    );
 
     if (itemsWithMedia.length === 0) {
+      // Fallback to checking older structure or if backend doesn't populate nested structure deeply enough
+      // Check orderItem direct fields if they exist as fallback
+      if (order.items.some(i => i.farmer_video_url)) {
+        window.open(order.items.find(i => i.farmer_video_url)?.farmer_video_url, '_blank');
+        return;
+      }
       toast.info('この注文に動画素材はありません');
       return;
     }
 
-    // Ideally open a modal or download all. For now, alert or mock.
-    // In a real app, this would fetch signed URLs or ZIP them.
-    // Let's assume we just navigate to a page or show links.
-
-    // Simpler approach: Alert with links or Open first one
-    if (itemsWithMedia[0].farmer_video_url) {
-      window.open(itemsWithMedia[0].farmer_video_url, '_blank');
+    // Open the first available video URL found in the farmer info of the products
+    // In a real scenario, might want to show a list if multiple farmers have videos
+    const firstVideoUrl = (itemsWithMedia[0] as any).product.farmer.video_url[0];
+    if (firstVideoUrl) {
+      window.open(firstVideoUrl, '_blank');
     } else {
       toast.info('動画素材のリンクが見つかりません');
     }
@@ -169,7 +176,7 @@ export default function History() {
                           >
                             <FileText size={16} />
                           </button>
-                          {order.items.some(i => i.farmer_video_url) && (
+                          {(order.items.some(i => i.farmer_video_url) || order.items.some(i => (i as any).product?.farmer?.video_url?.length > 0)) && (
                             <button
                               onClick={() => handleDownloadMaterials(order)}
                               className="p-2 bg-blue-50 text-blue-600 rounded-full shadow-sm active:bg-blue-100"

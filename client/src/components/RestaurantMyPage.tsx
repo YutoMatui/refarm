@@ -175,6 +175,38 @@ export default function RestaurantMyPage() {
         }
     };
 
+    const handleDownloadInvoice = async (orderId: number) => {
+        try {
+            const blob = await orderApi.downloadInvoice(orderId);
+            const url = window.URL.createObjectURL(new Blob([blob]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `invoice_${orderId}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            toast.success('請求書をダウンロードしました');
+        } catch (error) {
+            toast.error('ダウンロードに失敗しました');
+        }
+    };
+
+    const handleDownloadDeliverySlip = async (orderId: number) => {
+        try {
+            const blob = await orderApi.downloadDeliverySlip(orderId);
+            const url = window.URL.createObjectURL(new Blob([blob]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `delivery_slip_${orderId}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            toast.success('納品書をダウンロードしました');
+        } catch (error) {
+            toast.error('ダウンロードに失敗しました');
+        }
+    };
+
     // 5. Cancel Order
     const cancelOrderMutation = useMutation({
         mutationFn: (id: number) => orderApi.cancel(id),
@@ -481,6 +513,22 @@ export default function RestaurantMyPage() {
                             <div className="flex justify-between items-center border-t pt-4">
                                 <span className="font-bold">合計金額</span>
                                 <span className="text-xl font-bold text-green-700">¥{parseInt(selectedOrder.total_amount).toLocaleString()}</span>
+                            </div>
+
+                            {/* Download Buttons */}
+                            <div className="grid grid-cols-2 gap-3 pt-2">
+                                <button
+                                    onClick={() => handleDownloadInvoice(selectedOrder.id)}
+                                    className="flex items-center justify-center gap-2 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-xs font-bold"
+                                >
+                                    <FileText size={16} /> 請求書DL
+                                </button>
+                                <button
+                                    onClick={() => handleDownloadDeliverySlip(selectedOrder.id)}
+                                    className="flex items-center justify-center gap-2 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-xs font-bold"
+                                >
+                                    <Truck size={16} /> 納品書DL
+                                </button>
                             </div>
 
                             {/* Cancel Button (Only if pending) */}

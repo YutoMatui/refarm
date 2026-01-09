@@ -271,6 +271,14 @@ export const producerApi = {
 
   unlinkLine: (farmerId: number) =>
     apiClient.post<{ message: string; success: boolean }>(`/producer/${farmerId}/unlink_line`),
+
+  downloadPaymentNotice: async (farmerId: number, month: string) => {
+    const response = await apiClient.get(`/producer/dashboard/sales/invoice`, {
+      params: { farmer_id: farmerId, month },
+      responseType: 'blob',
+    })
+    return response.data
+  },
 }
 
 // Upload API

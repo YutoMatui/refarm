@@ -137,13 +137,77 @@ def _generate_pdf(order, title):
     
     return pdf_bytes
 
-def generate_monthly_invoice_pdf(restaurant, orders, target_month_str, invoice_period):
+def generate_farmer_payment_notice_pdf(farmer, total_amount, period_str, details):
     """
-    Generate Monthly Aggregated Invoice PDF.
-    orders: list of Order objects (already filtered by date range)
-    target_month_str: e.g. "2025年12月度"
-    invoice_period: e.g. "2025/11/21 - 2025/12/20"
+    農家向け支払通知書（実質的な請求書控え）を生成
+    details: list of dict { "date": "YYYY/MM/DD", "product": "name", "amount": 1000 }
     """
+    template = env.get_template('invoice_monthly.html') # Use monthly template as base, or create new one
+    
+    # Issuer Info (Refarm)
+    sender_info = {
+        "name": "りふぁーむ",
+        "zip": "653-0845",
+        "address": "兵庫県神戸市長田区戸崎通 2-8-5",
+        "building": "メゾン戸崎通 101",
+        "tel": "090-9614-4516",
+        "pic": "松井優人",
+    }
+
+    # Tax calculation (Simple 8% assumption for now as farmers are likely tax exempt or simplified)
+    # Farmers receive "Cost Price".
+    # Assuming cost_price is tax inclusive or exclusive depending on contract.
+    # Usually farmers are paid without tax separation on the invoice unless registered.
+    # Let's treat total_amount as Tax Included for the payout.
+    
+    # Back calc for display
+    price_excl = math.ceil(total_amount / 1.08)
+    tax_val = total_amount - price_excl
+    subtotal_val = price_excl
+
+    # Convert details to template format
+    # Using 'daily_items' structure from monthly invoice template
+    # { "date": ..., "description": ..., "amount": ... }
+    items = []
+    for d in details:
+        items.append({
+            "date": d["date"],
+            "description": d["product"],
+            "amount": d["amount"]
+        })
+
+    context = {
+        "title": "支払通知書",
+        "invoice_date": datetime.now().strftime('%Y/%m/%d'),
+        "invoice_number": f"P-{farmer.id}-{datetime.now().strftime('%Y%m')}",
+        "target_month": "", # Optional
+        "period": period_str,
+        
+        "client_name": f"{farmer.name} 様", # Recipient is Farmer
+        "sender_name": sender_info["name"], # Sender is Refarm
+        "sender_zip": sender_info["zip"],
+        "sender_address": sender_info["address"],
+        "sender_building": sender_info["building"],
+        "sender_tel": sender_info["tel"],
+        "sender_pic": sender_info["pic"],
+        
+        "total_amount_incl_tax": total_amount,
+        "subtotal": subtotal_val,
+        "tax_amount": tax_val,
+        
+        "due_date": "翌月末日", # Payment terms
+        "bank_name": "", # Not needed for payment notice (we pay them)
+        "bank_branch": "",
+        "bank_type": "",
+        "bank_number": "",
+        
+        "daily_items": items,
+        "remarks": "いつも美味しいお野菜をありがとうございます。"
+    }
+    
+    html_content = template.render(context)
+    pdf_bytes = HTML(string=html_content).write_pdf()
+    return pdf_bytes
     template = env.get_template('invoice_monthly.html')
     
     # 1. Aggregate by Delivery Date

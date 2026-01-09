@@ -33,6 +33,7 @@ import InviteHandler from './components/InviteHandler'
 import AdminLogin from '@/pages/AdminLogin'
 import AdminRoute from '@/components/AdminRoute'
 import Login from '@/pages/Login'
+import GuestLanding from '@/pages/guest/GuestLanding'
 
 // Auth Guard Component
 const AuthGuard = ({ children }: { children: JSX.Element }) => {
@@ -58,6 +59,12 @@ function App() {
 
   useEffect(() => {
     const path = window.location.pathname;
+
+    // Guest pages do not need LIFF initialization
+    if (path.startsWith('/guest')) {
+      setLoading(false);
+      return;
+    }
 
     // Admin pages do not need LIFF initialization
     if (path.startsWith('/admin')) {
@@ -193,6 +200,8 @@ function App() {
           <Route path="/admin" element={<AdminRoute />}>
             <Route index element={<Admin />} />
           </Route>
+
+          <Route path="/guest" element={<GuestLanding />} />
 
           <Route path="/" element={
             <AuthGuard>

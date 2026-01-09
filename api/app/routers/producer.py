@@ -30,6 +30,81 @@ from app.schemas import (
 router = APIRouter()
 
 
+@router.get("/dashboard/sales/invoice")
+async def download_payment_notice(
+    farmer_id: int = Query(..., description="生産者ID"),
+    month: str = Query(..., description="対象月 (YYYY-MM)"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    支払通知書（PDF）をダウンロード
+    Refarmから生産者への支払通知
+    """
+    from app.services.invoice import generate_farmer_payment_notice_pdf
+    
+    # 1. Get Farmer
+    stmt = select(Farmer).where(Farmer.id == farmer_id)
+    result = await db.execute(stmt)
+    farmer = result.scalar_one_or_none()
+    
+    if not farmer:
+        raise HTTPException(status_code=404, detail="生産者が見つかりません")
+
+    try:
+        target_month = datetime.strptime(month, "%Y-%m")
+        # Start and end of month
+        start_date = target_month.replace(day=1)
+        _, last_day = calendar.monthrange(start_date.year, start_date.month)
+        end_date = start_date.replace(day=last_day, hour=23, minute=59, second=59)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
+
+    # 2. Get Sales Data (Daily aggregated for details)
+    query = (
+        select(
+            func.date(Order.delivery_date).label("date"),
+            Product.name.label("product_name"),
+            func.sum(OrderItem.total_amount).label("amount")
+        )
+        .join(OrderItem.order)
+        .join(OrderItem.product)
+        .where(
+            Product.farmer_id == farmer_id,
+            Order.delivery_date >= start_date,
+            Order.delivery_date <= end_date,
+            Order.status != OrderStatus.CANCELLED
+        )
+        .group_by(func.date(Order.delivery_date), Product.name)
+        .order_by(func.date(Order.delivery_date))
+    )
+    
+    result = await db.execute(query)
+    rows = result.all()
+    
+    details = []
+    total_amount = 0
+    for row in rows:
+        amount = int(row.amount or 0)
+        details.append({
+            "date": row.date.strftime('%Y/%m/%d'),
+            "product": row.product_name,
+            "amount": amount
+        })
+        total_amount += amount
+        
+    period_str = f"{start_date.strftime('%Y/%m/%d')} - {end_date.strftime('%Y/%m/%d')}"
+    
+    # Generate PDF
+    pdf_content = generate_farmer_payment_notice_pdf(farmer, total_amount, period_str, details)
+    
+    return StreamingResponse(
+        io.BytesIO(pdf_content),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=payment_notice_{farmer_id}_{month}.pdf"
+        }
+    )
+
 @router.get("/dashboard/schedule")
 async def get_producer_schedule(
     farmer_id: int = Query(..., description="生産者ID"),
@@ -226,7 +301,7 @@ async def list_producer_products(
     db: AsyncSession = Depends(get_db)
 ):
     """生産者の商品一覧を取得"""
-    query = select(Product).options(selectinload(Product.farmer)).where(
+    query = select(Product).where(
         Product.farmer_id == farmer_id,
         Product.deleted_at.is_(None)
     )
@@ -269,11 +344,8 @@ async def create_producer_product(
     db_product = Product(**data)
     db.add(db_product)
     await db.commit()
-    
-    # Re-fetch with farmer loaded
-    stmt = select(Product).options(selectinload(Product.farmer)).where(Product.id == db_product.id)
-    result = await db.execute(stmt)
-    return result.scalar_one()
+    await db.refresh(db_product)
+    return db_product
 
 
 @router.put("/products/{product_id}", response_model=ProductResponse)
@@ -306,11 +378,8 @@ async def update_producer_product(
         setattr(product, field, value)
     
     await db.commit()
-    
-    # Re-fetch with farmer loaded
-    stmt = select(Product).options(selectinload(Product.farmer)).where(Product.id == product.id)
-    result = await db.execute(stmt)
-    return result.scalar_one()
+    await db.refresh(product)
+    return product
 
 
 
