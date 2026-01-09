@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { farmerApi, invitationApi, producerApi } from '@/services/api';
-import { Farmer, ChefComment } from '@/types';
+import { Farmer, ChefComment, Commitment, Achievement } from '@/types';
 import { Edit2, Loader2, X, Link as LinkIcon, Copy, Unlink } from 'lucide-react';
 import Loading from '@/components/Loading';
 import { toast } from 'sonner';
 import ChefCommentsEditor from '@/components/ChefCommentsEditor';
+import CommitmentEditor from '@/components/CommitmentEditor';
+import AchievementEditor from '@/components/AchievementEditor';
 
 export default function FarmerManagement() {
     const queryClient = useQueryClient();
@@ -284,9 +286,23 @@ export default function FarmerManagement() {
 
                         {/* Chef Comments Editor */}
                         <div className="border-t pt-6">
+                            <CommitmentEditor
+                                commitments={(editingFarmer.commitments as Commitment[]) || []}
+                                onChange={(val: Commitment[]) => setEditingFarmer({ ...editingFarmer, commitments: val })}
+                            />
+                        </div>
+
+                        <div className="border-t pt-6">
+                            <AchievementEditor
+                                achievements={(editingFarmer.achievements as Achievement[]) || []}
+                                onChange={(val: Achievement[]) => setEditingFarmer({ ...editingFarmer, achievements: val })}
+                            />
+                        </div>
+
+                        <div className="border-t pt-6">
                             <ChefCommentsEditor
                                 comments={(editingFarmer.chef_comments as ChefComment[]) || []}
-                                onChange={(comments) => setEditingFarmer({ ...editingFarmer, chef_comments: comments })}
+                                onChange={(comments: ChefComment[]) => setEditingFarmer({ ...editingFarmer, chef_comments: comments })}
                             />
                         </div>
 

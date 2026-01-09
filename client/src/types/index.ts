@@ -85,6 +85,17 @@ export interface ChefComment {
   image_url?: string
 }
 
+export interface Commitment {
+  title: string
+  body: string
+  image_url: string
+}
+
+export interface Achievement {
+  title: string
+  image_url: string
+}
+
 // Farmer
 export interface Farmer extends TimestampFields {
   id: number
@@ -106,8 +117,8 @@ export interface Farmer extends TimestampFields {
   is_active: number
   latitude?: string
   longitude?: string
-  commitments?: any[] // Should be typed properly later
-  achievements?: string[]
+  commitments?: Commitment[] // [{title, body, image_url}]
+  achievements?: Achievement[] // [{title, image_url}]
   chef_comments?: ChefComment[]
 }
 

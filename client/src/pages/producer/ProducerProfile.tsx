@@ -4,6 +4,10 @@ import { useForm } from 'react-hook-form';
 import { Camera, Save, Loader2, MapPin, Image as ImageIcon } from 'lucide-react';
 import { producerApi, uploadApi } from '../../services/api';
 import { toast } from 'sonner';
+import { Commitment, Achievement, ChefComment } from '@/types';
+import CommitmentEditor from '../../components/CommitmentEditor';
+import AchievementEditor from '../../components/AchievementEditor';
+import ChefCommentsEditor from '../../components/ChefCommentsEditor';
 
 interface ProfileFormData {
     bio: string;
@@ -18,6 +22,11 @@ export default function ProducerProfile() {
     const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
     const [coverPhotoUrl, setCoverPhotoUrl] = useState('');
     const [uploading, setUploading] = useState(false);
+
+    // Rich content states
+    const [commitments, setCommitments] = useState<Commitment[]>([]);
+    const [achievements, setAchievements] = useState<Achievement[]>([]);
+    const [chefComments, setChefComments] = useState<ChefComment[]>([]);
 
     const profileInputRef = useRef<HTMLInputElement>(null);
     const coverInputRef = useRef<HTMLInputElement>(null);
@@ -38,6 +47,11 @@ export default function ProducerProfile() {
             setValue('kodawari', f.kodawari || '');
             setProfilePhotoUrl(f.profile_photo_url || '');
             setCoverPhotoUrl(f.cover_photo_url || '');
+
+            // Load rich content
+            setCommitments(f.commitments as Commitment[] || []);
+            setAchievements(f.achievements as Achievement[] || []);
+            setChefComments(f.chef_comments as ChefComment[] || []);
         } catch (e) {
             console.error(e);
             toast.error('プロフィールの取得に失敗しました');
@@ -71,7 +85,10 @@ export default function ProducerProfile() {
             await producerApi.updateProfile(farmerId, {
                 ...data,
                 profile_photo_url: profilePhotoUrl,
-                cover_photo_url: coverPhotoUrl
+                cover_photo_url: coverPhotoUrl,
+                commitments,
+                achievements,
+                chef_comments: chefComments
             });
             toast.success('プロフィールを更新しました');
             await loadProfile();
@@ -192,8 +209,25 @@ export default function ProducerProfile() {
                         />
                     </div>
 
-                    <div className="border-t border-gray-100 pt-6 mt-6">
-                        {/* ChefCommentsEditor removed as requested */}
+                    <div className="border-t border-gray-100 pt-6 mt-6 space-y-8">
+                        <CommitmentEditor
+                            commitments={commitments}
+                            onChange={setCommitments}
+                        />
+
+                        <div className="border-t border-gray-100 pt-6">
+                            <AchievementEditor
+                                achievements={achievements}
+                                onChange={setAchievements}
+                            />
+                        </div>
+
+                        <div className="border-t border-gray-100 pt-6">
+                            <ChefCommentsEditor
+                                comments={chefComments}
+                                onChange={setChefComments}
+                            />
+                        </div>
                     </div>
                 </div>
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { farmerApi, productApi } from '@/services/api';
-import { Farmer, Product } from '@/types';
+import { Farmer, Product, Commitment, Achievement } from '@/types';
 import {
     ArrowLeft, Loader2, Leaf, PlayCircle, ExternalLink, ChefHat, Heart
 } from 'lucide-react';
@@ -50,10 +50,10 @@ export default function FarmerDetail() {
     const products = productsData?.items || [];
 
     // データ処理
-    const commitments = (farmer.commitments || []) as any[];
+    const commitments = (farmer.commitments || []) as Commitment[];
     const videoUrls = (farmer.video_url || []) as string[];
     const articleUrls = (farmer.article_url || []) as string[];
-    const achievements = (farmer.achievements || []) as string[];
+    const achievements = (farmer.achievements || []) as Achievement[];
     const chefComments = (farmer.chef_comments || []) as any[];
 
     return (
@@ -192,9 +192,9 @@ export default function FarmerDetail() {
                         {commitments.length > 0 && (
                             <div className="space-y-4">
                                 {commitments.map((block, idx) => (
-                                    <div key={idx} className="bg-gray-50 rounded-xl overflow-hidden">
-                                        {block.image && (
-                                            <img src={block.image} alt={block.title} className="w-full h-40 object-cover" />
+                                    <div key={idx} className="bg-gray-50 rounded-xl overflow-hidden shadow-sm border border-gray-100">
+                                        {block.image_url && (
+                                            <img src={block.image_url} alt={block.title} className="w-full h-48 object-cover" />
                                         )}
                                         <div className="p-4">
                                             <h3 className="font-bold text-gray-900 mb-2">{block.title}</h3>
@@ -269,14 +269,20 @@ export default function FarmerDetail() {
                         {achievements.length > 0 && (
                             <div>
                                 <h2 className="text-lg font-bold text-gray-900 mb-3">実績・受賞歴</h2>
-                                <ul className="space-y-2">
+                                <div className="space-y-3">
                                     {achievements.map((achievement, idx) => (
-                                        <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
-                                            <span className="text-yellow-500 mt-0.5">🏆</span>
-                                            <span>{achievement}</span>
-                                        </li>
+                                        <div key={idx} className="flex gap-3 items-center bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                            {achievement.image_url ? (
+                                                <img src={achievement.image_url} alt="" className="w-12 h-12 rounded bg-white object-cover shadow-sm" />
+                                            ) : (
+                                                <div className="w-12 h-12 rounded bg-yellow-50 flex items-center justify-center text-xl shadow-sm">
+                                                    🏆
+                                                </div>
+                                            )}
+                                            <span className="text-sm text-gray-700 font-medium">{achievement.title}</span>
+                                        </div>
                                     ))}
-                                </ul>
+                                </div>
                             </div>
                         )}
 
