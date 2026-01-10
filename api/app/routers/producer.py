@@ -15,7 +15,6 @@ from decimal import Decimal
 from fastapi.responses import StreamingResponse
 from app.core.database import get_db
 from app.core.cloudinary import upload_file
-from app.core.config import settings
 from app.services.line_notify import line_service
 from app.models import Farmer, Product, Order, OrderItem
 from app.models.enums import OrderStatus
@@ -59,7 +58,7 @@ async def download_payment_notice(
         raise HTTPException(status_code=404, detail="生産者が見つかりません")
 
     # Access Check
-    if farmer.line_user_id != line_user_id and line_user_id != settings.LINE_TEST_USER_ID:
+    if farmer.line_user_id != line_user_id:
         raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
 
     try:
@@ -136,7 +135,7 @@ async def send_payment_notice_line(
         raise HTTPException(status_code=404, detail="生産者が見つかりません")
 
     # Access Check
-    if farmer.line_user_id != line_user_id and line_user_id != settings.LINE_TEST_USER_ID:
+    if farmer.line_user_id != line_user_id:
         raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
 
     try:
@@ -188,7 +187,7 @@ async def send_payment_notice_line(
 
     # Upload to Cloudinary
     file_obj = io.BytesIO(pdf_content)
-    public_id = f"payment_notice_{farmer_id}_{month}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    public_id = f"invoices/payment_notice_{farmer_id}_{month}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
     
     import asyncio
     from functools import partial
@@ -196,7 +195,7 @@ async def send_payment_notice_line(
     loop = asyncio.get_event_loop()
     upload_result = await loop.run_in_executor(
         None, 
-        partial(upload_file, file_obj, folder="refarm/invoices", resource_type="image", public_id=public_id, format="pdf")
+        partial(upload_file, file_obj, folder="refarm/invoices", resource_type="auto", public_id=public_id)
     )
     
     if not upload_result or 'secure_url' not in upload_result:
@@ -228,7 +227,7 @@ async def get_producer_schedule(
     if not farmer:
         raise HTTPException(status_code=404, detail="生産者が見つかりません")
         
-    if farmer.line_user_id != line_user_id and line_user_id != settings.LINE_TEST_USER_ID:
+    if farmer.line_user_id != line_user_id:
         raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
 
     try:
@@ -317,7 +316,7 @@ async def get_producer_sales(
     if not farmer:
         raise HTTPException(status_code=404, detail="生産者が見つかりません")
         
-    if farmer.line_user_id != line_user_id and line_user_id != settings.LINE_TEST_USER_ID:
+    if farmer.line_user_id != line_user_id:
         raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
 
     try:
@@ -439,8 +438,13 @@ async def list_producer_products(
     if not farmer:
         raise HTTPException(status_code=404, detail="生産者が見つかりません")
         
-    # if farmer.line_user_id != line_user_id:
-    #    raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+    if farmer.line_user_id != line_user_id:
+        # 開発環境や管理者アクセスなどで一時的に許可していたが、
+        # セキュリティ要件のためLINE連携必須に戻す。
+        # ただし、特権的なadminアクセスの場合は別途考慮が必要だが、
+        # 現状のルーター設計ではLINEユーザーIDベースの認証を行っているため、
+        # 他人のLINE IDでアクセスできないようにブロックする。
+        raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
 
     query = select(Product).options(selectinload(Product.farmer)).where(
         Product.farmer_id == farmer_id,
@@ -529,7 +533,7 @@ async def update_producer_product(
     if not farmer:
         raise HTTPException(status_code=404, detail="生産者が見つかりません")
         
-    if farmer.line_user_id != line_user_id and line_user_id != settings.LINE_TEST_USER_ID:
+    if farmer.line_user_id != line_user_id:
         raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
 
     from app.core.utils import calculate_retail_price
@@ -554,7 +558,6 @@ async def update_producer_product(
         setattr(product, field, value)
     
     await db.commit()
-    await db.refresh(product)
     
     # Re-fetch with farmer loaded for response serialization
     stmt = select(Product).options(selectinload(Product.farmer)).where(Product.id == product.id)
@@ -577,7 +580,7 @@ async def get_producer_profile(
     if not farmer:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
         
-    if farmer.line_user_id != line_user_id and line_user_id != settings.LINE_TEST_USER_ID:
+    if farmer.line_user_id != line_user_id:
         raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
     
     return farmer
@@ -598,7 +601,7 @@ async def update_producer_profile(
     if not farmer:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
         
-    if farmer.line_user_id != line_user_id and line_user_id != settings.LINE_TEST_USER_ID:
+    if farmer.line_user_id != line_user_id:
         raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
     
     update_data = data.model_dump(exclude_unset=True)
@@ -624,7 +627,7 @@ async def unlink_farmer_line(
     if not farmer:
         raise HTTPException(status_code=404, detail="生産者が見つかりません")
         
-    if farmer.line_user_id != line_user_id and line_user_id != settings.LINE_TEST_USER_ID:
+    if farmer.line_user_id != line_user_id:
         raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
     
     farmer.line_user_id = None
@@ -760,8 +763,8 @@ async def generate_farmer_invite(farmer_id: int, db: AsyncSession = Depends(get_
     await db.commit()
     
     # 3. Return info
-    # Get LIFF ID from settings (Farmer specific)
-    liff_id = settings.FARMER_LIFF_ID
+    # Get LIFF ID from env or use default (Farmer specific)
+    liff_id = os.environ.get("FARMER_LIFF_ID", "2008689915-hECRflxu") 
     liff_base_url = f"https://liff.line.me/{liff_id}"
     
     # Add type=farmer param so frontend knows which LIFF ID to use
