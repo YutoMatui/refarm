@@ -1,7 +1,7 @@
 """
 FastAPI dependencies for authentication and authorization.
 """
-from fastapi import Depends, HTTPException, status, Header
+from fastapi import Depends, HTTPException, status, Header, Query
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -12,12 +12,14 @@ from app.models import Restaurant
 
 
 async def get_line_user_id(
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None),
+    token: Optional[str] = Query(None)
 ) -> str:
     """
-    Extract and verify LINE User ID from Authorization header.
+    Extract and verify LINE User ID from Authorization header OR query parameter.
     
     Header format: "Bearer {id_token}"
+    Query format: "?token={id_token}"
     
     Returns:
         str: Verified LINE User ID
@@ -25,25 +27,25 @@ async def get_line_user_id(
     Raises:
         HTTPException: If token is missing or invalid
     """
-    if not authorization:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authorization header missing",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    id_token = None
     
-    try:
-        scheme, id_token = authorization.split()
-        if scheme.lower() != "bearer":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication scheme",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-    except ValueError:
+    # 1. Try Header
+    if authorization:
+        try:
+            scheme, param = authorization.split()
+            if scheme.lower() == "bearer":
+                id_token = param
+        except ValueError:
+            pass
+            
+    # 2. Try Query Param (fallback for file downloads)
+    if not id_token and token:
+        id_token = token
+        
+    if not id_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authorization header format",
+            detail="Authorization header or token query param missing",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
@@ -86,24 +88,3 @@ async def get_current_restaurant(
     Raises:
         HTTPException: If restaurant not found
     """
-    stmt = select(Restaurant).where(
-        Restaurant.line_user_id == line_user_id,
-        Restaurant.deleted_at.is_(None),
-        Restaurant.is_active == 1
-    )
-    result = await db.execute(stmt)
-    restaurant = result.scalar_one_or_none()
-    
-    if not restaurant:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Restaurant not registered. Please complete registration first."
-        )
-    
-    return restaurant
-
-
-# Optional: For development/testing without token
-def get_mock_line_user_id() -> str:
-    """Mock LINE User ID for development."""
-    return "U1234567890abcdef"

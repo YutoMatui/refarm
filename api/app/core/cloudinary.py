@@ -61,6 +61,7 @@ def upload_file(file_obj, folder: str = "refarm/docs", resource_type: str = "aut
         options = {
             "folder": folder,
             "resource_type": resource_type,
+            "type": "upload",
             **kwargs
         }
         if public_id:
