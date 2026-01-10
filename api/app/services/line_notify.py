@@ -1,6 +1,5 @@
 import httpx
 from datetime import datetime
-import logging
 from typing import Dict, List, Any
 from app.core.config import settings
 from app.models import Order, OrderItem
@@ -55,11 +54,8 @@ class LineNotificationService:
                 
             return token
 
-    async def send_push_message(self, token: str, to_user_id: str, messages: List[Dict[str, Any]]):
-        """
-        Send a push message
-        messages: List of message objects (Text, Image, File, etc.)
-        """
+    async def send_push_message(self, token: str, to_user_id: str, text: str):
+        """Send a push message"""
         async with httpx.AsyncClient() as client:
             headers = {
                 "Authorization": f"Bearer {token}",
@@ -67,7 +63,7 @@ class LineNotificationService:
             }
             payload = {
                 "to": to_user_id,
-                "messages": messages
+                "messages": [{"type": "text", "text": text}]
             }
             response = await client.post(
                 f"{self.BASE_URL}/v2/bot/message/push",
@@ -76,32 +72,7 @@ class LineNotificationService:
             )
             # Log error but don't raise to prevent order failure
             if response.status_code != 200:
-                print(f"Failed to send LINE message ({response.status_code}): {response.text}")
-                # Fallback: If 400 Bad Request and we were trying to send a file (list of dicts including 'file'),
-                # try fallback to text only if possible.
-                try:
-                    res_json = response.json()
-                    # LINE API error details might be getting rate limited so careful with retries.
-                    # Simple fallback logic: check if messages contained 'file' type
-                    has_file = any(m.get('type') == 'file' for m in messages)
-                    if has_file and response.status_code == 400:
-                         print("Attempting fallback to text message with link...")
-                         # Find the file message and extract URL
-                         file_msg = next((m for m in messages if m.get('type') == 'file'), None)
-                         if file_msg:
-                             url = file_msg.get('originalContentUrl')
-                             fallback_text = f"【送信エラー】\nファイルの送信に失敗しました。\n以下のリンクからダウンロードしてください:\n{url}"
-                             fallback_payload = {
-                                 "to": to_user_id,
-                                 "messages": [{"type": "text", "text": fallback_text}]
-                             }
-                             await client.post(
-                                f"{self.BASE_URL}/v2/bot/message/push",
-                                json=fallback_payload,
-                                headers=headers
-                            )
-                except Exception as e:
-                    print(f"Fallback failed: {e}")
+                print(f"Failed to send LINE message: {response.text}")
 
     def format_currency(self, amount) -> str:
         return f"¥{int(amount):,}"
@@ -123,10 +94,23 @@ class LineNotificationService:
         return slot_value
 
     async def notify_restaurant(self, order: Order):
-        """Send notification to restaurant (Test user for now)"""
-        if not settings.LINE_TEST_USER_ID:
-            print("No test user ID configured")
-            return
+        """Send notification to restaurant"""
+        target_user_id = None
+        
+        # 1. Try to get restaurant's LINE User ID
+        if order.restaurant and order.restaurant.line_user_id:
+            target_user_id = order.restaurant.line_user_id
+            
+        # 2. Fallback to test user only if configured and no restaurant ID
+        # or if explicitly in debug mode and we want to duplicate? 
+        # The user complaint is that it goes to THEM (Test User) instead of Restaurant.
+        if not target_user_id:
+            if settings.LINE_TEST_USER_ID:
+                print(f"Restaurant {order.restaurant_id} has no LINE ID, using test user")
+                target_user_id = settings.LINE_TEST_USER_ID
+            else:
+                print("No target user ID for restaurant notification")
+                return
 
         token = await self.get_access_token(
             settings.LINE_RESTAURANT_CHANNEL_ID,
@@ -138,7 +122,7 @@ class LineNotificationService:
         for item in order.order_items:
             # Assuming item.product and item.product.farmer are loaded
             product_name = item.product_name
-            farmer_name = item.product.farmer.name if item.product.farmer else "生産者"
+            farmer_name = item.product.farmer.name if item.product and item.product.farmer else "生産者"
             
             # Simple emoji logic based on name (optional, keeping it simple or random)
             emoji = "🥬"  # Default
@@ -168,8 +152,7 @@ No. {order.id}
 
 到着まで今しばらくお待ちください👨‍🍳"""
 
-        messages = [{"type": "text", "text": message}]
-        await self.send_push_message(token, settings.LINE_TEST_USER_ID, messages)
+        await self.send_push_message(token, target_user_id, message)
 
     async def notify_farmers(self, order: Order):
         """Send notification to farmers"""
@@ -233,8 +216,7 @@ No. {order.id}
 
 お野菜のご準備、よろしくお願いいたします！🚛"""
 
-            messages = [{"type": "text", "text": message}]
-            await self.send_push_message(token, target_user_id, messages)
+            await self.send_push_message(token, target_user_id, message)
 
     async def send_invoice_message(self, order: Order, invoice_url: str):
         """Send invoice PDF link to restaurant"""
@@ -255,22 +237,15 @@ No. {order.id}
             settings.LINE_RESTAURANT_CHANNEL_SECRET
         )
 
-        text_message = {
-            "type": "text", 
-            "text": f"【請求書送付のお知らせ】\nNo. {order.id} の請求書をお送りします。\nご確認をお願いいたします。"
-        }
-        
-        # Determine filename
-        filename = f"invoice_{order.id}.pdf"
-        
-        # PDF Message
-        file_message = {
-            "type": "file",
-            "originalContentUrl": invoice_url,
-            "fileName": filename
-        }
+        message = f"""【請求書送付のお知らせ】
+No. {order.id} の請求書をお送りします。
+以下のリンクからダウンロードしてご確認ください。
 
-        await self.send_push_message(token, target_user_id, [text_message, file_message])
+{invoice_url}
+
+※ このリンクの有効期限はありませんが、お早めに保存してください。"""
+
+        await self.send_push_message(token, target_user_id, message)
 
     async def send_payment_notice_message(self, farmer_id: int, month_str: str, pdf_url: str, line_user_id: str = None):
         """Send payment notice PDF link to farmer"""
@@ -291,18 +266,14 @@ No. {order.id}
             settings.LINE_PRODUCER_CHANNEL_SECRET
         )
 
-        text_message = {
-            "type": "text",
-            "text": f"【支払通知書送付のお知らせ】\n{month_str}分の支払通知書をお送りします。\nご確認をお願いいたします。"
-        }
-        
-        filename = f"payment_{month_str}.pdf"
-        file_message = {
-            "type": "file",
-            "originalContentUrl": pdf_url,
-            "fileName": filename
-        }
+        message = f"""【支払通知書送付のお知らせ】
+{month_str}分の支払通知書をお送りします。
+以下のリンクからダウンロードしてご確認ください。
 
-        await self.send_push_message(token, target_user_id, [text_message, file_message])
+{pdf_url}
+
+※ このリンクの有効期限はありませんが、お早めに保存してください。"""
+
+        await self.send_push_message(token, target_user_id, message)
 
 line_service = LineNotificationService()
