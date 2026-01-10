@@ -11,6 +11,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from app.core.database import get_db
+from app.core.cloudinary import upload_file
 from app.services.invoice import generate_invoice_pdf
 from app.services.line_notify import line_service
 from app.models import Order, OrderItem, Product, Farmer
@@ -267,6 +268,58 @@ async def cancel_order(order_id: int, db: AsyncSession = Depends(get_db)):
     await db.commit()
     
     return ResponseMessage(message="注文をキャンセルしました", success=True)
+
+
+@router.post("/{order_id}/send_invoice_line", response_model=ResponseMessage)
+async def send_invoice_line(order_id: int, db: AsyncSession = Depends(get_db)):
+    """請求書を生成してLINEに送信"""
+    stmt = select(Order).options(
+        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
+        selectinload(Order.restaurant)
+    ).where(Order.id == order_id)
+    
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
+    
+    # 1. Generate PDF
+    pdf_content = generate_invoice_pdf(order)
+    
+    # 2. Upload to Cloudinary
+    # We use io.BytesIO to wrap bytes
+    file_obj = io.BytesIO(pdf_content)
+    # Filename helps Cloudinary set format? resource_type='raw' is usually better for PDFs or 'auto'
+    # public_id helps keep it organized
+    public_id = f"invoices/invoice_{order.id}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    
+    # Run upload in thread pool to avoid blocking async loop
+    import asyncio
+    from functools import partial
+    
+    # Cloudinary upload is sync
+    loop = asyncio.get_event_loop()
+    upload_result = await loop.run_in_executor(
+        None, 
+        partial(upload_file, file_obj, folder="refarm/invoices", resource_type="auto", public_id=public_id)
+    )
+    
+    if not upload_result or 'secure_url' not in upload_result:
+        # Fallback or Error
+        # If cloudinary fails, maybe just error out or return specific message
+        raise HTTPException(status_code=500, detail="PDFアップロードに失敗しました")
+        
+    pdf_url = upload_result['secure_url']
+    
+    # 3. Send to LINE
+    await line_service.send_invoice_message(order, pdf_url)
+    
+    # 4. Save URL to order (optional but good)
+    order.invoice_url = pdf_url
+    await db.commit()
+    
+    return ResponseMessage(message="請求書をLINEに送信しました", success=True)
 
 
 @router.get("/{order_id}/invoice")

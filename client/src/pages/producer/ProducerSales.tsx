@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, ShoppingBag, Download, Loader2, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { producerApi } from '../../services/api';
+import { toast } from 'sonner';
 
 type SalesData = {
     totalSales: number;
@@ -96,6 +97,13 @@ export default function ProducerSales() {
     const handleDownloadPaymentNotice = async () => {
         try {
             const monthStr = format(currentMonth, 'yyyy-MM');
+            toast.info('支払通知書をLINEに送信しています...');
+
+            // 1. Send to LINE
+            await producerApi.sendPaymentNoticeLine(farmerId, monthStr);
+            toast.success('LINEに支払通知書を送信しました');
+
+            // 2. Download
             const blob = await producerApi.downloadPaymentNotice(farmerId, monthStr);
             const url = window.URL.createObjectURL(new Blob([blob]));
             const link = document.createElement('a');
@@ -106,7 +114,7 @@ export default function ProducerSales() {
             document.body.removeChild(link);
         } catch (error) {
             console.error("Download failed:", error);
-            alert('ダウンロードに失敗しました');
+            toast.error('ダウンロード/送信に失敗しました');
         }
     };
 

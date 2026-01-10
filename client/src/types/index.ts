@@ -315,3 +315,13 @@ export interface DeliverySettings {
     enabled: boolean;
   }[];
 }
+
+// Delivery Schedule
+export interface DeliverySchedule extends TimestampFields {
+  id: number
+  date: string // YYYY-MM-DD
+  is_available: boolean
+  procurement_staff?: string | null
+  delivery_staff?: string | null
+}
+

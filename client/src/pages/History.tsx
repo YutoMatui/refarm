@@ -72,6 +72,13 @@ export default function History() {
 
   const handleDownloadInvoice = async (orderId: number) => {
     try {
+      toast.info('請求書をLINEに送信しています...');
+
+      // 1. Send to LINE (Priority for smartphone users)
+      await orderApi.sendInvoiceLine(orderId);
+      toast.success('LINEに請求書を送信しました');
+
+      // 2. Browser Download (Backup / Desktop)
       const blob = await orderApi.downloadInvoice(orderId);
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
@@ -80,10 +87,9 @@ export default function History() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      toast.success('請求書をダウンロードしました');
     } catch (error) {
       console.error(error);
-      toast.error('ダウンロードに失敗しました');
+      toast.error('ダウンロード/送信に失敗しました');
     }
   };
 

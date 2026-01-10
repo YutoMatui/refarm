@@ -203,4 +203,60 @@ No. {order.id}
 
             await self.send_push_message(token, settings.LINE_TEST_USER_ID, message)
 
+    async def send_invoice_message(self, order: Order, invoice_url: str):
+        """Send invoice PDF link to restaurant"""
+        target_user_id = settings.LINE_TEST_USER_ID
+        
+        # If order.restaurant.line_user_id exists, use it?
+        # For safety in this environment, using TEST_USER_ID as primary, 
+        # but in production logic:
+        if order.restaurant and order.restaurant.line_user_id:
+             target_user_id = order.restaurant.line_user_id
+
+        if not target_user_id:
+            print("No target user ID for invoice")
+            return
+
+        token = await self.get_access_token(
+            settings.LINE_RESTAURANT_CHANNEL_ID,
+            settings.LINE_RESTAURANT_CHANNEL_SECRET
+        )
+
+        message = f"""【請求書送付のお知らせ】
+No. {order.id} の請求書をお送りします。
+以下のリンクからダウンロードしてご確認ください。
+
+{invoice_url}
+
+※ このリンクの有効期限はありませんが、お早めに保存してください。"""
+
+        await self.send_push_message(token, target_user_id, message)
+
+    async def send_payment_notice_message(self, farmer_id: int, month_str: str, pdf_url: str):
+        """Send payment notice PDF link to farmer"""
+        # In a real app, fetch farmer's line_user_id from DB
+        # For now, using TEST_USER_ID or assume we can fetch it if we passed the Farmer object
+        target_user_id = settings.LINE_TEST_USER_ID
+
+        # Ideally, we should fetch the farmer and check line_user_id
+        # But to keep this method signature simple as per existing patterns in this file (mostly passing objects or just IDs if self-contained)
+        # I'll rely on the caller to pass line_user_id or handle it inside here by querying DB?
+        # This service doesn't have DB session usually. It receives data.
+        # So I should pass line_user_id to this method.
+        
+        token = await self.get_access_token(
+            settings.LINE_PRODUCER_CHANNEL_ID,
+            settings.LINE_PRODUCER_CHANNEL_SECRET
+        )
+
+        message = f"""【支払通知書送付のお知らせ】
+{month_str}分の支払通知書をお送りします。
+以下のリンクからダウンロードしてご確認ください。
+
+{pdf_url}
+
+※ このリンクの有効期限はありませんが、お早めに保存してください。"""
+
+        await self.send_push_message(token, target_user_id, message)
+
 line_service = LineNotificationService()

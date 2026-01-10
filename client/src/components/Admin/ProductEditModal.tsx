@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { Product, FarmingMethod, TaxRate, HarvestStatus, StockType } from '@/types';
-import { X, Loader2 } from 'lucide-react';
-import { productApi, farmerApi } from '@/services/api';
+import { X, Loader2, Camera } from 'lucide-react';
+import { productApi, farmerApi, uploadApi } from '@/services/api';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
+import { compressImage } from '@/utils/imageUtils';
 
 interface ProductEditModalProps {
     product: Product | null;
@@ -13,8 +14,14 @@ interface ProductEditModalProps {
 }
 
 export default function ProductEditModal({ product, onClose, onSaved }: ProductEditModalProps) {
-    const { register, handleSubmit, reset } = useForm<Partial<Product>>();
+    const { register, handleSubmit, reset, watch, setValue } = useForm<Partial<Product>>();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Watch cost_price for auto-calculation
+    const costPrice = watch('cost_price');
+    const imageUrl = watch('image_url');
 
     // Fetch farmers list for dropdown
     const { data: farmersData } = useQuery({
@@ -57,6 +64,40 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
         }
     }, [product, reset]);
 
+    // Auto calculate selling price when cost price changes
+    useEffect(() => {
+        if (costPrice) {
+            const cost = Number(costPrice);
+            if (!isNaN(cost) && cost > 0) {
+                // Formula: Cost / 0.7
+                const rawPrice = cost / 0.7;
+                // Round to nearest 10 (Round off ones digit)
+                // e.g. 144 -> 14.4 -> 14 -> 140
+                // e.g. 145 -> 14.5 -> 15 -> 150
+                const calculatedPrice = Math.round(rawPrice / 10) * 10;
+                setValue('price', calculatedPrice.toString()); // price is string in types usually, but react-hook-form handles basic types
+            }
+        }
+    }, [costPrice, setValue]);
+
+    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploading(true);
+        try {
+            const compressedFile = await compressImage(file);
+            const res = await uploadApi.uploadImage(compressedFile);
+            setValue('image_url', res.data.url);
+            toast.success('画像をアップロードしました');
+        } catch (e) {
+            console.error('Upload error:', e);
+            toast.error('画像のアップロードに失敗しました');
+        } finally {
+            setUploading(false);
+        }
+    };
+
     const onSubmit = async (data: Partial<Product>) => {
         setIsSubmitting(true);
         try {
@@ -88,6 +129,35 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
                 </div>
 
                 <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+                    {/* Image Upload Area */}
+                    <div className="flex flex-col items-center justify-center">
+                        <div
+                            onClick={() => fileInputRef.current?.click()}
+                            className="w-full h-48 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer overflow-hidden relative hover:bg-gray-50 transition-colors"
+                        >
+                            {imageUrl ? (
+                                <img src={imageUrl} alt="Product" className="w-full h-full object-contain" />
+                            ) : (
+                                <div className="text-gray-400 flex flex-col items-center">
+                                    <Camera size={40} className="mb-2" />
+                                    <span className="text-sm font-bold">画像を選択 / 撮影</span>
+                                </div>
+                            )}
+                            {uploading && (
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white">
+                                    <Loader2 className="animate-spin" />
+                                </div>
+                            )}
+                        </div>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleImageChange}
+                        />
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">商品名</label>
@@ -106,19 +176,33 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">販売価格(税抜)</label>
-                            <input {...register('price')} className="w-full border border-gray-300 rounded p-2" />
+                            <label className="block text-sm font-bold text-gray-700 mb-1">
+                                仕入れ値 (円) <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                {...register('cost_price', { valueAsNumber: true, required: true })}
+                                type="number"
+                                className="w-full border border-gray-300 rounded p-2 text-lg font-bold"
+                                placeholder="0"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">※ここに入力すると販売価格が自動計算されます</p>
                         </div>
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">仕入れ値</label>
-                            <input {...register('cost_price', { valueAsNumber: true })} type="number" className="w-full border border-gray-300 rounded p-2" />
+                            <label className="block text-sm font-bold text-gray-700 mb-1">
+                                販売価格 (税抜) <span className="text-xs font-normal text-gray-500">(自動計算: ÷0.7)</span>
+                            </label>
+                            <input
+                                {...register('price')}
+                                className="w-full border border-gray-300 bg-gray-100 text-gray-600 rounded p-2 text-lg font-bold"
+                                readOnly
+                            />
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">単位</label>
-                            <input {...register('unit')} className="w-full border border-gray-300 rounded p-2" />
+                            <input {...register('unit')} className="w-full border border-gray-300 rounded p-2" placeholder="袋, 個 etc" />
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">重量(g)</label>
@@ -157,10 +241,8 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
                         <textarea {...register('description')} rows={4} className="w-full border border-gray-300 rounded p-2" />
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">画像URL</label>
-                        <input {...register('image_url')} className="w-full border border-gray-300 rounded p-2" />
-                    </div>
+                    {/* Hidden Image URL Input (managed by upload) */}
+                    <input type="hidden" {...register('image_url')} />
 
                     <div className="flex gap-4">
                         <label className="flex items-center gap-2 cursor-pointer">
@@ -177,7 +259,7 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
                         <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">キャンセル</button>
                         <button
                             type="submit"
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || uploading}
                             className="px-6 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 flex items-center gap-2"
                         >
                             {isSubmitting && <Loader2 className="animate-spin w-4 h-4" />}

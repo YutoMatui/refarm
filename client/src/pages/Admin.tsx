@@ -7,10 +7,11 @@ import ProcurementManagement from '@/components/Admin/ProcurementManagement'
 import RestaurantManagement from '@/components/Admin/RestaurantManagement'
 import RoutePlanning from '@/components/Admin/RoutePlanning'
 import AdminUserManagement from '@/components/Admin/AdminUserManagement'
+import DeliveryScheduleManagement from '@/components/Admin/DeliveryScheduleManagement'
 import { adminApi } from '@/services/api'
 
 export default function Admin() {
-    const [activeTab, setActiveTab] = useState<'farmers' | 'products' | 'delivery' | 'procurement' | 'restaurants' | 'route' | 'admin_users'>('farmers')
+    const [activeTab, setActiveTab] = useState<'farmers' | 'products' | 'delivery' | 'procurement' | 'restaurants' | 'route' | 'admin_users' | 'delivery_schedule'>('farmers')
     const [userRole, setUserRole] = useState<string>('editor')
 
     useEffect(() => {
@@ -25,6 +26,7 @@ export default function Admin() {
         { id: 'restaurants', label: '飲食店管理', icon: Store },
         { id: 'products', label: '商品・在庫管理', icon: ShoppingBag },
         { id: 'delivery', label: '注文・配送管理', icon: Truck },
+        { id: 'delivery_schedule', label: '配送スケジュール', icon: Truck },
         { id: 'procurement', label: '仕入れ集計', icon: ClipboardList },
         { id: 'route', label: 'ルート最適化', icon: Map },
     ] as const
@@ -76,6 +78,7 @@ export default function Admin() {
                         {activeTab === 'farmers' && <FarmerManagement />}
                         {activeTab === 'products' && <ProductManagement />}
                         {activeTab === 'delivery' && <DeliveryManagement />}
+                        {activeTab === 'delivery_schedule' && <DeliveryScheduleManagement />}
                         {activeTab === 'procurement' && <ProcurementManagement />}
                         {activeTab === 'restaurants' && <RestaurantManagement />}
                         {activeTab === 'route' && <RoutePlanning />}

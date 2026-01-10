@@ -20,6 +20,7 @@ import type {
   RouteResponse,
   FullRouteResponse,
   DeliverySettings,
+  DeliverySchedule,
 } from '@/types'
 
 // Create Axios instance
@@ -232,6 +233,9 @@ export const orderApi = {
     })
     return response.data
   },
+
+  sendInvoiceLine: (orderId: number) =>
+    apiClient.post<{ message: string; success: boolean }>(`/orders/${orderId}/send_invoice_line`),
 }
 
 // Favorite API
@@ -279,6 +283,9 @@ export const producerApi = {
     })
     return response.data
   },
+
+  sendPaymentNoticeLine: (farmerId: number, month: string) =>
+    apiClient.post<{ message: string; success: boolean }>(`/producer/dashboard/sales/invoice/send_line?farmer_id=${farmerId}&month=${month}`),
 }
 
 // Upload API
@@ -294,6 +301,15 @@ export const uploadApi = {
       },
     })
   },
+}
+
+// Delivery Schedule API
+export const deliveryScheduleApi = {
+  list: (month?: string) =>
+    apiClient.get<DeliverySchedule[]>('/delivery-schedules/', { params: { month } }),
+
+  update: (dateStr: string, data: Partial<DeliverySchedule>) =>
+    apiClient.put<DeliverySchedule>(`/delivery-schedules/${dateStr}`, data),
 }
 
 // Settings API
