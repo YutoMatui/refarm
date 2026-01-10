@@ -76,6 +76,31 @@ class LineNotificationService:
             # Log error but don't raise to prevent order failure
             if response.status_code != 200:
                 print(f"Failed to send LINE message: {response.text}")
+                # Fallback: If 400 Bad Request and we were trying to send a file (list of dicts including 'file'),
+                # try fallback to text only if possible.
+                try:
+                    res_json = response.json()
+                    # LINE API error details might be getting rate limited so careful with retries.
+                    # Simple fallback logic: check if messages contained 'file' type
+                    has_file = any(m.get('type') == 'file' for m in messages)
+                    if has_file and response.status_code == 400:
+                         print("Attempting fallback to text message with link...")
+                         # Find the file message and extract URL
+                         file_msg = next((m for m in messages if m.get('type') == 'file'), None)
+                         if file_msg:
+                             url = file_msg.get('originalContentUrl')
+                             fallback_text = f"【送信エラー】\nファイルの送信に失敗しました。\n以下のリンクからダウンロードしてください:\n{url}"
+                             fallback_payload = {
+                                 "to": to_user_id,
+                                 "messages": [{"type": "text", "text": fallback_text}]
+                             }
+                             await client.post(
+                                f"{self.BASE_URL}/v2/bot/message/push",
+                                json=fallback_payload,
+                                headers=headers
+                            )
+                except Exception as e:
+                    print(f"Fallback failed: {e}")
 
     def format_currency(self, amount) -> str:
         return f"¥{int(amount):,}"

@@ -26,13 +26,18 @@ async def list_schedules(
     """
     query = select(DeliverySchedule)
     
+    import calendar
     if month:
         try:
             year, month_val = map(int, month.split('-'))
+            start_of_month = date(year, month_val, 1)
+            _, last_day = calendar.monthrange(year, month_val)
+            end_of_month = date(year, month_val, last_day)
+            
             query = query.where(
                 and_(
-                    extract('year', DeliverySchedule.date) == year,
-                    extract('month', DeliverySchedule.date) == month_val
+                    DeliverySchedule.date >= start_of_month,
+                    DeliverySchedule.date <= end_of_month
                 )
             )
         except ValueError:
