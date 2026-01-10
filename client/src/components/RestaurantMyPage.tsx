@@ -11,6 +11,8 @@ import Loading from '@/components/Loading';
 import { Order, OrderStatus } from '@/types';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import ImageCropperModal from '@/components/ImageCropperModal';
+import { compressImage } from '@/utils/imageUtils';
 
 // Status styling helper
 const getStatusStyle = (status: string) => {
@@ -49,6 +51,7 @@ export default function RestaurantMyPage() {
     const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [profilePhotoUrl, setProfilePhotoUrl] = useState(restaurant?.profile_photo_url || '');
+    const [cropperImage, setCropperImage] = useState<string | null>(null);
 
     // For Invoice Download
     const [invoiceMonth, setInvoiceMonth] = useState(new Date());
@@ -138,13 +141,26 @@ export default function RestaurantMyPage() {
         }
     });
 
-    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        e.target.value = '';
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            setCropperImage(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleCropComplete = async (croppedBlob: Blob) => {
+        setCropperImage(null);
         setUploading(true);
         try {
-            const res = await uploadApi.uploadImage(file);
+            const file = new File([croppedBlob], "icon_image.jpg", { type: "image/jpeg" });
+            const compressedFile = await compressImage(file);
+            const res = await uploadApi.uploadImage(compressedFile);
             setProfilePhotoUrl(res.data.url);
             toast.success('画像をアップロードしました');
         } catch (e) {
@@ -545,6 +561,15 @@ export default function RestaurantMyPage() {
                         </div>
                     </div>
                 </div>
+            )}
+            {cropperImage && (
+                <ImageCropperModal
+                    imageSrc={cropperImage}
+                    aspectRatio={1}
+                    onCancel={() => setCropperImage(null)}
+                    onCropComplete={handleCropComplete}
+                    title="店舗アイコンの編集"
+                />
             )}
         </div>
     );

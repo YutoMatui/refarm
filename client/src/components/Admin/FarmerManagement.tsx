@@ -9,6 +9,7 @@ import ChefCommentsEditor from '@/components/ChefCommentsEditor';
 import CommitmentEditor from '@/components/CommitmentEditor';
 import AchievementEditor from '@/components/AchievementEditor';
 import { compressImage } from '@/utils/imageUtils';
+import ImageCropperModal from '@/components/ImageCropperModal';
 
 export default function FarmerManagement() {
     const queryClient = useQueryClient();
@@ -17,6 +18,7 @@ export default function FarmerManagement() {
     const [isCreateMode, setIsCreateMode] = useState(false);
     const [inviteInfo, setInviteInfo] = useState<{ url: string, code: string, targetId: number } | null>(null);
     const [uploading, setUploading] = useState(false);
+    const [cropperImage, setCropperImage] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const { data: farmersData, isLoading } = useQuery({
@@ -152,12 +154,25 @@ export default function FarmerManagement() {
         setIsCreateMode(true);
     };
 
-    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !editingFarmer) return;
 
+        e.target.value = '';
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            setCropperImage(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleCropComplete = async (croppedBlob: Blob) => {
+        if (!editingFarmer) return;
+        setCropperImage(null);
         setUploading(true);
         try {
+            const file = new File([croppedBlob], "profile_image.jpg", { type: "image/jpeg" });
             const compressedFile = await compressImage(file);
             const res = await uploadApi.uploadImage(compressedFile);
             setEditingFarmer({ ...editingFarmer, profile_photo_url: res.data.url });
@@ -474,6 +489,15 @@ export default function FarmerManagement() {
                         </div>
                     </div>
                 </div>
+            )}
+            {cropperImage && (
+                <ImageCropperModal
+                    imageSrc={cropperImage}
+                    aspectRatio={1}
+                    onCancel={() => setCropperImage(null)}
+                    onCropComplete={handleCropComplete}
+                    title="プロフィール画像の編集"
+                />
             )}
         </div>
     );

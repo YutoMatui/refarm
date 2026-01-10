@@ -6,6 +6,7 @@ import { producerApi, uploadApi, productApi } from '../../services/api';
 import { HarvestStatus, FarmingMethod } from '../../types';
 import { toast } from 'sonner';
 import { compressImage } from '../../utils/imageUtils';
+import ImageCropperModal from '../../components/ImageCropperModal';
 
 interface ProductFormData {
     name: string;
@@ -38,6 +39,7 @@ export default function ProductForm() {
     const [imageUrl, setImageUrl] = useState<string>('');
     const [uploading, setUploading] = useState(false);
     const [loading, setLoading] = useState(isEdit);
+    const [cropperImage, setCropperImage] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
 
@@ -69,12 +71,24 @@ export default function ProductForm() {
         }
     };
 
-    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        e.target.value = '';
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            setCropperImage(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleCropComplete = async (croppedBlob: Blob) => {
+        setCropperImage(null);
         setUploading(true);
         try {
+            const file = new File([croppedBlob], "product_image.jpg", { type: "image/jpeg" });
             // Compress image before upload
             const compressedFile = await compressImage(file);
             const res = await uploadApi.uploadImage(compressedFile);
@@ -299,6 +313,15 @@ export default function ProductForm() {
                     保存する
                 </button>
             </form>
+            {cropperImage && (
+                <ImageCropperModal
+                    imageSrc={cropperImage}
+                    aspectRatio={4 / 3}
+                    onCancel={() => setCropperImage(null)}
+                    onCropComplete={handleCropComplete}
+                    title="商品画像の編集"
+                />
+            )}
         </div>
     );
 }

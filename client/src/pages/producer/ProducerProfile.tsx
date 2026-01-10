@@ -8,6 +8,8 @@ import { Commitment, Achievement, ChefComment } from '@/types';
 import CommitmentEditor from '../../components/CommitmentEditor';
 import AchievementEditor from '../../components/AchievementEditor';
 import ChefCommentsEditor from '../../components/ChefCommentsEditor';
+import ImageCropperModal from '../../components/ImageCropperModal';
+import { compressImage } from '@/utils/imageUtils';
 
 interface ProfileFormData {
     bio: string;
@@ -22,6 +24,8 @@ export default function ProducerProfile() {
     const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
     const [coverPhotoUrl, setCoverPhotoUrl] = useState('');
     const [uploading, setUploading] = useState(false);
+    const [cropperImage, setCropperImage] = useState<string | null>(null);
+    const [cropTarget, setCropTarget] = useState<'profile' | 'cover' | null>(null);
 
     // Rich content states
     const [commitments, setCommitments] = useState<Commitment[]>([]);
@@ -60,14 +64,29 @@ export default function ProducerProfile() {
         }
     };
 
-    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>, type: 'profile' | 'cover') => {
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'profile' | 'cover') => {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        e.target.value = '';
+        setCropTarget(type);
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            setCropperImage(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleCropComplete = async (croppedBlob: Blob) => {
+        if (!cropTarget) return;
+        setCropperImage(null);
         setUploading(true);
         try {
-            const res = await uploadApi.uploadImage(file);
-            if (type === 'profile') {
+            const file = new File([croppedBlob], `${cropTarget}_image.jpg`, { type: "image/jpeg" });
+            const compressedFile = await compressImage(file);
+            const res = await uploadApi.uploadImage(compressedFile);
+            if (cropTarget === 'profile') {
                 setProfilePhotoUrl(res.data.url);
             } else {
                 setCoverPhotoUrl(res.data.url);
@@ -77,6 +96,7 @@ export default function ProducerProfile() {
             toast.error('アップロード失敗');
         } finally {
             setUploading(false);
+            setCropTarget(null);
         }
     };
 
@@ -242,6 +262,18 @@ export default function ProducerProfile() {
                     </button>
                 </div>
             </form>
+            {cropperImage && (
+                <ImageCropperModal
+                    imageSrc={cropperImage}
+                    aspectRatio={cropTarget === 'profile' ? 1 : 3} // Profile 1:1, Cover 3:1
+                    onCancel={() => {
+                        setCropperImage(null);
+                        setCropTarget(null);
+                    }}
+                    onCropComplete={handleCropComplete}
+                    title={cropTarget === 'profile' ? "プロフィール画像の編集" : "カバー画像の編集"}
+                />
+            )}
         </div>
     );
 }

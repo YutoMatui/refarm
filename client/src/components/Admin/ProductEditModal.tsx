@@ -6,6 +6,7 @@ import { productApi, farmerApi, uploadApi } from '@/services/api';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { compressImage } from '@/utils/imageUtils';
+import ImageCropperModal from '@/components/ImageCropperModal';
 
 interface ProductEditModalProps {
     product: Product | null;
@@ -17,6 +18,7 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
     const { register, handleSubmit, reset, watch, setValue } = useForm<Partial<Product>>();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [cropperImage, setCropperImage] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Watch cost_price for auto-calculation
@@ -81,12 +83,25 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
         }
     }, [costPrice, setValue]);
 
-    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        // Reset input
+        e.target.value = '';
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            setCropperImage(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleCropComplete = async (croppedBlob: Blob) => {
+        setCropperImage(null);
         setUploading(true);
         try {
+            const file = new File([croppedBlob], "product_image.jpg", { type: "image/jpeg" });
             const compressedFile = await compressImage(file);
             const res = await uploadApi.uploadImage(compressedFile);
             setValue('image_url', res.data.url);
@@ -276,6 +291,15 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
                     </div>
                 </form>
             </div>
+            {cropperImage && (
+                <ImageCropperModal
+                    imageSrc={cropperImage}
+                    aspectRatio={4 / 3}
+                    onCancel={() => setCropperImage(null)}
+                    onCropComplete={handleCropComplete}
+                    title="商品画像の編集"
+                />
+            )}
         </div>
     );
 }
