@@ -54,8 +54,11 @@ class LineNotificationService:
                 
             return token
 
-    async def send_push_message(self, token: str, to_user_id: str, text: str):
-        """Send a push message"""
+    async def send_push_message(self, token: str, to_user_id: str, messages: List[Dict[str, Any]]):
+        """
+        Send a push message
+        messages: List of message objects (Text, Image, File, etc.)
+        """
         async with httpx.AsyncClient() as client:
             headers = {
                 "Authorization": f"Bearer {token}",
@@ -63,7 +66,7 @@ class LineNotificationService:
             }
             payload = {
                 "to": to_user_id,
-                "messages": [{"type": "text", "text": text}]
+                "messages": messages
             }
             response = await client.post(
                 f"{self.BASE_URL}/v2/bot/message/push",
@@ -139,7 +142,8 @@ No. {order.id}
 
 到着まで今しばらくお待ちください👨‍🍳"""
 
-        await self.send_push_message(token, settings.LINE_TEST_USER_ID, message)
+        messages = [{"type": "text", "text": message}]
+        await self.send_push_message(token, settings.LINE_TEST_USER_ID, messages)
 
     async def notify_farmers(self, order: Order):
         """Send notification to farmers"""
@@ -203,7 +207,8 @@ No. {order.id}
 
 お野菜のご準備、よろしくお願いいたします！🚛"""
 
-            await self.send_push_message(token, target_user_id, message)
+            messages = [{"type": "text", "text": message}]
+            await self.send_push_message(token, target_user_id, messages)
 
     async def send_invoice_message(self, order: Order, invoice_url: str):
         """Send invoice PDF link to restaurant"""
@@ -224,15 +229,22 @@ No. {order.id}
             settings.LINE_RESTAURANT_CHANNEL_SECRET
         )
 
-        message = f"""【請求書送付のお知らせ】
-No. {order.id} の請求書をお送りします。
-以下のリンクからダウンロードしてご確認ください。
+        text_message = {
+            "type": "text", 
+            "text": f"【請求書送付のお知らせ】\nNo. {order.id} の請求書をお送りします。\nご確認をお願いいたします。"
+        }
+        
+        # Determine filename
+        filename = f"invoice_{order.id}.pdf"
+        
+        # PDF Message
+        file_message = {
+            "type": "file",
+            "originalContentUrl": invoice_url,
+            "fileName": filename
+        }
 
-{invoice_url}
-
-※ このリンクの有効期限はありませんが、お早めに保存してください。"""
-
-        await self.send_push_message(token, target_user_id, message)
+        await self.send_push_message(token, target_user_id, [text_message, file_message])
 
     async def send_payment_notice_message(self, farmer_id: int, month_str: str, pdf_url: str, line_user_id: str = None):
         """Send payment notice PDF link to farmer"""
@@ -253,14 +265,18 @@ No. {order.id} の請求書をお送りします。
             settings.LINE_PRODUCER_CHANNEL_SECRET
         )
 
-        message = f"""【支払通知書送付のお知らせ】
-{month_str}分の支払通知書をお送りします。
-以下のリンクからダウンロードしてご確認ください。
+        text_message = {
+            "type": "text",
+            "text": f"【支払通知書送付のお知らせ】\n{month_str}分の支払通知書をお送りします。\nご確認をお願いいたします。"
+        }
+        
+        filename = f"payment_{month_str}.pdf"
+        file_message = {
+            "type": "file",
+            "originalContentUrl": pdf_url,
+            "fileName": filename
+        }
 
-{pdf_url}
-
-※ このリンクの有効期限はありませんが、お早めに保存してください。"""
-
-        await self.send_push_message(token, target_user_id, message)
+        await self.send_push_message(token, target_user_id, [text_message, file_message])
 
 line_service = LineNotificationService()

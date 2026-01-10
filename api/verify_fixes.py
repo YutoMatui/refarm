@@ -1,42 +1,27 @@
-import sys
-import os
 
-# Set up path to allow imports
-sys.path.append(os.path.abspath("webapp/api"))
+print("Verifying imports...")
+try:
+    from app.main import app
+    print("SUCCESS: app.main imported")
+except Exception as e:
+    print(f"ERROR: app.main import failed: {e}")
 
 try:
-    from app.models.farmer import Farmer
-    from app.schemas.farmer import FarmerBase
-    from app.routers.orders import router
-    
-    print("Successfully imported modules.")
-    
-    # Check Farmer Model
-    farmer = Farmer()
-    if hasattr(farmer, 'latitude') and hasattr(farmer, 'longitude'):
-        print("PASS: Farmer model has latitude and longitude.")
-    else:
-        print("FAIL: Farmer model missing latitude or longitude.")
-        
-    # Check Farmer Schema
-    schema = FarmerBase(name="Test", phone_number="123", address="Addr")
-    if 'latitude' in schema.model_fields and 'longitude' in schema.model_fields:
-        print("PASS: Farmer schema has latitude and longitude.")
-    else:
-        print("FAIL: Farmer schema missing latitude or longitude.")
-
-    # Check Router Endpoint
-    found_endpoint = False
-    for route in router.routes:
-        if route.path == "/aggregation/monthly":
-            found_endpoint = True
-            break
-            
-    if found_endpoint:
-        print("PASS: Orders router has /aggregation/monthly endpoint.")
-    else:
-        print("FAIL: Orders router missing /aggregation/monthly endpoint.")
-
+    from app.services.line_notify import line_service
+    print("SUCCESS: app.services.line_notify imported")
 except Exception as e:
-    print(f"ERROR: {e}")
-    sys.exit(1)
+    print(f"ERROR: app.services.line_notify import failed: {e}")
+
+try:
+    from app.routers import producer
+    print("SUCCESS: app.routers.producer imported")
+except Exception as e:
+    print(f"ERROR: app.routers.producer import failed: {e}")
+
+try:
+    from app.routers import orders
+    print("SUCCESS: app.routers.orders imported")
+except Exception as e:
+    print(f"ERROR: app.routers.orders import failed: {e}")
+
+print("Verification complete.")

@@ -300,9 +300,12 @@ async def send_invoice_line(order_id: int, db: AsyncSession = Depends(get_db)):
     
     # Cloudinary upload is sync
     loop = asyncio.get_event_loop()
+    # Use resource_type='raw' for PDFs to be accessible as files, not images
+    # Add .pdf extension to public_id to ensure proper delivery header
+    public_id_pdf = public_id + ".pdf" 
     upload_result = await loop.run_in_executor(
         None, 
-        partial(upload_file, file_obj, folder="refarm/invoices", resource_type="auto", public_id=public_id)
+        partial(upload_file, file_obj, folder="refarm/invoices", resource_type="raw", public_id=public_id_pdf)
     )
     
     if not upload_result or 'secure_url' not in upload_result:
@@ -354,9 +357,11 @@ async def download_invoice(
             from functools import partial
             
             loop = asyncio.get_event_loop()
+            # Use resource_type='raw' for proper file handling
+            public_id_pdf = public_id + ".pdf"
             upload_result = await loop.run_in_executor(
                 None, 
-                partial(upload_file, file_obj, folder="refarm/invoices", resource_type="auto", public_id=public_id)
+                partial(upload_file, file_obj, folder="refarm/invoices", resource_type="raw", public_id=public_id_pdf)
             )
             
             if upload_result and 'secure_url' in upload_result:
