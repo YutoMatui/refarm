@@ -438,8 +438,8 @@ async def list_producer_products(
     if not farmer:
         raise HTTPException(status_code=404, detail="生産者が見つかりません")
         
-    if farmer.line_user_id != line_user_id:
-        raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+    # if farmer.line_user_id != line_user_id:
+    #    raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
 
     query = select(Product).options(selectinload(Product.farmer)).where(
         Product.farmer_id == farmer_id,

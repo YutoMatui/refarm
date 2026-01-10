@@ -323,7 +323,11 @@ async def send_invoice_line(order_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{order_id}/invoice")
-async def download_invoice(order_id: int, db: AsyncSession = Depends(get_db)):
+async def download_invoice(
+    order_id: int, 
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
     """請求書をダウンロード"""
     stmt = select(Order).options(
         selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
@@ -338,6 +342,36 @@ async def download_invoice(order_id: int, db: AsyncSession = Depends(get_db)):
     
     # Generate PDF
     pdf_content = generate_invoice_pdf(order)
+
+    # Background Task: Upload and Send to LINE
+    async def upload_and_send_line(order_obj, pdf_bytes):
+        try:
+            # Upload to Cloudinary
+            file_obj = io.BytesIO(pdf_bytes)
+            public_id = f"invoices/invoice_{order_obj.id}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            
+            import asyncio
+            from functools import partial
+            
+            loop = asyncio.get_event_loop()
+            upload_result = await loop.run_in_executor(
+                None, 
+                partial(upload_file, file_obj, folder="refarm/invoices", resource_type="auto", public_id=public_id)
+            )
+            
+            if upload_result and 'secure_url' in upload_result:
+                pdf_url = upload_result['secure_url']
+                # Send to LINE
+                await line_service.send_invoice_message(order_obj, pdf_url)
+                
+                # Update DB (Need new session)
+                # Since we can't easily get a new session here without dependency injection, 
+                # and the main session is closed, we might skip saving the URL or use a context manager if strictly needed.
+                # For now, sending the message is the priority.
+        except Exception as e:
+            print(f"Failed to send invoice to LINE: {e}")
+
+    background_tasks.add_task(upload_and_send_line, order, pdf_content)
     
     # Return as stream
     return StreamingResponse(

@@ -180,11 +180,13 @@ from app.routers import (
     logistics,
     admin_auth,
     admin_users,
+    delivery_schedules,
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(admin_auth.router, prefix="/api/admin/auth", tags=["Admin Authentication"])
 app.include_router(admin_users.router, prefix="/api/admin/users", tags=["Admin Users"])
+app.include_router(delivery_schedules.router, prefix="/api/admin/schedules", tags=["Delivery Schedules"])
 app.include_router(logistics.router, prefix="/api/logistics", tags=["Logistics"])
 app.include_router(restaurants.router, prefix="/api/restaurants", tags=["Restaurants"])
 app.include_router(farmers.router, prefix="/api/farmers", tags=["Farmers"])

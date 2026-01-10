@@ -50,6 +50,12 @@ class DeliverySchedule(Base, TimestampMixin):
         nullable=True,
         comment="配送担当者名"
     )
+
+    time_slot = Column(
+        String(100),
+        nullable=True,
+        comment="配送可能時間"
+    )
     
     # Note: Day of week is derived from date, no need to store ideally, 
     # but if specific overrides are needed we can add logic. 
