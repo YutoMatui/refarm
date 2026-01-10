@@ -15,6 +15,7 @@ from decimal import Decimal
 from fastapi.responses import StreamingResponse
 from app.core.database import get_db
 from app.core.cloudinary import upload_file
+from app.core.config import settings
 from app.services.line_notify import line_service
 from app.models import Farmer, Product, Order, OrderItem
 from app.models.enums import OrderStatus
@@ -58,7 +59,6 @@ async def download_payment_notice(
         raise HTTPException(status_code=404, detail="生産者が見つかりません")
 
     # Access Check
-    from app.core.config import settings
     if farmer.line_user_id != line_user_id and line_user_id != settings.LINE_TEST_USER_ID:
         raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
 
@@ -136,7 +136,6 @@ async def send_payment_notice_line(
         raise HTTPException(status_code=404, detail="生産者が見つかりません")
 
     # Access Check
-    from app.core.config import settings
     if farmer.line_user_id != line_user_id and line_user_id != settings.LINE_TEST_USER_ID:
         raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
 
@@ -189,7 +188,7 @@ async def send_payment_notice_line(
 
     # Upload to Cloudinary
     file_obj = io.BytesIO(pdf_content)
-    public_id = f"invoices/payment_notice_{farmer_id}_{month}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    public_id = f"payment_notice_{farmer_id}_{month}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
     
     import asyncio
     from functools import partial
@@ -230,7 +229,6 @@ async def get_producer_schedule(
     if not farmer:
         raise HTTPException(status_code=404, detail="生産者が見つかりません")
         
-    from app.core.config import settings
     if farmer.line_user_id != line_user_id and line_user_id != settings.LINE_TEST_USER_ID:
         raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
 
@@ -320,7 +318,6 @@ async def get_producer_sales(
     if not farmer:
         raise HTTPException(status_code=404, detail="生産者が見つかりません")
         
-    from app.core.config import settings
     if farmer.line_user_id != line_user_id and line_user_id != settings.LINE_TEST_USER_ID:
         raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
 
@@ -580,7 +577,6 @@ async def get_producer_profile(
     if not farmer:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
         
-    from app.core.config import settings
     if farmer.line_user_id != line_user_id and line_user_id != settings.LINE_TEST_USER_ID:
         raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
     
@@ -602,7 +598,6 @@ async def update_producer_profile(
     if not farmer:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
         
-    from app.core.config import settings
     if farmer.line_user_id != line_user_id and line_user_id != settings.LINE_TEST_USER_ID:
         raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
     
@@ -629,7 +624,6 @@ async def unlink_farmer_line(
     if not farmer:
         raise HTTPException(status_code=404, detail="生産者が見つかりません")
         
-    from app.core.config import settings
     if farmer.line_user_id != line_user_id and line_user_id != settings.LINE_TEST_USER_ID:
         raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
     
@@ -766,8 +760,8 @@ async def generate_farmer_invite(farmer_id: int, db: AsyncSession = Depends(get_
     await db.commit()
     
     # 3. Return info
-    # Get LIFF ID from env or use default (Farmer specific)
-    liff_id = os.environ.get("FARMER_LIFF_ID", "2008689915-hECRflxu") 
+    # Get LIFF ID from settings (Farmer specific)
+    liff_id = settings.FARMER_LIFF_ID
     liff_base_url = f"https://liff.line.me/{liff_id}"
     
     # Add type=farmer param so frontend knows which LIFF ID to use

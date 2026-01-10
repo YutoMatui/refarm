@@ -292,7 +292,7 @@ async def send_invoice_line(order_id: int, db: AsyncSession = Depends(get_db)):
     file_obj = io.BytesIO(pdf_content)
     # Filename helps Cloudinary set format? resource_type='raw' is usually better for PDFs or 'auto'
     # public_id helps keep it organized
-    public_id = f"invoices/invoice_{order.id}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    public_id = f"invoice_{order.id}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
     
     # Run upload in thread pool to avoid blocking async loop
     import asyncio
@@ -351,7 +351,7 @@ async def download_invoice(
         try:
             # Upload to Cloudinary
             file_obj = io.BytesIO(pdf_bytes)
-            public_id = f"invoices/invoice_{order_obj.id}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            public_id = f"invoice_{order_obj.id}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
             
             import asyncio
             from functools import partial

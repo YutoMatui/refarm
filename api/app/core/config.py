@@ -58,9 +58,9 @@ class Settings(BaseSettings):
         return v
     
     # LINE LIFF
-    LIFF_ID: str = ""
-    FARMER_LIFF_ID: str = ""
-    RESTAURANT_LIFF_ID: str = ""
+    LIFF_ID: str = "2008674356-P5YFllFd"
+    FARMER_LIFF_ID: str = "2008689915-hECRflxu"
+    RESTAURANT_LIFF_ID: str = "2008674356-P5YFllFd"
     LINE_CHANNEL_ID: str = ""
     LINE_CHANNEL_SECRET: str = ""
 

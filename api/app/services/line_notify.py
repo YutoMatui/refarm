@@ -1,5 +1,6 @@
 import httpx
 from datetime import datetime
+import logging
 from typing import Dict, List, Any
 from app.core.config import settings
 from app.models import Order, OrderItem
@@ -75,7 +76,7 @@ class LineNotificationService:
             )
             # Log error but don't raise to prevent order failure
             if response.status_code != 200:
-                print(f"Failed to send LINE message: {response.text}")
+                print(f"Failed to send LINE message ({response.status_code}): {response.text}")
                 # Fallback: If 400 Bad Request and we were trying to send a file (list of dicts including 'file'),
                 # try fallback to text only if possible.
                 try:

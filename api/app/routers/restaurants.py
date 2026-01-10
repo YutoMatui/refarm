@@ -11,6 +11,7 @@ import os
 from datetime import datetime, timedelta
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.models import Restaurant
 from app.services.route_service import route_service
 from app.schemas import (
@@ -268,8 +269,8 @@ async def generate_restaurant_invite(restaurant_id: int, db: AsyncSession = Depe
     await db.commit()
     
     # 3. Return info
-    # Get LIFF ID from env or use default (Restaurant specific)
-    liff_id = os.environ.get("RESTAURANT_LIFF_ID", "2008674356-P5YFllFd")
+    # Get LIFF ID from settings (Restaurant specific)
+    liff_id = settings.RESTAURANT_LIFF_ID
     liff_base_url = f"https://liff.line.me/{liff_id}"
     
     # Add type=restaurant param

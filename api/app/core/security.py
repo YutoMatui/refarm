@@ -95,9 +95,17 @@ def verify_line_id_token_mock(id_token: str) -> dict:
             detail="Invalid token"
         )
     
+    # Default to Test User ID for development convenience
+    # This ensures that if real verification fails in dev, we get a privileged user
+    user_id = settings.LINE_TEST_USER_ID
+
+    # Allow specifying ID in mock token for testing specific users
+    if id_token.startswith("mock-U"):
+        user_id = id_token[5:]
+
     # Mock user data for development
     return {
-        "user_id": "U" + id_token[-10:],  # Simulate LINE User ID
+        "user_id": user_id,
         "name": "テストユーザー",
         "picture": None,
         "email": None,

@@ -9,6 +9,7 @@ import os
 from datetime import datetime, timedelta
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.models import Farmer
 from app.services.route_service import route_service
 from app.schemas import (
@@ -146,12 +147,13 @@ async def generate_farmer_invite(farmer_id: int, db: AsyncSession = Depends(get_
     await db.commit()
     
     # 3. Return info
-    # Get LIFF ID from env or use default
-    liff_id = os.environ.get("LIFF_ID", "2006733221-7O009wjj") 
+    # Get LIFF ID from settings (Farmer specific)
+    liff_id = settings.FARMER_LIFF_ID
     liff_base_url = f"https://liff.line.me/{liff_id}"
     
+    # Add type=farmer param so frontend knows which LIFF ID to use
     return {
-        "invite_url": f"{liff_base_url}?token={new_token}",
+        "invite_url": f"{liff_base_url}?token={new_token}&type=farmer",
         "access_code": new_code,
         "expires_at": farmer.invite_expires_at
     }
