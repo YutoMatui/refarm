@@ -115,6 +115,9 @@ export const restaurantApi = {
 
   delete: (id: number) =>
     apiClient.delete(`/restaurants/${id}`),
+
+  unlinkLine: (id: number) =>
+    apiClient.post<{ message: string; success: boolean }>(`/restaurants/${id}/unlink_line`),
 }
 
 // Farmer API
@@ -132,6 +135,9 @@ export const farmerApi = {
 
   update: (id: number, data: Partial<Farmer>) =>
     apiClient.put<Farmer>(`/farmers/${id}`, data),
+
+  delete: (id: number) =>
+    apiClient.delete(`/farmers/${id}`),
 }
 
 // Product API

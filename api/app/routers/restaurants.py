@@ -11,7 +11,6 @@ import os
 from datetime import datetime, timedelta
 
 from app.core.database import get_db
-from app.core.config import settings
 from app.models import Restaurant
 from app.services.route_service import route_service
 from app.schemas import (
@@ -45,15 +44,16 @@ async def create_restaurant(
     - **address**: 住所
     """
     # Check if LINE User ID already exists
-    stmt = select(Restaurant).where(Restaurant.line_user_id == restaurant_data.line_user_id)
-    result = await db.execute(stmt)
-    existing_restaurant = result.scalar_one_or_none()
-    
-    if existing_restaurant:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="このLINE User IDは既に登録されています"
-        )
+    if restaurant_data.line_user_id:
+        stmt = select(Restaurant).where(Restaurant.line_user_id == restaurant_data.line_user_id)
+        result = await db.execute(stmt)
+        existing_restaurant = result.scalar_one_or_none()
+        
+        if existing_restaurant:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="このLINE User IDは既に登録されています"
+            )
     
     # Create new restaurant
     # Auto-geocode if address is provided
@@ -269,8 +269,8 @@ async def generate_restaurant_invite(restaurant_id: int, db: AsyncSession = Depe
     await db.commit()
     
     # 3. Return info
-    # Get LIFF ID from settings (Restaurant specific)
-    liff_id = settings.RESTAURANT_LIFF_ID
+    # Get LIFF ID from env or use default (Restaurant specific)
+    liff_id = os.environ.get("RESTAURANT_LIFF_ID", "2008674356-P5YFllFd")
     liff_base_url = f"https://liff.line.me/{liff_id}"
     
     # Add type=restaurant param
@@ -279,3 +279,25 @@ async def generate_restaurant_invite(restaurant_id: int, db: AsyncSession = Depe
         "access_code": new_code,
         "expires_at": restaurant.invite_expires_at
     }
+
+
+@router.post("/{restaurant_id}/unlink_line")
+async def unlink_restaurant_line(
+    restaurant_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """LINE連携を解除"""
+    stmt = select(Restaurant).where(Restaurant.id == restaurant_id, Restaurant.deleted_at.is_(None))
+    result = await db.execute(stmt)
+    restaurant = result.scalar_one_or_none()
+    
+    if not restaurant:
+        raise HTTPException(status_code=404, detail="飲食店が見つかりません")
+    
+    restaurant.line_user_id = None
+    restaurant.invite_token = None
+    restaurant.invite_code = None
+    restaurant.invite_expires_at = None
+    
+    await db.commit()
+    return {"message": "LINE連携を解除しました", "success": True}

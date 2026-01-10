@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
-import { Plus, Pencil, Trash2, Link as LinkIcon, Copy } from 'lucide-react'
+import { Plus, Pencil, Trash2, Link as LinkIcon, Copy, Unlink } from 'lucide-react'
 import { restaurantApi, invitationApi } from '../../services/api'
 import { toast } from 'sonner'
 import type { Restaurant } from '../../types'
@@ -90,6 +90,17 @@ export default function RestaurantManagement() {
             toast.error('発行に失敗しました');
         }
     };
+
+    const handleUnlinkLine = async (restaurant: Restaurant) => {
+        if (!confirm(`${restaurant.name}のLINE連携を解除しますか？`)) return;
+        try {
+            await restaurantApi.unlinkLine(restaurant.id);
+            toast.success('連携を解除しました');
+            fetchRestaurants();
+        } catch (error) {
+            toast.error('解除に失敗しました');
+        }
+    }
 
     if (loading) return <div>Loading...</div>
 
@@ -184,9 +195,19 @@ export default function RestaurantManagement() {
                                 <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{restaurant.address}</td>
                                 <td className="px-6 py-4 text-sm text-gray-500">
                                     {restaurant.line_user_id ? (
-                                        <span className="text-green-600 flex items-center gap-1 text-xs font-bold">
-                                            <div className="w-2 h-2 bg-green-500 rounded-full"></div> 連携済
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-green-600 flex items-center gap-1 text-xs font-bold">
+                                                <div className="w-2 h-2 bg-green-500 rounded-full"></div> 連携済
+                                            </span>
+                                            <button
+                                                onClick={() => handleUnlinkLine(restaurant)}
+                                                className="text-xs bg-red-50 text-red-600 px-2 py-1 rounded border border-red-100 hover:bg-red-100 flex items-center gap-1"
+                                                title="連携を解除"
+                                            >
+                                                <Unlink size={12} />
+                                                解除
+                                            </button>
+                                        </div>
                                     ) : (
                                         <span className="text-gray-400 text-xs">未連携</span>
                                     )}
