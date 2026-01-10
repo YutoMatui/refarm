@@ -30,7 +30,7 @@ export class LIFFService {
     let liffId = import.meta.env.VITE_LIFF_ID;
 
     // Also check path for /producer, /invite/farmer etc.
-    if (type === 'farmer' || window.location.pathname.startsWith('/producer')) {
+    if (type === 'farmer' || window.location.pathname.startsWith('/producer') || window.location.pathname.startsWith('/invite/farmer')) {
       liffId = import.meta.env.VITE_FARMER_LIFF_ID || liffId;
     }
 

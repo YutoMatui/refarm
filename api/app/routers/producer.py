@@ -196,7 +196,7 @@ async def send_payment_notice_line(
     loop = asyncio.get_event_loop()
     upload_result = await loop.run_in_executor(
         None, 
-        partial(upload_file, file_obj, folder="refarm/invoices", resource_type="auto", public_id=public_id)
+        partial(upload_file, file_obj, folder="refarm/invoices", resource_type="image", public_id=public_id, format="pdf")
     )
     
     if not upload_result or 'secure_url' not in upload_result:
