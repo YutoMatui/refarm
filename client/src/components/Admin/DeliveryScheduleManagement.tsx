@@ -17,6 +17,7 @@ export default function DeliveryScheduleManagement() {
     const [procurementStaff, setProcurementStaff] = useState('')
     const [deliveryStaff, setDeliveryStaff] = useState('')
     const [selectedDayOfWeek, setSelectedDayOfWeek] = useState(0) // 0-6
+    const [timeSlot, setTimeSlot] = useState('')
 
     // Fetch schedules for the current month
     const monthStr = format(currentMonth, 'yyyy-MM')
@@ -54,11 +55,13 @@ export default function DeliveryScheduleManagement() {
             setIsAvailable(schedule.is_available)
             setProcurementStaff(schedule.procurement_staff || '')
             setDeliveryStaff(schedule.delivery_staff || '')
+            setTimeSlot(schedule.time_slot || '')
         } else {
             // Default: Available, no staff
             setIsAvailable(true)
             setProcurementStaff('')
             setDeliveryStaff('')
+            setTimeSlot('')
         }
 
         setSelectedDayOfWeek(getDay(date))
@@ -87,6 +90,7 @@ export default function DeliveryScheduleManagement() {
             is_available: isAvailable,
             procurement_staff: procurementStaff,
             delivery_staff: deliveryStaff,
+            time_slot: timeSlot,
             // Note: We don't really save day of week as it is derived, 
             // but if the backend schema needed it, we would send it.
             // Current schema doesn't have day_of_week column.
@@ -94,6 +98,12 @@ export default function DeliveryScheduleManagement() {
     }
 
     const weekDays = ['日', '月', '火', '水', '木', '金', '土']
+    const timeSlotOptions = [
+        { value: '', label: '指定なし' },
+        { value: '12:00～14:00', label: '12:00～14:00' },
+        { value: '14:00～16:00', label: '14:00～16:00' },
+        { value: '16:00～18:00', label: '16:00～18:00' },
+    ]
 
     return (
         <div className="bg-white rounded-lg shadow p-6">
@@ -222,6 +232,21 @@ export default function DeliveryScheduleManagement() {
                                     className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
                                     placeholder="名前を入力"
                                 />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">配送可能時間</label>
+                                <select
+                                    value={timeSlot}
+                                    onChange={(e) => setTimeSlot(e.target.value)}
+                                    className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                                >
+                                    {timeSlotOptions.map((option) => (
+                                        <option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
 
                             {/* Day of Week Selector */}

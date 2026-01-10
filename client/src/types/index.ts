@@ -323,5 +323,6 @@ export interface DeliverySchedule extends TimestampFields {
   is_available: boolean
   procurement_staff?: string | null
   delivery_staff?: string | null
+  time_slot?: string | null
 }
 

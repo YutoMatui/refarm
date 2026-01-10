@@ -2,16 +2,17 @@ import { useState } from 'react';
 import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, getDay, startOfWeek, endOfWeek } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { deliveryScheduleApi } from '@/services/api';
+import { DeliverySchedule } from '@/types';
 
 interface DeliveryCalendarProps {
     selectedDate: string;
-    onSelect: (date: string) => void;
-    allowedDays: number[]; // 0=Sun, 1=Mon...
-    closedDates?: string[]; // ["YYYY-MM-DD", ...]
+    onSelect: (date: string, schedule?: DeliverySchedule) => void;
     minDate: string; // YYYY-MM-DD
 }
 
-export default function DeliveryCalendar({ selectedDate, onSelect, allowedDays = [], closedDates = [], minDate }: DeliveryCalendarProps) {
+export default function DeliveryCalendar({ selectedDate, onSelect, minDate }: DeliveryCalendarProps) {
     const [currentMonth, setCurrentMonth] = useState(new Date());
 
     const startDate = startOfWeek(startOfMonth(currentMonth));
@@ -23,6 +24,21 @@ export default function DeliveryCalendar({ selectedDate, onSelect, allowedDays =
     // Convert minDate string to Date object (start of day)
     const minDateObj = new Date(minDate + 'T00:00:00');
 
+    // Fetch schedules for the current month
+    const monthStr = format(currentMonth, 'yyyy-MM')
+    const { data: schedules } = useQuery<DeliverySchedule[]>({
+        queryKey: ['delivery-schedules', monthStr],
+        queryFn: async () => {
+            const res = await deliveryScheduleApi.list(monthStr)
+            return res.data
+        }
+    })
+
+    const getSchedule = (date: Date) => {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        return schedules?.find(s => s.date === dateStr);
+    };
+
     const isDateSelectable = (date: Date) => {
         // Normalize date to start of day for comparison
         const checkDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -31,13 +47,16 @@ export default function DeliveryCalendar({ selectedDate, onSelect, allowedDays =
         // Check if before minDate
         if (checkDate < minCheck) return false;
 
-        // Check closed dates
-        const dateStr = format(date, 'yyyy-MM-dd');
-        if (closedDates.includes(dateStr)) return false;
+        const schedule = getSchedule(date);
 
-        // Check allowed days
-        const dayOfWeek = getDay(date);
-        return allowedDays.includes(dayOfWeek);
+        // If schedule exists, strictly follow is_available
+        if (schedule) {
+            return schedule.is_available;
+        }
+
+        // If no schedule exists, default to closed (based on user request: "only selectable where set as available")
+        // "具体的には配送可能な日時にだけ、マルをつけて、それ以外はそもそも選択できないようにして"
+        return false;
     };
 
     const handlePrevMonth = () => setCurrentMonth(prev => addMonths(prev, -1));
@@ -86,7 +105,12 @@ export default function DeliveryCalendar({ selectedDate, onSelect, allowedDays =
                     return (
                         <button
                             key={dateStr}
-                            onClick={() => isSelectable && onSelect(dateStr)}
+                            onClick={() => {
+                                if (isSelectable) {
+                                    const schedule = getSchedule(day);
+                                    onSelect(dateStr, schedule);
+                                }
+                            }}
                             disabled={!isSelectable}
                             type="button"
                             className={`

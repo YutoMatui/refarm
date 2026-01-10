@@ -8,7 +8,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { orderApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
 import { settingsApi } from '@/services/api'
-import { DeliveryTimeSlot, type OrderCreateRequest } from '@/types'
+import { DeliveryTimeSlot, type OrderCreateRequest, DeliverySchedule } from '@/types'
 import { Trash2, ShoppingCart, Calendar, MapPin, ChevronLeft } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import DeliveryCalendar from '@/components/DeliveryCalendar'
@@ -21,6 +21,7 @@ export default function Cart() {
   const [deliveryDate, setDeliveryDate] = useState('')
   const [deliveryTimeSlot, setDeliveryTimeSlot] = useState<DeliveryTimeSlot | ''>('')
   const [deliveryNotes, setDeliveryNotes] = useState('')
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<{ value: DeliveryTimeSlot, label: string }[]>([])
 
   // Delivery Settings
   const { data: settings } = useQuery({
@@ -46,14 +47,76 @@ export default function Cart() {
   // Min date (3 days from now)
   const minDate = format(addDays(new Date(), 3), 'yyyy-MM-dd')
 
-  const timeSlots = settings?.time_slots?.filter(s => s.enabled).map(s => ({
-    value: s.id as DeliveryTimeSlot,
-    label: s.label
-  })) || [
-      { value: DeliveryTimeSlot.SLOT_12_14, label: '12:00 〜 14:00' },
-      { value: DeliveryTimeSlot.SLOT_14_16, label: '14:00 〜 16:00' },
-      { value: DeliveryTimeSlot.SLOT_16_18, label: '16:00 〜 18:00' },
-    ];
+  const defaultTimeSlots = [
+    { value: DeliveryTimeSlot.SLOT_12_14, label: '12:00 〜 14:00' },
+    { value: DeliveryTimeSlot.SLOT_14_16, label: '14:00 〜 16:00' },
+    { value: DeliveryTimeSlot.SLOT_16_18, label: '16:00 〜 18:00' },
+  ];
+
+  // Initialize time slots based on settings initially, but will be overridden by schedule selection
+  useState(() => {
+    if (settings) {
+      const slots = settings.time_slots?.filter(s => s.enabled).map(s => ({
+        value: s.id as DeliveryTimeSlot,
+        label: s.label
+      })) || defaultTimeSlots;
+      setAvailableTimeSlots(slots);
+    } else {
+      setAvailableTimeSlots(defaultTimeSlots);
+    }
+  });
+
+  const handleDateSelect = (date: string, schedule?: DeliverySchedule) => {
+    setDeliveryDate(date);
+    setDeliveryTimeSlot(''); // Reset time slot on date change
+
+    // Determine available time slots for this date
+    if (schedule && schedule.time_slot) {
+      // If schedule has specific time slot, use only that (or parse if multiple?)
+      // Requirement: "specify delivery time slots... 12-14, 14-16, 16-18"
+      // Admin saves a single string like "12:00～14:00" in time_slot column?
+      // Or does admin select ONE slot that is available for that day?
+      // "配送可能な時間帯を指定できるようにしたいです... 12:00～14:00... で設定したいです"
+      // "時間帯に関しても配送可能と設定したところだけ選択できるようにして"
+      // This implies the schedule might restrict which slots are available.
+      // Since the DB column is a single `time_slot` string (nullable), let's assume it might hold one slot or be used to filter.
+
+      // Current DB schema added `time_slot` as String(100).
+      // Admin UI implemented a dropdown to select ONE slot.
+      // So if admin selects "12:00～14:00", ONLY that slot is available for that day.
+      // If admin selects "unspecified" (empty), maybe all default slots are available?
+
+      if (schedule.time_slot) {
+        // Map the string from DB/Admin to DeliveryTimeSlot enum
+        let mappedSlot: DeliveryTimeSlot | null = null;
+        if (schedule.time_slot.includes('12') && schedule.time_slot.includes('14')) mappedSlot = DeliveryTimeSlot.SLOT_12_14;
+        else if (schedule.time_slot.includes('14') && schedule.time_slot.includes('16')) mappedSlot = DeliveryTimeSlot.SLOT_14_16;
+        else if (schedule.time_slot.includes('16') && schedule.time_slot.includes('18')) mappedSlot = DeliveryTimeSlot.SLOT_16_18;
+
+        if (mappedSlot) {
+          setAvailableTimeSlots([{ value: mappedSlot, label: schedule.time_slot }]);
+        } else {
+          // Fallback if mapping fails or custom string
+          // Maybe show it as is? But we need DeliveryTimeSlot enum for backend.
+          setAvailableTimeSlots(defaultTimeSlots);
+        }
+      } else {
+        // Schedule exists but no specific slot restriction -> All enabled slots from settings
+        const slots = settings?.time_slots?.filter(s => s.enabled).map(s => ({
+          value: s.id as DeliveryTimeSlot,
+          label: s.label
+        })) || defaultTimeSlots;
+        setAvailableTimeSlots(slots);
+      }
+    } else {
+      // No specific schedule info (shouldn't happen if calendar logic enforces schedule existence for selection)
+      const slots = settings?.time_slots?.filter(s => s.enabled).map(s => ({
+        value: s.id as DeliveryTimeSlot,
+        label: s.label
+      })) || defaultTimeSlots;
+      setAvailableTimeSlots(slots);
+    }
+  }
 
   const createOrderMutation = useMutation({
     mutationFn: async (orderData: OrderCreateRequest) => {
@@ -197,9 +260,7 @@ export default function Cart() {
             </label>
             <DeliveryCalendar
               selectedDate={deliveryDate}
-              onSelect={setDeliveryDate}
-              allowedDays={settings?.allowed_days || []}
-              closedDates={settings?.closed_dates || []}
+              onSelect={handleDateSelect}
               minDate={minDate}
             />
             <p className="text-xs text-gray-500 mt-2">※3日後以降の日付を選択してください（○：可能、/：不可）</p>
@@ -211,7 +272,7 @@ export default function Cart() {
               配送時間帯 <span className="text-red-500">*</span>
             </label>
             <div className="grid grid-cols-1 gap-2">
-              {timeSlots.map((slot) => (
+              {availableTimeSlots.map((slot) => (
                 <label
                   key={slot.value}
                   className={`flex items-center p-3 border rounded-xl cursor-pointer transition-all ${deliveryTimeSlot === slot.value
@@ -230,6 +291,11 @@ export default function Cart() {
                   <span className="ml-3 font-medium text-gray-900">{slot.label}</span>
                 </label>
               ))}
+              {availableTimeSlots.length === 0 && (
+                <p className="text-sm text-gray-500">
+                  日付を選択すると、利用可能な時間帯が表示されます。
+                </p>
+              )}
             </div>
           </div>
 
