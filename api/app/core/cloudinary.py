@@ -48,3 +48,26 @@ def upload_image(file_obj, folder: str = "refarm"):
         # Some Cloudinary errors are in the message or args
         logger.error(f"Cloudinary upload error: {error_msg}")
         return None
+
+def upload_file(file_obj, folder: str = "refarm/docs", resource_type: str = "auto", public_id: str = None):
+    """
+    Uploads a file (PDF, etc.) to Cloudinary.
+    """
+    if not settings.CLOUDINARY_CLOUD_NAME:
+        logger.error("Cloudinary is not configured.")
+        return None
+
+    try:
+        options = {
+            "folder": folder,
+            "resource_type": resource_type
+        }
+        if public_id:
+            options["public_id"] = public_id
+            options["overwrite"] = True
+
+        response = cloudinary.uploader.upload(file_obj, **options)
+        return response
+    except Exception as e:
+        logger.error(f"Cloudinary file upload error: {e}")
+        return None

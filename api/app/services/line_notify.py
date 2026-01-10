@@ -142,10 +142,7 @@ No. {order.id}
         await self.send_push_message(token, settings.LINE_TEST_USER_ID, message)
 
     async def notify_farmers(self, order: Order):
-        """Send notification to farmers (Test user for now)"""
-        if not settings.LINE_TEST_USER_ID:
-            return
-
+        """Send notification to farmers"""
         token = await self.get_access_token(
             settings.LINE_PRODUCER_CHANNEL_ID,
             settings.LINE_PRODUCER_CHANNEL_SECRET
@@ -154,35 +151,40 @@ No. {order.id}
         # Group items by farmer
         farmers_items = {}
         for item in order.order_items:
-            farmer_id = item.product.farmer_id
+            # item.product.farmer should be loaded via selectinload in router
+            if not item.product or not item.product.farmer:
+                continue
+                
+            farmer = item.product.farmer
+            farmer_id = farmer.id
+            
+            # Check if farmer has LINE linked
+            if not farmer.line_user_id:
+                continue
+                
             if farmer_id not in farmers_items:
                 farmers_items[farmer_id] = {
-                    "farmer_name": item.product.farmer.name if item.product.farmer else "生産者",
+                    "farmer_name": farmer.name,
+                    "line_user_id": farmer.line_user_id,
                     "items": [],
                     "total_sales": 0
                 }
             farmers_items[farmer_id]["items"].append(item)
-            # Assuming simple sales calc (cost price might be different from selling price)
-            # For now using subtotal or if cost_price exists use that.
-            # Checking Product model later. Assuming for now we use a percentage or just show amount.
-            # The prompt says "今回の売上予定: ¥1,050" which implies cost price.
-            # Let's check if Product has cost_price. 
-            # If not, use total_amount * 0.7 (example) or just total_amount.
-            # I will use total_amount for now, or check product.cost_price if available.
             farmers_items[farmer_id]["total_sales"] += item.total_amount
 
         for farmer_id, data in farmers_items.items():
             farmer_name = data["farmer_name"]
+            target_user_id = data["line_user_id"]
             
             items_text = ""
             for item in data["items"]:
                 emoji = "📦"
                 if "人参" in item.product_name: emoji = "🥕"
+                elif "トマト" in item.product_name: emoji = "🍅"
+                elif "ネギ" in item.product_name: emoji = "🥬"
                 
                 items_text += f"{emoji} {item.product_name}\n"
                 items_text += f"   数量: {item.quantity}{item.product_unit}\n"
-                # If there's standard info, add it. (規格: Lサイズ / バラ)
-                # item.product.standard might exist?
                 
             delivery_date_str = self.format_date(order.delivery_date)
             
@@ -201,7 +203,7 @@ No. {order.id}
 
 お野菜のご準備、よろしくお願いいたします！🚛"""
 
-            await self.send_push_message(token, settings.LINE_TEST_USER_ID, message)
+            await self.send_push_message(token, target_user_id, message)
 
     async def send_invoice_message(self, order: Order, invoice_url: str):
         """Send invoice PDF link to restaurant"""
@@ -232,18 +234,20 @@ No. {order.id} の請求書をお送りします。
 
         await self.send_push_message(token, target_user_id, message)
 
-    async def send_payment_notice_message(self, farmer_id: int, month_str: str, pdf_url: str):
+    async def send_payment_notice_message(self, farmer_id: int, month_str: str, pdf_url: str, line_user_id: str = None):
         """Send payment notice PDF link to farmer"""
-        # In a real app, fetch farmer's line_user_id from DB
-        # For now, using TEST_USER_ID or assume we can fetch it if we passed the Farmer object
-        target_user_id = settings.LINE_TEST_USER_ID
-
-        # Ideally, we should fetch the farmer and check line_user_id
-        # But to keep this method signature simple as per existing patterns in this file (mostly passing objects or just IDs if self-contained)
-        # I'll rely on the caller to pass line_user_id or handle it inside here by querying DB?
-        # This service doesn't have DB session usually. It receives data.
-        # So I should pass line_user_id to this method.
+        # If line_user_id is not provided, we can't send.
+        target_user_id = line_user_id or settings.LINE_TEST_USER_ID
         
+        # If line_user_id is provided, prioritize it.
+        # But if it's None (e.g. from previous edit), it might fallback to TEST ID which is not ideal for prod.
+        # Strict check:
+        if line_user_id:
+            target_user_id = line_user_id
+        elif not settings.DEBUG: # In production, don't send to test user if real user is missing
+             print(f"No LINE user ID for farmer {farmer_id}")
+             return
+
         token = await self.get_access_token(
             settings.LINE_PRODUCER_CHANNEL_ID,
             settings.LINE_PRODUCER_CHANNEL_SECRET

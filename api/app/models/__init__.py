@@ -15,6 +15,7 @@ from app.models.product import Product
 from app.models.order import Order, OrderItem
 from app.models.favorite import Favorite
 from app.models.admin import Admin
+from app.models.delivery_schedule import DeliverySchedule
 
 __all__ = [
     # Enums
@@ -31,4 +32,5 @@ __all__ = [
     "OrderItem",
     "Favorite",
     "Admin",
+    "DeliverySchedule",
 ]

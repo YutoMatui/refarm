@@ -25,36 +25,48 @@ async def get_line_user_id(
     Raises:
         HTTPException: If token is missing or invalid
     """
-    # TEMPORARY: Bypass authentication for development
-    # Return the mock user ID that matches the seed data
-    return "Uk-id-token"
-
-    # Original authentication logic (commented out)
-    # if not authorization:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_401_UNAUTHORIZED,
-    #         detail="Authorization header missing",
-    #         headers={"WWW-Authenticate": "Bearer"},
-    #     )
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header missing",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     
-    # try:
-    #     scheme, id_token = authorization.split()
-    #     if scheme.lower() != "bearer":
-    #         raise HTTPException(
-    #             status_code=status.HTTP_401_UNAUTHORIZED,
-    #             detail="Invalid authentication scheme",
-    #             headers={"WWW-Authenticate": "Bearer"},
-    #         )
-    # except ValueError:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_401_UNAUTHORIZED,
-    #         detail="Invalid authorization header format",
-    #         headers={"WWW-Authenticate": "Bearer"},
-    #     )
+    try:
+        scheme, id_token = authorization.split()
+        if scheme.lower() != "bearer":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication scheme",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authorization header format",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     
-    # # Verify token with LINE's server
-    # user_info = await get_current_user_from_token(id_token)
-    # return user_info["user_id"]
+    # Verify token with LINE's server
+    try:
+        user_info = await get_current_user_from_token(id_token)
+        return user_info["user_id"]
+    except Exception as e:
+        # Fallback for development/admin tokens if needed, but in prod we should be strict
+        # Checking if it's an admin token handled elsewhere, but this dependency is for LINE users.
+        # If the token is invalid for LINE, we throw 401.
+        
+        # Exception: Allow specific mock tokens in DEBUG mode
+        from app.core.config import settings
+        if settings.DEBUG and (id_token.startswith("mock-") or id_token == "Uk-id-token"):
+             # Return a predictable ID for testing
+             return "Uf84a1f7dfb47a12c704d6ac8b438f873" # Matches seed farmer/restaurant if needed, or specific mock ID
+             
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid token: {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 async def get_current_restaurant(

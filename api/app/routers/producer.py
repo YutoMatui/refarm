@@ -31,6 +31,8 @@ from app.schemas import (
     ProductListResponse,
 )
 
+from app.core.dependencies import get_line_user_id
+
 router = APIRouter()
 
 
@@ -38,6 +40,7 @@ router = APIRouter()
 async def download_payment_notice(
     farmer_id: int = Query(..., description="生産者ID"),
     month: str = Query(..., description="対象月 (YYYY-MM)"),
+    line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -53,6 +56,10 @@ async def download_payment_notice(
     
     if not farmer:
         raise HTTPException(status_code=404, detail="生産者が見つかりません")
+
+    # Access Check
+    if farmer.line_user_id != line_user_id:
+        raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
 
     try:
         target_month = datetime.strptime(month, "%Y-%m")
@@ -113,6 +120,7 @@ async def download_payment_notice(
 async def send_payment_notice_line(
     farmer_id: int = Query(..., description="生産者ID"),
     month: str = Query(..., description="対象月 (YYYY-MM)"),
+    line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """支払通知書をLINEで送信"""
@@ -125,6 +133,10 @@ async def send_payment_notice_line(
     
     if not farmer:
         raise HTTPException(status_code=404, detail="生産者が見つかりません")
+
+    # Access Check
+    if farmer.line_user_id != line_user_id:
+        raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
 
     try:
         target_month = datetime.strptime(month, "%Y-%m")
@@ -192,7 +204,7 @@ async def send_payment_notice_line(
     pdf_url = upload_result['secure_url']
 
     # Send to LINE
-    await line_service.send_payment_notice_message(farmer_id, month, pdf_url)
+    await line_service.send_payment_notice_message(farmer_id, month, pdf_url, line_user_id=farmer.line_user_id)
     
     return ResponseMessage(message="支払通知書をLINEに送信しました", success=True)
 
@@ -201,11 +213,23 @@ async def send_payment_notice_line(
 async def get_producer_schedule(
     farmer_id: int = Query(..., description="生産者ID"),
     date: str = Query(..., description="日付 (YYYY-MM-DD)"),
+    line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
     生産者のスケジュール（出荷・準備）を取得
     """
+    # Verify access
+    stmt = select(Farmer).where(Farmer.id == farmer_id)
+    result = await db.execute(stmt)
+    farmer = result.scalar_one_or_none()
+    
+    if not farmer:
+        raise HTTPException(status_code=404, detail="生産者が見つかりません")
+        
+    if farmer.line_user_id != line_user_id:
+        raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+
     try:
         target_date = datetime.strptime(date, "%Y-%m-%d").date()
     except ValueError:
@@ -278,11 +302,23 @@ async def get_producer_schedule(
 async def get_producer_sales(
     farmer_id: int = Query(..., description="生産者ID"),
     month: str = Query(..., description="月 (YYYY-MM)"),
+    line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
     生産者の売上データを取得
     """
+    # Verify access
+    stmt = select(Farmer).where(Farmer.id == farmer_id)
+    result = await db.execute(stmt)
+    farmer = result.scalar_one_or_none()
+    
+    if not farmer:
+        raise HTTPException(status_code=404, detail="生産者が見つかりません")
+        
+    if farmer.line_user_id != line_user_id:
+        raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+
     try:
         target_month = datetime.strptime(month, "%Y-%m")
         # Start and end of month
@@ -390,9 +426,21 @@ async def list_producer_products(
     farmer_id: int = Query(..., description="生産者ID"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
+    line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """生産者の商品一覧を取得"""
+    # Verify access
+    stmt = select(Farmer).where(Farmer.id == farmer_id)
+    result = await db.execute(stmt)
+    farmer = result.scalar_one_or_none()
+    
+    if not farmer:
+        raise HTTPException(status_code=404, detail="生産者が見つかりません")
+        
+    if farmer.line_user_id != line_user_id:
+        raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+
     query = select(Product).options(selectinload(Product.farmer)).where(
         Product.farmer_id == farmer_id,
         Product.deleted_at.is_(None)
@@ -410,7 +458,8 @@ async def list_producer_products(
 
 @router.post("/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
 async def create_producer_product(
-    product_data: ProductCreate, 
+    product_data: ProductCreate,
+    line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """商品を新規登録"""
@@ -418,6 +467,25 @@ async def create_producer_product(
     from app.core.utils import calculate_retail_price
 
     data = product_data.model_dump()
+    farmer_id = data.get("farmer_id") # Assuming farmer_id is in data
+
+    if not farmer_id:
+         # Try to find farmer by line_user_id
+         stmt = select(Farmer).where(Farmer.line_user_id == line_user_id)
+         result = await db.execute(stmt)
+         farmer = result.scalar_one_or_none()
+         if not farmer:
+             raise HTTPException(status_code=400, detail="生産者IDが指定されていないか、アカウントが見つかりません")
+         data["farmer_id"] = farmer.id
+    else:
+        # Verify access
+        stmt = select(Farmer).where(Farmer.id == farmer_id)
+        result = await db.execute(stmt)
+        farmer = result.scalar_one_or_none()
+        if not farmer:
+            raise HTTPException(status_code=404, detail="生産者が見つかりません")
+        if farmer.line_user_id != line_user_id:
+            raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
     
     # Producer submission defaults
     if data.get("price") is None:
@@ -448,9 +516,21 @@ async def update_producer_product(
     product_id: int,
     product_data: ProductUpdate,
     farmer_id: int = Query(..., description="生産者ID"),
+    line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """商品情報を更新"""
+    # Verify access
+    stmt = select(Farmer).where(Farmer.id == farmer_id)
+    result = await db.execute(stmt)
+    farmer = result.scalar_one_or_none()
+    
+    if not farmer:
+        raise HTTPException(status_code=404, detail="生産者が見つかりません")
+        
+    if farmer.line_user_id != line_user_id:
+        raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+
     from app.core.utils import calculate_retail_price
     stmt = select(Product).where(Product.id == product_id, Product.deleted_at.is_(None))
     result = await db.execute(stmt)
@@ -484,6 +564,7 @@ async def update_producer_product(
 @router.get("/profile", response_model=FarmerResponse)
 async def get_producer_profile(
     farmer_id: int = Query(..., description="生産者ID"),
+    line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """生産者プロフィールを取得"""
@@ -493,6 +574,9 @@ async def get_producer_profile(
     
     if not farmer:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
+        
+    if farmer.line_user_id != line_user_id:
+        raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
     
     return farmer
 
@@ -501,6 +585,7 @@ async def get_producer_profile(
 async def update_producer_profile(
     data: FarmerUpdate,
     farmer_id: int = Query(..., description="生産者ID"),
+    line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """生産者プロフィールを更新"""
@@ -510,6 +595,9 @@ async def update_producer_profile(
     
     if not farmer:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
+        
+    if farmer.line_user_id != line_user_id:
+        raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
     
     update_data = data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -523,6 +611,7 @@ async def update_producer_profile(
 @router.post("/{farmer_id}/unlink_line")
 async def unlink_farmer_line(
     farmer_id: int,
+    line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """LINE連携を解除"""
@@ -532,6 +621,9 @@ async def unlink_farmer_line(
     
     if not farmer:
         raise HTTPException(status_code=404, detail="生産者が見つかりません")
+        
+    if farmer.line_user_id != line_user_id:
+        raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
     
     farmer.line_user_id = None
     farmer.invite_token = None
