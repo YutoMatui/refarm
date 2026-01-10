@@ -20,6 +20,7 @@ export default function FarmerDetail() {
     const [activeTab, setActiveTab] = useState<'products' | 'story'>('products');
 
     useEffect(() => {
+        window.scrollTo(0, 0); // Scroll to top when loaded
         if (id) loadFarmer(parseInt(id));
     }, [id]);
 

@@ -205,9 +205,20 @@ def generate_farmer_payment_notice_pdf(farmer, total_amount, period_str, details
         "remarks": "いつも美味しいお野菜をありがとうございます。"
     }
     
+    # テンプレートの変数と一致するように修正
+    # invoice_monthly.html が daily_items を使用しているのでOK
+    # ただし、target_month など一部の変数が空文字だと表示が崩れる可能性があるため調整
+    # invoice_monthly.html 側で {% if target_month %} 等のチェックがあればよいが、
+    # 既存のテンプレート次第。
+    
     html_content = template.render(context)
     pdf_bytes = HTML(string=html_content).write_pdf()
     return pdf_bytes
+
+def generate_monthly_invoice_pdf(restaurant, orders, target_month_str, invoice_period):
+    """
+    月次請求書を生成
+    """
     template = env.get_template('invoice_monthly.html')
     
     # 1. Aggregate by Delivery Date

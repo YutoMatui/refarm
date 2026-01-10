@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import ChefCommentsEditor from '@/components/ChefCommentsEditor';
 import CommitmentEditor from '@/components/CommitmentEditor';
 import AchievementEditor from '@/components/AchievementEditor';
+import VideoUrlEditor from '@/components/VideoUrlEditor'; // Assuming I will create this or inline it
 import { compressImage } from '@/utils/imageUtils';
 import ImageCropperModal from '@/components/ImageCropperModal';
 
@@ -461,6 +462,13 @@ export default function FarmerManagement() {
                             <AchievementEditor
                                 achievements={(editingFarmer.achievements as Achievement[]) || []}
                                 onChange={(val: Achievement[]) => setEditingFarmer({ ...editingFarmer, achievements: val })}
+                            />
+                        </div>
+
+                        <div className="border-t pt-6">
+                            <VideoUrlEditor
+                                videoUrls={(editingFarmer.video_url as string[]) || []}
+                                onChange={(urls: string[]) => setEditingFarmer({ ...editingFarmer, video_url: urls })}
                             />
                         </div>
 
