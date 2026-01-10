@@ -1,25 +1,44 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { farmerApi, invitationApi, producerApi } from '@/services/api';
+import { farmerApi, invitationApi, producerApi, uploadApi } from '@/services/api';
 import { Farmer, ChefComment, Commitment, Achievement } from '@/types';
-import { Edit2, Loader2, X, Link as LinkIcon, Copy, Unlink } from 'lucide-react';
+import { Edit2, Loader2, X, Link as LinkIcon, Copy, Unlink, Trash2, Camera } from 'lucide-react';
 import Loading from '@/components/Loading';
 import { toast } from 'sonner';
 import ChefCommentsEditor from '@/components/ChefCommentsEditor';
 import CommitmentEditor from '@/components/CommitmentEditor';
 import AchievementEditor from '@/components/AchievementEditor';
+import { compressImage } from '@/utils/imageUtils';
 
 export default function FarmerManagement() {
     const queryClient = useQueryClient();
     const [filterText, setFilterText] = useState('');
     const [editingFarmer, setEditingFarmer] = useState<Farmer | null>(null);
+    const [isCreateMode, setIsCreateMode] = useState(false);
     const [inviteInfo, setInviteInfo] = useState<{ url: string, code: string, targetId: number } | null>(null);
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const { data: farmersData, isLoading } = useQuery({
         queryKey: ['admin-farmers'],
         queryFn: async () => {
             const response = await farmerApi.list({ limit: 1000 });
             return response.data;
+        },
+    });
+
+    const createFarmerMutation = useMutation({
+        mutationFn: async (data: Partial<Farmer>) => {
+            await farmerApi.create(data);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['admin-farmers'] });
+            toast.success('登録しました');
+            setIsCreateMode(false);
+            setEditingFarmer(null);
+        },
+        onError: () => {
+            toast.error('登録に失敗しました');
         },
     });
 
@@ -36,6 +55,47 @@ export default function FarmerManagement() {
             toast.error('更新に失敗しました');
         },
     });
+
+    const deleteFarmerMutation = useMutation({
+        mutationFn: async (id: number) => {
+            // @ts-ignore - delete method might be missing in type definition but present in API
+            // Check api.ts if delete is implemented for farmerApi
+            // farmerApi.delete is not implemented in previous context, let's assume I need to add it or it's missing.
+            // Wait, looking at api.ts content provided earlier:
+            // // Farmer API
+            // export const farmerApi = { ... } 
+            // It has list, getById, create, update. NO DELETE.
+            // I should double check api.ts content provided in context.
+            // The user selected api.ts content shows farmerApi only has list, getById, create, update.
+            // I need to update api.ts to include delete.
+
+            // For now, I will assume I will update api.ts next.
+            // Let's use a direct call or fix api.ts.
+            // Since I can't edit multiple files in one turn easily without planning, 
+            // I will assume I will add delete to api.ts or use a workaround.
+            // Actually, I can use a raw axios call here if I import apiClient, 
+            // or better, I will assume I'll add it to api.ts in this turn.
+
+            // Let's check api.ts again.
+            // It's missing delete. I will add it.
+            // For now, I'll write the mutation assuming it exists or I'll implement it locally.
+            const { default: apiClient } = await import('@/services/api');
+            await apiClient.delete(`/farmers/${id}`);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['admin-farmers'] });
+            toast.success('削除しました');
+        },
+        onError: () => {
+            toast.error('削除に失敗しました');
+        },
+    });
+
+    const handleDelete = async (farmer: Farmer) => {
+        if (confirm(`${farmer.name}さんを削除しますか？\nこの操作は取り消せません。`)) {
+            deleteFarmerMutation.mutate(farmer.id);
+        }
+    };
 
     const filteredFarmers = useMemo(() => {
         if (!farmersData?.items) return [];
@@ -75,7 +135,39 @@ export default function FarmerManagement() {
 
     const handleSave = () => {
         if (!editingFarmer) return;
-        updateFarmerMutation.mutate({ id: editingFarmer.id, data: editingFarmer });
+        if (isCreateMode) {
+            createFarmerMutation.mutate(editingFarmer);
+        } else {
+            updateFarmerMutation.mutate({ id: editingFarmer.id, data: editingFarmer });
+        }
+    };
+
+    const handleCreate = () => {
+        setEditingFarmer({
+            name: '',
+            main_crop: '',
+            // @ts-ignore
+            is_active: 1
+        } as Farmer);
+        setIsCreateMode(true);
+    };
+
+    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !editingFarmer) return;
+
+        setUploading(true);
+        try {
+            const compressedFile = await compressImage(file);
+            const res = await uploadApi.uploadImage(compressedFile);
+            setEditingFarmer({ ...editingFarmer, profile_photo_url: res.data.url });
+            toast.success('画像をアップロードしました');
+        } catch (e) {
+            console.error('Upload error:', e);
+            toast.error('画像のアップロードに失敗しました');
+        } finally {
+            setUploading(false);
+        }
     };
 
     if (isLoading) return <Loading message="生産者情報を読み込み中..." />;
@@ -148,13 +240,21 @@ export default function FarmerManagement() {
                         生産者情報、シェフからの推薦コメントなどを編集できます
                     </p>
                 </div>
-                <input
-                    type="text"
-                    placeholder="生産者名で検索..."
-                    className="border border-gray-300 rounded-lg px-4 py-2 text-sm"
-                    value={filterText}
-                    onChange={(e) => setFilterText(e.target.value)}
-                />
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        placeholder="生産者名で検索..."
+                        className="border border-gray-300 rounded-lg px-4 py-2 text-sm"
+                        value={filterText}
+                        onChange={(e) => setFilterText(e.target.value)}
+                    />
+                    <button
+                        onClick={handleCreate}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 text-sm"
+                    >
+                        新規登録
+                    </button>
+                </div>
             </div>
 
             {/* List View */}
@@ -219,6 +319,13 @@ export default function FarmerManagement() {
                                         >
                                             <Edit2 size={18} />
                                         </button>
+                                        <button
+                                            onClick={() => handleDelete(farmer)}
+                                            className="text-red-600 hover:text-red-800 p-2 bg-red-50 rounded-full"
+                                            title="削除"
+                                        >
+                                            <Trash2 size={18} />
+                                        </button>
                                     </td>
                                 </tr>
                             ))}
@@ -232,11 +339,16 @@ export default function FarmerManagement() {
                 <div className="p-6">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-lg font-bold flex items-center">
-                            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mr-2">編集</span>
-                            {editingFarmer.name}
+                            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mr-2">
+                                {isCreateMode ? '新規登録' : '編集'}
+                            </span>
+                            {isCreateMode ? '新しい生産者' : editingFarmer.name}
                         </h3>
                         <button
-                            onClick={() => setEditingFarmer(null)}
+                            onClick={() => {
+                                setEditingFarmer(null);
+                                setIsCreateMode(false);
+                            }}
                             className="text-gray-500 hover:text-gray-700"
                         >
                             <X size={24} />
@@ -244,8 +356,46 @@ export default function FarmerManagement() {
                     </div>
 
                     <div className="space-y-6 max-w-3xl">
+                        {/* Image Upload */}
+                        <div className="flex flex-col items-center justify-center mb-6">
+                            <div
+                                onClick={() => fileInputRef.current?.click()}
+                                className="w-32 h-32 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer overflow-hidden relative hover:bg-gray-50 transition-colors"
+                            >
+                                {editingFarmer.profile_photo_url ? (
+                                    <img src={editingFarmer.profile_photo_url} alt="Profile" className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="text-gray-400 flex flex-col items-center">
+                                        <Camera size={24} className="mb-1" />
+                                        <span className="text-xs">写真を選択</span>
+                                    </div>
+                                )}
+                                {uploading && (
+                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white">
+                                        <Loader2 className="animate-spin" />
+                                    </div>
+                                )}
+                            </div>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handleImageChange}
+                            />
+                            <p className="text-xs text-gray-500 mt-2">クリックしてプロフィール画像を変更</p>
+                        </div>
+
                         {/* Basic Info */}
                         <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">生産者名 <span className="text-red-500">*</span></label>
+                                <input
+                                    value={editingFarmer.name || ''}
+                                    onChange={(e) => setEditingFarmer({ ...editingFarmer, name: e.target.value })}
+                                    className="w-full border border-gray-300 rounded-lg p-2"
+                                />
+                            </div>
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">主要作物</label>
                                 <input

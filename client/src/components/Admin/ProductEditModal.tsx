@@ -36,6 +36,7 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
         if (product) {
             reset({
                 name: product.name,
+                variety: product.variety,
                 farmer_id: product.farmer_id,
                 price: product.price,
                 cost_price: product.cost_price,
@@ -163,6 +164,13 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
                             <label className="block text-sm font-bold text-gray-700 mb-1">商品名</label>
                             <input {...register('name', { required: true })} className="w-full border border-gray-300 rounded p-2" />
                         </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">品種</label>
+                            <input {...register('variety')} className="w-full border border-gray-300 rounded p-2" />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">生産者</label>
                             <select {...register('farmer_id', { valueAsNumber: true, required: true })} className="w-full border border-gray-300 rounded p-2">
