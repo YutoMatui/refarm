@@ -17,7 +17,7 @@ export default function DeliveryScheduleManagement() {
     const [procurementStaff, setProcurementStaff] = useState('')
     const [deliveryStaff, setDeliveryStaff] = useState('')
     const [selectedDayOfWeek, setSelectedDayOfWeek] = useState(0) // 0-6
-    const [timeSlot, setTimeSlot] = useState('')
+    const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([])
 
     // Fetch schedules for the current month
     const monthStr = format(currentMonth, 'yyyy-MM')
@@ -55,13 +55,13 @@ export default function DeliveryScheduleManagement() {
             setIsAvailable(schedule.is_available)
             setProcurementStaff(schedule.procurement_staff || '')
             setDeliveryStaff(schedule.delivery_staff || '')
-            setTimeSlot(schedule.time_slot || '')
+            setSelectedTimeSlots(schedule.time_slot ? schedule.time_slot.split(',') : [])
         } else {
             // Default: Available, no staff
             setIsAvailable(true)
             setProcurementStaff('')
             setDeliveryStaff('')
-            setTimeSlot('')
+            setSelectedTimeSlots([])
         }
 
         setSelectedDayOfWeek(getDay(date))
@@ -90,7 +90,7 @@ export default function DeliveryScheduleManagement() {
             is_available: isAvailable,
             procurement_staff: procurementStaff,
             delivery_staff: deliveryStaff,
-            time_slot: timeSlot,
+            time_slot: selectedTimeSlots.join(','),
             // Note: We don't really save day of week as it is derived, 
             // but if the backend schema needed it, we would send it.
             // Current schema doesn't have day_of_week column.
@@ -99,7 +99,6 @@ export default function DeliveryScheduleManagement() {
 
     const weekDays = ['日', '月', '火', '水', '木', '金', '土']
     const timeSlotOptions = [
-        { value: '', label: '指定なし' },
         { value: '12:00～14:00', label: '12:00～14:00' },
         { value: '14:00～16:00', label: '14:00～16:00' },
         { value: '16:00～18:00', label: '16:00～18:00' },
@@ -235,18 +234,27 @@ export default function DeliveryScheduleManagement() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">配送可能時間</label>
-                                <select
-                                    value={timeSlot}
-                                    onChange={(e) => setTimeSlot(e.target.value)}
-                                    className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                                >
+                                <label className="block text-sm font-medium text-gray-700 mb-2">配送可能時間 (複数選択可)</label>
+                                <div className="space-y-2">
                                     {timeSlotOptions.map((option) => (
-                                        <option key={option.value} value={option.value}>
-                                            {option.label}
-                                        </option>
+                                        <label key={option.value} className="flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedTimeSlots.includes(option.value)}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setSelectedTimeSlots([...selectedTimeSlots, option.value])
+                                                    } else {
+                                                        setSelectedTimeSlots(selectedTimeSlots.filter(t => t !== option.value))
+                                                    }
+                                                }}
+                                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                            />
+                                            <span className="ml-2 text-sm text-gray-900">{option.label}</span>
+                                        </label>
                                     ))}
-                                </select>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">※選択しない場合は、システム設定の全時間帯が有効になります。</p>
                             </div>
 
                             {/* Day of Week Selector */}
