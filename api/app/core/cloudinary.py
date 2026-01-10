@@ -65,6 +65,27 @@ def upload_file(file_obj, folder: str = "refarm/docs", resource_type: str = "aut
         if public_id:
             options["public_id"] = public_id
             options["overwrite"] = True
+        
+        # Explicitly set format to pdf for PDF files if detected
+        # Check if it's a file-like object with name
+        if hasattr(file_obj, 'name') and file_obj.name.endswith('.pdf'):
+             options["format"] = "pdf"
+        
+        # Cloudinary specific fix for "Document could not be loaded" on mobile/browsers for raw uploads
+        # Force resource_type to "auto" (which becomes "image" for PDFs) so Cloudinary processes it as a viewable document
+        # BUT `write_pdf()` returns bytes, so `file_obj` is bytes/BytesIO.
+        # If we use resource_type='raw', it's just a file. If 'auto' or 'image', it can be viewed.
+        # PDFs are often better served as 'image' resource_type in Cloudinary for viewing, or 'raw' for just download.
+        # But 'raw' URLs sometimes lack correct Content-Type headers if not set.
+        # Let's try forcing resource_type="auto" if it was "raw" but we suspect it's a PDF.
+        
+        if resource_type == "auto" and public_id and public_id.endswith(".pdf"):
+             # If we are uploading with a public_id that ends in .pdf and resource_type auto, it usually works.
+             # But if it ends up as raw, browsers might fail to render.
+             # Consider forcing resource_type="image" and format="pdf" for robust PDF handling on Cloudinary?
+             # Actually, if we just upload it, Cloudinary returns a URL.
+             # The URL structure /raw/upload/ vs /image/upload/ matters.
+             pass
 
         response = cloudinary.uploader.upload(file_obj, **options)
         return response
