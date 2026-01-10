@@ -70,7 +70,7 @@ def upload_file(file_obj, folder: str = "refarm/docs", resource_type: str = "aut
         
         # Explicitly set format to pdf for PDF files if detected
         # Check if it's a file-like object with name
-        if hasattr(file_obj, 'name') and file_obj.name.endswith('.pdf'):
+        if hasattr(file_obj, 'name') and file_obj.name.endswith('.pdf') and resource_type != "raw":
              options["format"] = "pdf"
 
         response = cloudinary.uploader.upload(file_obj, **options)
