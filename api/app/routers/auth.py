@@ -84,6 +84,8 @@ async def link_account(
 class AuthRequest(BaseModel):
     """Authentication request with LINE ID Token."""
     id_token: str
+    invite_token: Optional[str] = None
+    input_code: Optional[str] = None
 
 
 class AuthResponse(BaseModel):
@@ -168,6 +170,7 @@ async def verify_line_token(
 ):
     """
     LINE ID Tokenを検証し、ユーザー情報を取得します。
+    招待トークンとコードがあれば、アカウント連携も試みます。
     
     セキュリティ:
     - フロントエンドから送られた ID Token をLINEのサーバーで検証
@@ -178,7 +181,8 @@ async def verify_line_token(
     2. フロントエンドが ID Token をバックエンドに送信
     3. バックエンドが LINE のサーバーに問い合わせて検証
     4. 検証成功したら LINE User ID を取得
-    5. 飲食店の登録状況を確認して返す
+    5. ユーザーが未登録の場合、招待情報があればアカウントを連携
+    6. 飲食店の登録状況を確認して返す
     """
     from app.core.security import get_current_user_from_token
     
@@ -201,6 +205,45 @@ async def verify_line_token(
     )
     result_farmer = await db.execute(stmt_farmer)
     farmer = result_farmer.scalar_one_or_none()
+
+    # If user not found, try to link account using invite info
+    if not restaurant and not farmer and auth_request.invite_token and auth_request.input_code:
+        # Check Farmer invitations first
+        stmt_farmer_invite = select(Farmer).where(
+            Farmer.invite_token == auth_request.invite_token,
+            Farmer.invite_expires_at > datetime.now()
+        )
+        farmer_to_link = (await db.execute(stmt_farmer_invite)).scalar_one_or_none()
+
+        if farmer_to_link:
+            if farmer_to_link.invite_code != auth_request.input_code:
+                raise HTTPException(status_code=400, detail="認証コードが間違っています。")
+            
+            farmer_to_link.line_user_id = line_user_id
+            farmer_to_link.invite_token = None
+            farmer_to_link.invite_code = None
+            farmer_to_link.invite_expires_at = None
+            await db.commit()
+            farmer = farmer_to_link
+        else:
+            # If not a farmer invite, check Restaurant invitations
+            stmt_restaurant_invite = select(Restaurant).where(
+                Restaurant.invite_token == auth_request.invite_token,
+                Restaurant.invite_expires_at > datetime.now()
+            )
+            restaurant_to_link = (await db.execute(stmt_restaurant_invite)).scalar_one_or_none()
+
+            if restaurant_to_link:
+                if restaurant_to_link.invite_code != auth_request.input_code:
+                    raise HTTPException(status_code=400, detail="認証コードが間違っています。")
+                
+                restaurant_to_link.line_user_id = line_user_id
+                restaurant_to_link.invite_token = None
+                restaurant_to_link.invite_code = None
+                restaurant_to_link.invite_expires_at = None
+                await db.commit()
+                restaurant = restaurant_to_link
+            # If no invite is found, it will just fall through and return "not registered"
 
     # DEBUG MODE: If restaurant not found but it's a mock user, return a mock restaurant
     from app.core.config import settings

@@ -86,8 +86,12 @@ apiClient.interceptors.response.use(
 
 // Authentication API
 export const authApi = {
-  verify: (idToken: string) =>
-    apiClient.post('/auth/verify', { id_token: idToken }),
+  verify: (idToken: string, inviteToken?: string, inputCode?: string) =>
+    apiClient.post('/auth/verify', {
+      id_token: idToken,
+      invite_token: inviteToken,
+      input_code: inputCode
+    }),
 
   getMe: () =>
     apiClient.get<Restaurant>('/auth/me'),
