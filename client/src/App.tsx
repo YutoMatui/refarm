@@ -3,7 +3,7 @@
  * Handles LIFF initialization and routing
  */
 import { useEffect, useState } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { useStore } from './store/useStore'
 import { authApi } from './services/api'
@@ -39,6 +39,13 @@ import GuestLanding from '@/pages/guest/GuestLanding'
 const AuthGuard = ({ children }: { children: JSX.Element }) => {
   const restaurant = useStore(state => state.restaurant)
   const lineUserId = useStore(state => state.lineUserId)
+  const location = useLocation()
+
+  // Skip auth guard if we are in the invite flow
+  // InviteHandler overlay will handle the UI
+  if (location.pathname.startsWith('/invite/') || location.search.includes('token=')) {
+    return <></>
+  }
 
   // NOTE: If role based routing is needed later, add logic here
 
