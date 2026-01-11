@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, User, Send, X, MessageCircle, Heart, Star, Sprout, ThumbsUp } from 'lucide-react';
+import { MapPin, User, Send, X, MessageCircle, Heart, Star, Sprout, ThumbsUp, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { guestApi } from '@/services/api';
 
