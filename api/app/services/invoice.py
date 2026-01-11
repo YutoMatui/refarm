@@ -278,7 +278,7 @@ def generate_monthly_invoice_pdf(restaurant, orders, target_month_str, invoice_p
         "building": "メゾン戸崎通 101",
         "tel": "090-9614-4516",
         "pic": "松井優人",
-        "reg_num": "T1234567890123" # Dummy Invoice Registration Number
+        # "reg_num": "T1234567890123" # Dummy Invoice Registration Number (Commented out - not yet registered)
     }
 
     bank_info = {

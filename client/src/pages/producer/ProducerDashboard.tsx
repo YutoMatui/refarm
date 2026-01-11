@@ -50,7 +50,7 @@ export default function ProducerDashboard() {
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold">出品野菜一覧</h2>
                 <Link
-                    to={`/producer/products/new?farmer_id=${farmerId}`}
+                    to="/producer/products/new"
                     className="bg-green-600 text-white px-4 py-2 rounded-full flex items-center shadow-lg"
                 >
                     <Plus size={18} className="mr-1" />
@@ -68,7 +68,7 @@ export default function ProducerDashboard() {
                     products.map(product => (
                         <div
                             key={product.id}
-                            onClick={() => navigate(`/producer/products/${product.id}/edit?farmer_id=${farmerId}`)}
+                            onClick={() => navigate(`/producer/products/${product.id}/edit`)}
                             className="bg-white rounded-lg shadow p-3 flex items-center border border-gray-100 active:bg-gray-50 transition-colors"
                         >
                             {/* Image Thumbnail */}

@@ -258,40 +258,40 @@ export const favoriteApi = {
 
 // Producer API
 export const producerApi = {
-  getProducts: (farmerId: number) =>
-    apiClient.get<PaginatedResponse<Product>>(`/producer/products?farmer_id=${farmerId}`),
+  getProducts: (farmerId?: number) =>
+    apiClient.get<PaginatedResponse<Product>>(`/producer/products${farmerId ? `?farmer_id=${farmerId}` : ''}`),
 
   createProduct: (data: any) =>
     apiClient.post<Product>('/producer/products', data),
 
-  updateProduct: (productId: number, farmerId: number, data: any) =>
-    apiClient.put<Product>(`/producer/products/${productId}?farmer_id=${farmerId}`, data),
+  updateProduct: (productId: number, farmerId: number | undefined, data: any) =>
+    apiClient.put<Product>(`/producer/products/${productId}${farmerId ? `?farmer_id=${farmerId}` : ''}`, data),
 
-  getProfile: (farmerId: number) =>
-    apiClient.get<Farmer>(`/producer/profile?farmer_id=${farmerId}`),
+  getProfile: (farmerId?: number) =>
+    apiClient.get<Farmer>(`/producer/profile${farmerId ? `?farmer_id=${farmerId}` : ''}`),
 
-  updateProfile: (farmerId: number, data: any) =>
-    apiClient.put<Farmer>(`/producer/profile?farmer_id=${farmerId}`, data),
+  updateProfile: (farmerId: number | undefined, data: any) =>
+    apiClient.put<Farmer>(`/producer/profile${farmerId ? `?farmer_id=${farmerId}` : ''}`, data),
 
-  getSales: (farmerId: number, month: string) =>
-    apiClient.get<any>(`/producer/dashboard/sales?farmer_id=${farmerId}&month=${month}`),
+  getSales: (farmerId: number | undefined, month: string) =>
+    apiClient.get<any>(`/producer/dashboard/sales?month=${month}${farmerId ? `&farmer_id=${farmerId}` : ''}`),
 
-  getSchedule: (farmerId: number, date: string) =>
-    apiClient.get<any>(`/producer/dashboard/schedule?farmer_id=${farmerId}&date=${date}`),
+  getSchedule: (farmerId: number | undefined, date: string) =>
+    apiClient.get<any>(`/producer/dashboard/schedule?date=${date}${farmerId ? `&farmer_id=${farmerId}` : ''}`),
 
   unlinkLine: (farmerId: number) =>
     apiClient.post<{ message: string; success: boolean }>(`/producer/${farmerId}/unlink_line`),
 
-  downloadPaymentNotice: async (farmerId: number, month: string) => {
+  downloadPaymentNotice: async (farmerId: number | undefined, month: string) => {
     const response = await apiClient.get(`/producer/dashboard/sales/invoice`, {
-      params: { farmer_id: farmerId, month },
+      params: { month, ...(farmerId ? { farmer_id: farmerId } : {}) },
       responseType: 'blob',
     })
     return response.data
   },
 
-  sendPaymentNoticeLine: (farmerId: number, month: string) =>
-    apiClient.post<{ message: string; success: boolean }>(`/producer/dashboard/sales/invoice/send_line?farmer_id=${farmerId}&month=${month}`),
+  sendPaymentNoticeLine: (farmerId: number | undefined, month: string) =>
+    apiClient.post<{ message: string; success: boolean }>(`/producer/dashboard/sales/invoice/send_line?month=${month}${farmerId ? `&farmer_id=${farmerId}` : ''}`),
 }
 
 // Upload API

@@ -1,7 +1,7 @@
 """
 Farmer API Router - 生産者管理
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, extract, desc, and_, or_
 from sqlalchemy.orm import selectinload
@@ -17,7 +17,6 @@ from app.core.database import get_db
 from app.core.cloudinary import upload_file
 from app.services.line_notify import line_service
 from app.models import Farmer, Product, Order, OrderItem
-from app.models.restaurant import Restaurant
 from app.models.enums import OrderStatus
 from app.services.route_service import route_service
 from app.schemas import (
@@ -36,10 +35,22 @@ from app.core.dependencies import get_line_user_id
 
 router = APIRouter()
 
+# --- Helper to get current farmer ---
+async def get_current_farmer(line_user_id: str, db: AsyncSession) -> Farmer:
+    """
+    Get the farmer associated with the current LINE user ID.
+    """
+    stmt = select(Farmer).where(Farmer.line_user_id == line_user_id, Farmer.deleted_at.is_(None))
+    result = await db.execute(stmt)
+    farmer = result.scalar_one_or_none()
+    if not farmer:
+        raise HTTPException(status_code=404, detail="生産者アカウントが見つかりません。LINE連携を確認してください。")
+    return farmer
+
 
 @router.get("/dashboard/sales/invoice")
 async def download_payment_notice(
-    farmer_id: int = Query(..., description="生産者ID"),
+    farmer_id: int = Query(None, description="生産者ID (省略可)"),
     month: str = Query(..., description="対象月 (YYYY-MM)"),
     line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
@@ -50,17 +61,19 @@ async def download_payment_notice(
     """
     from app.services.invoice import generate_farmer_payment_notice_pdf
     
-    # 1. Get Farmer
-    stmt = select(Farmer).where(Farmer.id == farmer_id)
-    result = await db.execute(stmt)
-    farmer = result.scalar_one_or_none()
-    
-    if not farmer:
-        raise HTTPException(status_code=404, detail="生産者が見つかりません")
-
-    # Access Check
-    if farmer.line_user_id != line_user_id:
-        raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+    # 1. Get Farmer (Auto-resolve if not provided)
+    if farmer_id:
+        stmt = select(Farmer).where(Farmer.id == farmer_id)
+        result = await db.execute(stmt)
+        farmer = result.scalar_one_or_none()
+        if not farmer:
+            raise HTTPException(status_code=404, detail="生産者が見つかりません")
+        # Access Check
+        if farmer.line_user_id != line_user_id:
+            raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+    else:
+        farmer = await get_current_farmer(line_user_id, db)
+        farmer_id = farmer.id
 
     try:
         target_month = datetime.strptime(month, "%Y-%m")
@@ -119,33 +132,94 @@ async def download_payment_notice(
 
 @router.post("/dashboard/sales/invoice/send_line", response_model=ResponseMessage)
 async def send_payment_notice_line(
-    request: Request,
-    farmer_id: int = Query(..., description="生産者ID"),
+    farmer_id: int = Query(None, description="生産者ID (省略可)"),
     month: str = Query(..., description="対象月 (YYYY-MM)"),
     line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """支払通知書をLINEで送信"""
-    # 1. Get Farmer
-    stmt = select(Farmer).where(Farmer.id == farmer_id)
-    result = await db.execute(stmt)
-    farmer = result.scalar_one_or_none()
+    from app.services.invoice import generate_farmer_payment_notice_pdf
     
-    if not farmer:
-        raise HTTPException(status_code=404, detail="生産者が見つかりません")
+    # 1. Get Farmer
+    if farmer_id:
+        stmt = select(Farmer).where(Farmer.id == farmer_id)
+        result = await db.execute(stmt)
+        farmer = result.scalar_one_or_none()
+        if not farmer:
+            raise HTTPException(status_code=404, detail="生産者が見つかりません")
+        # Access Check
+        if farmer.line_user_id != line_user_id:
+            raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+    else:
+        farmer = await get_current_farmer(line_user_id, db)
+        farmer_id = farmer.id
 
-    # Access Check
-    if farmer.line_user_id != line_user_id:
-        raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
-
-    # Validate month format
     try:
-        datetime.strptime(month, "%Y-%m")
+        target_month = datetime.strptime(month, "%Y-%m")
+        # Start and end of month
+        start_date = target_month.replace(day=1)
+        _, last_day = calendar.monthrange(start_date.year, start_date.month)
+        end_date = start_date.replace(day=last_day, hour=23, minute=59, second=59)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
 
-    # Construct PDF URL using API endpoint
-    pdf_url = str(request.url_for("download_payment_notice")) + f"?farmer_id={farmer_id}&month={month}"
+    # 2. Get Sales Data (Daily aggregated for details)
+    query = (
+        select(
+            func.date(Order.delivery_date).label("date"),
+            Product.name.label("product_name"),
+            func.sum(OrderItem.total_amount).label("amount")
+        )
+        .join(OrderItem.order)
+        .join(OrderItem.product)
+        .where(
+            Product.farmer_id == farmer_id,
+            Order.delivery_date >= start_date,
+            Order.delivery_date <= end_date,
+            Order.status != OrderStatus.CANCELLED
+        )
+        .group_by(func.date(Order.delivery_date), Product.name)
+        .order_by(func.date(Order.delivery_date))
+    )
+    
+    result = await db.execute(query)
+    rows = result.all()
+    
+    details = []
+    total_amount = 0
+    for row in rows:
+        amount = int(row.amount or 0)
+        details.append({
+            "date": row.date.strftime('%Y/%m/%d'),
+            "product": row.product_name,
+            "amount": amount
+        })
+        total_amount += amount
+        
+    period_str = f"{start_date.strftime('%Y/%m/%d')} - {end_date.strftime('%Y/%m/%d')}"
+    
+    # Generate PDF
+    pdf_content = generate_farmer_payment_notice_pdf(farmer, total_amount, period_str, details)
+
+    # Upload to Cloudinary
+    file_obj = io.BytesIO(pdf_content)
+    public_id = f"invoices/payment_notice_{farmer_id}_{month}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    
+    import asyncio
+    from functools import partial
+    
+    loop = asyncio.get_event_loop()
+    # Use resource_type='raw' to avoid 401 errors
+    public_id_pdf = public_id + ".pdf"
+    upload_result = await loop.run_in_executor(
+        None, 
+        partial(upload_file, file_obj, folder="refarm/invoices", resource_type="raw", public_id=public_id_pdf)
+    )
+    
+    if not upload_result or 'secure_url' not in upload_result:
+        raise HTTPException(status_code=500, detail="PDFアップロードに失敗しました")
+        
+    pdf_url = upload_result['secure_url']
 
     # Send to LINE
     await line_service.send_payment_notice_message(farmer_id, month, pdf_url, line_user_id=farmer.line_user_id)
@@ -153,45 +227,9 @@ async def send_payment_notice_line(
     return ResponseMessage(message="支払通知書をLINEに送信しました", success=True)
 
 
-@router.post("/dashboard/monthly_invoice/send_line", response_model=ResponseMessage)
-async def send_monthly_invoice_line(
-    request: Request,
-    restaurant_id: int = Query(..., description="レストランID"),
-    month: str = Query(..., description="対象月 (YYYY-MM)"),
-    line_user_id: str = Depends(get_line_user_id),
-    db: AsyncSession = Depends(get_db)
-):
-    """月次請求書をLINEで送信"""
-    # 1. Get Restaurant
-    stmt = select(Restaurant).where(Restaurant.id == restaurant_id)
-    result = await db.execute(stmt)
-    restaurant = result.scalar_one_or_none()
-    
-    if not restaurant:
-        raise HTTPException(status_code=404, detail="飲食店が見つかりません")
-
-    # Note: Access check removed as this endpoint might be called from admin panel
-    # The restaurant's LINE user ID is used for sending, but the caller might be an admin
-
-    # Validate month format
-    try:
-        datetime.strptime(month, "%Y-%m")
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
-
-    # Construct PDF URL using orders router endpoint
-    # Note: The download_monthly_invoice endpoint is in orders.py
-    pdf_url = str(request.url_for("download_monthly_invoice")) + f"?restaurant_id={restaurant_id}&target_month={month}"
-
-    # Send to LINE
-    await line_service.send_monthly_invoice_message(restaurant_id, month, pdf_url, line_user_id=restaurant.line_user_id)
-    
-    return ResponseMessage(message="月次請求書をLINEに送信しました", success=True)
-
-
 @router.get("/dashboard/schedule")
 async def get_producer_schedule(
-    farmer_id: int = Query(..., description="生産者ID"),
+    farmer_id: int = Query(None, description="生産者ID (省略可)"),
     date: str = Query(..., description="日付 (YYYY-MM-DD)"),
     line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
@@ -199,16 +237,18 @@ async def get_producer_schedule(
     """
     生産者のスケジュール（出荷・準備）を取得
     """
-    # Verify access
-    stmt = select(Farmer).where(Farmer.id == farmer_id)
-    result = await db.execute(stmt)
-    farmer = result.scalar_one_or_none()
-    
-    if not farmer:
-        raise HTTPException(status_code=404, detail="生産者が見つかりません")
-        
-    if farmer.line_user_id != line_user_id:
-        raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+    if farmer_id:
+        # Verify access
+        stmt = select(Farmer).where(Farmer.id == farmer_id)
+        result = await db.execute(stmt)
+        farmer = result.scalar_one_or_none()
+        if not farmer:
+            raise HTTPException(status_code=404, detail="生産者が見つかりません")
+        if farmer.line_user_id != line_user_id:
+            raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+    else:
+        farmer = await get_current_farmer(line_user_id, db)
+        farmer_id = farmer.id
 
     try:
         target_date = datetime.strptime(date, "%Y-%m-%d").date()
@@ -280,7 +320,7 @@ async def get_producer_schedule(
 
 @router.get("/dashboard/sales")
 async def get_producer_sales(
-    farmer_id: int = Query(..., description="生産者ID"),
+    farmer_id: int = Query(None, description="生産者ID (省略可)"),
     month: str = Query(..., description="月 (YYYY-MM)"),
     line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
@@ -288,16 +328,18 @@ async def get_producer_sales(
     """
     生産者の売上データを取得
     """
-    # Verify access
-    stmt = select(Farmer).where(Farmer.id == farmer_id)
-    result = await db.execute(stmt)
-    farmer = result.scalar_one_or_none()
-    
-    if not farmer:
-        raise HTTPException(status_code=404, detail="生産者が見つかりません")
-        
-    if farmer.line_user_id != line_user_id:
-        raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+    if farmer_id:
+        # Verify access
+        stmt = select(Farmer).where(Farmer.id == farmer_id)
+        result = await db.execute(stmt)
+        farmer = result.scalar_one_or_none()
+        if not farmer:
+            raise HTTPException(status_code=404, detail="生産者が見つかりません")
+        if farmer.line_user_id != line_user_id:
+            raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+    else:
+        farmer = await get_current_farmer(line_user_id, db)
+        farmer_id = farmer.id
 
     try:
         target_month = datetime.strptime(month, "%Y-%m")
@@ -403,28 +445,25 @@ async def get_producer_sales(
 
 @router.get("/products", response_model=ProductListResponse)
 async def list_producer_products(
-    farmer_id: int = Query(..., description="生産者ID"),
+    farmer_id: int = Query(None, description="生産者ID (省略可)"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """生産者の商品一覧を取得"""
-    # Verify access
-    stmt = select(Farmer).where(Farmer.id == farmer_id)
-    result = await db.execute(stmt)
-    farmer = result.scalar_one_or_none()
-    
-    if not farmer:
-        raise HTTPException(status_code=404, detail="生産者が見つかりません")
-        
-    if farmer.line_user_id != line_user_id:
-        # 開発環境や管理者アクセスなどで一時的に許可していたが、
-        # セキュリティ要件のためLINE連携必須に戻す。
-        # ただし、特権的なadminアクセスの場合は別途考慮が必要だが、
-        # 現状のルーター設計ではLINEユーザーIDベースの認証を行っているため、
-        # 他人のLINE IDでアクセスできないようにブロックする。
-        raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+    if farmer_id:
+        # Verify access
+        stmt = select(Farmer).where(Farmer.id == farmer_id)
+        result = await db.execute(stmt)
+        farmer = result.scalar_one_or_none()
+        if not farmer:
+            raise HTTPException(status_code=404, detail="生産者が見つかりません")
+        if farmer.line_user_id != line_user_id:
+            raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+    else:
+        farmer = await get_current_farmer(line_user_id, db)
+        farmer_id = farmer.id
 
     query = select(Product).options(selectinload(Product.farmer)).where(
         Product.farmer_id == farmer_id,
@@ -452,15 +491,10 @@ async def create_producer_product(
     from app.core.utils import calculate_retail_price
 
     data = product_data.model_dump()
-    farmer_id = data.get("farmer_id") # Assuming farmer_id is in data
+    farmer_id = data.get("farmer_id")
 
     if not farmer_id:
-         # Try to find farmer by line_user_id
-         stmt = select(Farmer).where(Farmer.line_user_id == line_user_id)
-         result = await db.execute(stmt)
-         farmer = result.scalar_one_or_none()
-         if not farmer:
-             raise HTTPException(status_code=400, detail="生産者IDが指定されていないか、アカウントが見つかりません")
+         farmer = await get_current_farmer(line_user_id, db)
          data["farmer_id"] = farmer.id
     else:
         # Verify access
@@ -500,21 +534,23 @@ async def create_producer_product(
 async def update_producer_product(
     product_id: int,
     product_data: ProductUpdate,
-    farmer_id: int = Query(..., description="生産者ID"),
+    farmer_id: int = Query(None, description="生産者ID (省略可)"),
     line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """商品情報を更新"""
-    # Verify access
-    stmt = select(Farmer).where(Farmer.id == farmer_id)
-    result = await db.execute(stmt)
-    farmer = result.scalar_one_or_none()
-    
-    if not farmer:
-        raise HTTPException(status_code=404, detail="生産者が見つかりません")
-        
-    if farmer.line_user_id != line_user_id:
-        raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+    if farmer_id:
+        # Verify access
+        stmt = select(Farmer).where(Farmer.id == farmer_id)
+        result = await db.execute(stmt)
+        farmer = result.scalar_one_or_none()
+        if not farmer:
+            raise HTTPException(status_code=404, detail="生産者が見つかりません")
+        if farmer.line_user_id != line_user_id:
+            raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+    else:
+        farmer = await get_current_farmer(line_user_id, db)
+        farmer_id = farmer.id
 
     from app.core.utils import calculate_retail_price
     stmt = select(Product).where(Product.id == product_id, Product.deleted_at.is_(None))
@@ -548,20 +584,21 @@ async def update_producer_product(
 
 @router.get("/profile", response_model=FarmerResponse)
 async def get_producer_profile(
-    farmer_id: int = Query(..., description="生産者ID"),
+    farmer_id: int = Query(None, description="生産者ID (省略可)"),
     line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """生産者プロフィールを取得"""
-    stmt = select(Farmer).where(Farmer.id == farmer_id, Farmer.deleted_at.is_(None))
-    result = await db.execute(stmt)
-    farmer = result.scalar_one_or_none()
-    
-    if not farmer:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
-        
-    if farmer.line_user_id != line_user_id:
-        raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+    if farmer_id:
+        stmt = select(Farmer).where(Farmer.id == farmer_id, Farmer.deleted_at.is_(None))
+        result = await db.execute(stmt)
+        farmer = result.scalar_one_or_none()
+        if not farmer:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
+        if farmer.line_user_id != line_user_id:
+            raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+    else:
+        farmer = await get_current_farmer(line_user_id, db)
     
     return farmer
 
@@ -569,20 +606,21 @@ async def get_producer_profile(
 @router.put("/profile", response_model=FarmerResponse)
 async def update_producer_profile(
     data: FarmerUpdate,
-    farmer_id: int = Query(..., description="生産者ID"),
+    farmer_id: int = Query(None, description="生産者ID (省略可)"),
     line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """生産者プロフィールを更新"""
-    stmt = select(Farmer).where(Farmer.id == farmer_id, Farmer.deleted_at.is_(None))
-    result = await db.execute(stmt)
-    farmer = result.scalar_one_or_none()
-    
-    if not farmer:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
-        
-    if farmer.line_user_id != line_user_id:
-        raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+    if farmer_id:
+        stmt = select(Farmer).where(Farmer.id == farmer_id, Farmer.deleted_at.is_(None))
+        result = await db.execute(stmt)
+        farmer = result.scalar_one_or_none()
+        if not farmer:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
+        if farmer.line_user_id != line_user_id:
+            raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+    else:
+        farmer = await get_current_farmer(line_user_id, db)
     
     update_data = data.model_dump(exclude_unset=True)
     for field, value in update_data.items():

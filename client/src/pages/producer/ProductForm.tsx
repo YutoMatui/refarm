@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useOutletContext } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Camera, ArrowLeft, Loader2, Save } from 'lucide-react';
 import { producerApi, uploadApi, productApi } from '../../services/api';
@@ -22,10 +22,9 @@ interface ProductFormData {
 
 export default function ProductForm() {
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
     const { id } = useParams();
     const isEdit = !!id;
-    const farmerId = parseInt(searchParams.get('farmer_id') || '0');
+    const { farmerId } = useOutletContext<{ farmerId: number }>();
 
     const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<ProductFormData>({
         defaultValues: {
@@ -65,7 +64,7 @@ export default function ProductForm() {
             setImageUrl(p.image_url || '');
         } catch (e) {
             toast.error('商品情報の取得に失敗しました');
-            navigate(`/producer?farmer_id=${farmerId}`);
+            navigate('/producer');
         } finally {
             setLoading(false);
         }
@@ -118,7 +117,7 @@ export default function ProductForm() {
                 await producerApi.createProduct(payload);
                 toast.success('商品を登録しました');
             }
-            navigate(`/producer?farmer_id=${farmerId}`);
+            navigate('/producer');
         } catch (e) {
             console.error(e);
             toast.error('保存に失敗しました');
@@ -195,11 +194,11 @@ export default function ProductForm() {
                 <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">栽培方法 <span className="text-red-500">*</span></label>
                     <div className="grid grid-cols-2 gap-3">
-                        <label className={`flex items-center justify-center p-3 rounded-lg border-2 cursor-pointer transition-all ${watch('farming_method') === FarmingMethod.ORGANIC ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600'}`}>
+                        <label className={`flex items - center justify - center p - 3 rounded - lg border - 2 cursor - pointer transition - all ${watch('farming_method') === FarmingMethod.ORGANIC ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600'} `}>
                             <input type="radio" value={FarmingMethod.ORGANIC} {...register('farming_method')} className="hidden" />
                             <span className="font-bold">有機</span>
                         </label>
-                        <label className={`flex items-center justify-center p-3 rounded-lg border-2 cursor-pointer transition-all ${watch('farming_method') === FarmingMethod.CONVENTIONAL ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600'}`}>
+                        <label className={`flex items - center justify - center p - 3 rounded - lg border - 2 cursor - pointer transition - all ${watch('farming_method') === FarmingMethod.CONVENTIONAL ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600'} `}>
                             <input type="radio" value={FarmingMethod.CONVENTIONAL} {...register('farming_method')} className="hidden" />
                             <span className="font-bold">慣行</span>
                         </label>
@@ -258,10 +257,10 @@ export default function ProductForm() {
                         ].map((opt) => (
                             <label
                                 key={opt.val}
-                                className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all ${watch('harvest_status') === opt.val
-                                    ? 'border-green-500 bg-green-50'
-                                    : 'border-gray-200'
-                                    }`}
+                                className={`flex items - center p - 3 rounded - lg border - 2 cursor - pointer transition - all ${watch('harvest_status') === opt.val
+                                        ? 'border-green-500 bg-green-50'
+                                        : 'border-gray-200'
+                                    } `}
                             >
                                 <input
                                     type="radio"
