@@ -105,17 +105,23 @@ async def create_interaction(interaction: InteractionCreate, db: AsyncSession = 
     """
     スタンプ、メッセージ、興味ありログの記録
     """
-    new_interaction = GuestInteraction(
-        visit_id=interaction.visit_id,
-        farmer_id=interaction.farmer_id,
-        interaction_type=interaction.interaction_type,
-        stamp_type=interaction.stamp_type,
-        comment=interaction.comment,
-        nickname=interaction.nickname
-    )
-    db.add(new_interaction)
-    await db.commit()
-    return {"status": "ok"}
+    try:
+        new_interaction = GuestInteraction(
+            visit_id=interaction.visit_id,
+            farmer_id=interaction.farmer_id,
+            interaction_type=interaction.interaction_type,
+            stamp_type=interaction.stamp_type,
+            comment=interaction.comment,
+            nickname=interaction.nickname
+        )
+        db.add(new_interaction)
+        await db.commit()
+        return {"status": "ok"}
+    except Exception as e:
+        import traceback
+        print(f"Error in create_interaction: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 @router.post("/log")
 async def log_visit_metrics(log: LogCreate, db: AsyncSession = Depends(get_db)):
