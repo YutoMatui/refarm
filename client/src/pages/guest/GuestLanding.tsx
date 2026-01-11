@@ -37,7 +37,7 @@ export default function GuestLanding() {
     const [loading, setLoading] = useState(true);
 
     const [selectedFarmer, setSelectedFarmer] = useState<Farmer | null>(null);
-    const [showForm, setShowForm] = useState(false);
+    // showForm state removed to make form always visible
     const [isSuccess, setIsSuccess] = useState(false);
 
     // Analytics refs
@@ -247,7 +247,6 @@ export default function GuestLanding() {
                             onClick={() => {
                                 setIsSuccess(false);
                                 setThankYouContent(null);
-                                setShowForm(false);
                             }}
                             className="text-stone-500 text-sm underline hover:text-green-700"
                         >
@@ -324,7 +323,7 @@ export default function GuestLanding() {
                         >
                             <div className="aspect-[3/4] relative">
                                 <img
-                                    src={farmer.image || 'https://via.placeholder.com/300'}
+                                    src={farmer.image || 'https://placehold.co/600x400/e2e8f0/1e293b?text=No+Image'}
                                     alt={farmer.name}
                                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                                 />
@@ -356,10 +355,7 @@ export default function GuestLanding() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            onClick={() => {
-                                setSelectedFarmer(null);
-                                setShowForm(false);
-                            }}
+                            onClick={() => setSelectedFarmer(null)}
                             className="fixed inset-0 bg-stone-900/60 z-40 backdrop-blur-sm"
                         />
                         <motion.div
@@ -367,20 +363,19 @@ export default function GuestLanding() {
                             animate={{ y: 0 }}
                             exit={{ y: "100%" }}
                             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                            className="fixed bottom-0 left-0 right-0 h-[90vh] bg-white z-50 rounded-t-3xl overflow-y-auto"
+                            className="fixed bottom-0 left-0 right-0 h-[90dvh] bg-white z-50 rounded-t-3xl overflow-y-auto"
                         >
                             <div className="relative pb-20">
                                 {/* Header Image */}
                                 <div className="h-72 relative">
                                     <img
-                                        src={selectedFarmer.image || 'https://via.placeholder.com/300'}
+                                        src={selectedFarmer.image || 'https://placehold.co/600x400/e2e8f0/1e293b?text=No+Image'}
                                         alt={selectedFarmer.name}
                                         className="w-full h-full object-cover"
                                     />
                                     <button
                                         onClick={() => {
                                             setSelectedFarmer(null);
-                                            setShowForm(false);
                                         }}
                                         className="absolute top-4 right-4 bg-black/30 backdrop-blur-md p-2 rounded-full text-white hover:bg-black/50 transition-colors"
                                     >
@@ -422,49 +417,40 @@ export default function GuestLanding() {
                                             ))}
                                         </div>
 
-                                        {/* Message Form Toggle */}
-                                        {!showForm ? (
-                                            <button
-                                                onClick={() => setShowForm(true)}
-                                                className="w-full bg-white border border-stone-200 text-stone-600 font-bold py-3 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:bg-stone-100 transition-colors"
-                                            >
-                                                <MessageCircle size={18} />
-                                                メッセージを書く（任意）
-                                            </button>
-                                        ) : (
-                                            <motion.div
-                                                initial={{ opacity: 0, height: 0 }}
-                                                animate={{ opacity: 1, height: 'auto' }}
-                                            >
-                                                <form onSubmit={handleSubmit} className="space-y-4 pt-4 border-t border-stone-200">
-                                                    <div>
-                                                        <label className="block text-xs font-bold text-stone-500 mb-1">ニックネーム</label>
-                                                        <input
-                                                            name="nickname"
-                                                            type="text"
-                                                            placeholder="匿名のお客様"
-                                                            className="w-full p-3 rounded-lg border border-stone-200 focus:ring-1 focus:ring-green-500 outline-none bg-white"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-xs font-bold text-stone-500 mb-1">メッセージ</label>
-                                                        <textarea
-                                                            name="message"
-                                                            rows={3}
-                                                            placeholder="美味しかった！応援しています。"
-                                                            className="w-full p-3 rounded-lg border border-stone-200 focus:ring-1 focus:ring-green-500 outline-none bg-white"
-                                                        />
-                                                    </div>
-                                                    <button
-                                                        type="submit"
-                                                        className="w-full bg-green-700 text-white font-bold py-3 rounded-xl shadow-md hover:bg-green-800 transition-colors flex items-center justify-center gap-2"
-                                                    >
-                                                        <Send size={18} />
-                                                        送信する
-                                                    </button>
-                                                </form>
-                                            </motion.div>
-                                        )}
+                                        {/* Message Form (Always visible for better UX) */}
+                                        <div className="pt-4 border-t border-stone-200">
+                                            <h4 className="text-sm font-bold text-stone-700 mb-3 flex items-center gap-2">
+                                                <MessageCircle size={16} />
+                                                メッセージを送る（任意）
+                                            </h4>
+                                            <form onSubmit={handleSubmit} className="space-y-4">
+                                                <div>
+                                                    <label className="block text-xs font-bold text-stone-500 mb-1">ニックネーム</label>
+                                                    <input
+                                                        name="nickname"
+                                                        type="text"
+                                                        placeholder="匿名のお客様"
+                                                        className="w-full p-3 rounded-lg border border-stone-200 focus:ring-1 focus:ring-green-500 outline-none bg-white text-base"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-bold text-stone-500 mb-1">メッセージ</label>
+                                                    <textarea
+                                                        name="message"
+                                                        rows={3}
+                                                        placeholder="美味しかった！応援しています。"
+                                                        className="w-full p-3 rounded-lg border border-stone-200 focus:ring-1 focus:ring-green-500 outline-none bg-white text-base"
+                                                    />
+                                                </div>
+                                                <button
+                                                    type="submit"
+                                                    className="w-full bg-green-700 text-white font-bold py-3 rounded-xl shadow-md hover:bg-green-800 transition-colors flex items-center justify-center gap-2 active:scale-95"
+                                                >
+                                                    <Send size={18} />
+                                                    送信する
+                                                </button>
+                                            </form>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
