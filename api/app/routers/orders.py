@@ -271,7 +271,11 @@ async def cancel_order(order_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{order_id}/send_invoice_line", response_model=ResponseMessage)
-async def send_invoice_line(order_id: int, db: AsyncSession = Depends(get_db)):
+async def send_invoice_line(
+    order_id: int, 
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
     """請求書を生成してLINEに送信"""
     stmt = select(Order).options(
         selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
@@ -287,33 +291,10 @@ async def send_invoice_line(order_id: int, db: AsyncSession = Depends(get_db)):
     # 1. Generate PDF
     pdf_content = generate_invoice_pdf(order)
     
-    # 2. Upload to Cloudinary
-    # We use io.BytesIO to wrap bytes
-    file_obj = io.BytesIO(pdf_content)
-    # Filename helps Cloudinary set format? resource_type='raw' is usually better for PDFs or 'auto'
-    # public_id helps keep it organized
-    public_id = f"invoice_{order.id}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    
-    # Run upload in thread pool to avoid blocking async loop
-    import asyncio
-    from functools import partial
-    
-    # Cloudinary upload is sync
-    loop = asyncio.get_event_loop()
-    # Use resource_type='raw' to avoid 401 errors on image transformation
-    # Add .pdf to public_id to ensure correct Content-Type header
-    public_id_pdf = public_id + ".pdf"
-    upload_result = await loop.run_in_executor(
-        None, 
-        partial(upload_file, file_obj, folder="refarm/invoices", resource_type="raw", public_id=public_id_pdf)
-    )
-    
-    if not upload_result or 'secure_url' not in upload_result:
-        # Fallback or Error
-        # If cloudinary fails, maybe just error out or return specific message
-        raise HTTPException(status_code=500, detail="PDFアップロードに失敗しました")
-        
-    pdf_url = upload_result['secure_url']
+    # 2. Construct Direct Download URL (Skip Cloudinary)
+    # Use the API's own endpoint to serve the file
+    # Add ?no_notify=true to prevent infinite loop of notifications when user clicks
+    pdf_url = str(request.url_for("download_invoice", order_id=order_id)) + "?no_notify=true"
     
     # 3. Send to LINE
     await line_service.send_invoice_message(order, pdf_url)
