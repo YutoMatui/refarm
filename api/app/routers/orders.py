@@ -309,6 +309,7 @@ async def send_invoice_line(
 @router.get("/{order_id}/invoice")
 async def download_invoice(
     order_id: int, 
+    request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
@@ -327,8 +328,19 @@ async def download_invoice(
     # Generate PDF
     pdf_content = generate_invoice_pdf(order)
 
-    # Note: Previously we uploaded to Cloudinary in background, but this caused 401 errors.
-    # Now we serve PDFs directly via API. The send_invoice_line endpoint handles LINE notifications.
+    # Background Task: Send LINE notification with API URL
+    async def send_line_notification(order_obj, request_obj):
+        try:
+            # Construct PDF URL using API endpoint
+            pdf_url = str(request_obj.url_for("download_invoice", order_id=order_obj.id)) + "?no_notify=true"
+            # Send to LINE
+            await line_service.send_invoice_message(order_obj, pdf_url)
+        except Exception as e:
+            print(f"Failed to send invoice to LINE: {e}")
+
+    # Add background task only if no_notify parameter is not set
+    if request.query_params.get("no_notify") != "true":
+        background_tasks.add_task(send_line_notification, order, request)
     
     # Return as stream
     return StreamingResponse(
