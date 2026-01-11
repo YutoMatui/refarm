@@ -131,6 +131,7 @@ function App() {
         // Not logged in - trigger LINE login
         if (liffService.isInClient()) {
           liffService.login()
+          return // Stop execution here to prevent loading state change and redirects
         } else {
           // Allow login in web browser for production/staging
           if (window.location.hostname !== 'localhost') {
