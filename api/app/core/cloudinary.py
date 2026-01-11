@@ -62,6 +62,7 @@ def upload_file(file_obj, folder: str = "refarm/docs", resource_type: str = "aut
             "folder": folder,
             "resource_type": resource_type,
             "type": "upload",
+            "access_mode": "public",  # Ensure public access for raw files
             **kwargs
         }
         if public_id:
