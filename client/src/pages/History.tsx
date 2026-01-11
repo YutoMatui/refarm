@@ -9,7 +9,7 @@ import { useStore } from '@/store/useStore'
 import { Order } from '@/types'
 import Loading from '@/components/Loading'
 import ProductCard from '@/components/ProductCard'
-import { History as HistoryIcon, Heart, RotateCcw, FileText, Video } from 'lucide-react'
+import { History as HistoryIcon, Heart, RotateCcw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -69,57 +69,6 @@ export default function History() {
       navigate('/cart')
     }
   }
-
-  const handleDownloadInvoice = async (orderId: number) => {
-    try {
-      toast.info('請求書をLINEに送信しています...');
-
-      // 1. Send to LINE (Priority for smartphone users)
-      await orderApi.sendInvoiceLine(orderId);
-      toast.success('LINEに請求書を送信しました');
-
-      // 2. Browser Download (Backup / Desktop)
-      const blob = await orderApi.downloadInvoice(orderId);
-      const url = window.URL.createObjectURL(new Blob([blob]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `invoice_${orderId}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (error) {
-      console.error(error);
-      toast.error('ダウンロード/送信に失敗しました');
-    }
-  };
-
-  const handleDownloadMaterials = (order: Order) => {
-    // Find items with video/media URL from Farmer model (accessed via product.farmer)
-    const itemsWithMedia = order.items.filter(item =>
-      (item as any).product?.farmer?.video_url &&
-      (item as any).product?.farmer?.video_url.length > 0
-    );
-
-    if (itemsWithMedia.length === 0) {
-      // Fallback to checking older structure or if backend doesn't populate nested structure deeply enough
-      // Check orderItem direct fields if they exist as fallback
-      if (order.items.some(i => i.farmer_video_url)) {
-        window.open(order.items.find(i => i.farmer_video_url)?.farmer_video_url, '_blank');
-        return;
-      }
-      toast.info('この注文に動画素材はありません');
-      return;
-    }
-
-    // Open the first available video URL found in the farmer info of the products
-    // In a real scenario, might want to show a list if multiple farmers have videos
-    const firstVideoUrl = (itemsWithMedia[0] as any).product.farmer.video_url[0];
-    if (firstVideoUrl) {
-      window.open(firstVideoUrl, '_blank');
-    } else {
-      toast.info('動画素材のリンクが見つかりません');
-    }
-  };
 
   const isLoading = isHistoryLoading || isFavoritesLoading
 
