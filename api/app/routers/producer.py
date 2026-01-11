@@ -723,7 +723,7 @@ async def generate_farmer_invite(farmer_id: int, db: AsyncSession = Depends(get_
     
     # 3. Return info
     # Get LIFF ID from env or use default (Farmer specific)
-    liff_id = os.environ.get("FARMER_LIFF_ID", "2008689915-hECRflxu") 
+    liff_id = os.environ.get("FARMER_LIFF_ID", "2008674356-P5YFllFd") 
     liff_base_url = f"https://liff.line.me/{liff_id}"
     
     # Add type=farmer param so frontend knows which LIFF ID to use
