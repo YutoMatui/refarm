@@ -1,7 +1,7 @@
 """
 Farmer API Router - 生産者管理
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, extract, desc, and_, or_
 from sqlalchemy.orm import selectinload
@@ -17,6 +17,7 @@ from app.core.database import get_db
 from app.core.cloudinary import upload_file
 from app.services.line_notify import line_service
 from app.models import Farmer, Product, Order, OrderItem
+from app.models.restaurant import Restaurant
 from app.models.enums import OrderStatus
 from app.services.route_service import route_service
 from app.schemas import (
@@ -118,14 +119,13 @@ async def download_payment_notice(
 
 @router.post("/dashboard/sales/invoice/send_line", response_model=ResponseMessage)
 async def send_payment_notice_line(
+    request: Request,
     farmer_id: int = Query(..., description="生産者ID"),
     month: str = Query(..., description="対象月 (YYYY-MM)"),
     line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """支払通知書をLINEで送信"""
-    from app.services.invoice import generate_farmer_payment_notice_pdf
-    
     # 1. Get Farmer
     stmt = select(Farmer).where(Farmer.id == farmer_id)
     result = await db.execute(stmt)
@@ -138,77 +138,56 @@ async def send_payment_notice_line(
     if farmer.line_user_id != line_user_id:
         raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
 
+    # Validate month format
     try:
-        target_month = datetime.strptime(month, "%Y-%m")
-        # Start and end of month
-        start_date = target_month.replace(day=1)
-        _, last_day = calendar.monthrange(start_date.year, start_date.month)
-        end_date = start_date.replace(day=last_day, hour=23, minute=59, second=59)
+        datetime.strptime(month, "%Y-%m")
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
 
-    # 2. Get Sales Data (Daily aggregated for details)
-    query = (
-        select(
-            func.date(Order.delivery_date).label("date"),
-            Product.name.label("product_name"),
-            func.sum(OrderItem.total_amount).label("amount")
-        )
-        .join(OrderItem.order)
-        .join(OrderItem.product)
-        .where(
-            Product.farmer_id == farmer_id,
-            Order.delivery_date >= start_date,
-            Order.delivery_date <= end_date,
-            Order.status != OrderStatus.CANCELLED
-        )
-        .group_by(func.date(Order.delivery_date), Product.name)
-        .order_by(func.date(Order.delivery_date))
-    )
-    
-    result = await db.execute(query)
-    rows = result.all()
-    
-    details = []
-    total_amount = 0
-    for row in rows:
-        amount = int(row.amount or 0)
-        details.append({
-            "date": row.date.strftime('%Y/%m/%d'),
-            "product": row.product_name,
-            "amount": amount
-        })
-        total_amount += amount
-        
-    period_str = f"{start_date.strftime('%Y/%m/%d')} - {end_date.strftime('%Y/%m/%d')}"
-    
-    # Generate PDF
-    pdf_content = generate_farmer_payment_notice_pdf(farmer, total_amount, period_str, details)
-
-    # Upload to Cloudinary
-    file_obj = io.BytesIO(pdf_content)
-    public_id = f"invoices/payment_notice_{farmer_id}_{month}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    
-    import asyncio
-    from functools import partial
-    
-    loop = asyncio.get_event_loop()
-    # Use resource_type='raw' to avoid 401 errors
-    public_id_pdf = public_id + ".pdf"
-    upload_result = await loop.run_in_executor(
-        None, 
-        partial(upload_file, file_obj, folder="refarm/invoices", resource_type="raw", public_id=public_id_pdf)
-    )
-    
-    if not upload_result or 'secure_url' not in upload_result:
-        raise HTTPException(status_code=500, detail="PDFアップロードに失敗しました")
-        
-    pdf_url = upload_result['secure_url']
+    # Construct PDF URL using API endpoint
+    pdf_url = str(request.url_for("download_payment_notice")) + f"?farmer_id={farmer_id}&month={month}"
 
     # Send to LINE
     await line_service.send_payment_notice_message(farmer_id, month, pdf_url, line_user_id=farmer.line_user_id)
     
     return ResponseMessage(message="支払通知書をLINEに送信しました", success=True)
+
+
+@router.post("/dashboard/monthly_invoice/send_line", response_model=ResponseMessage)
+async def send_monthly_invoice_line(
+    request: Request,
+    restaurant_id: int = Query(..., description="レストランID"),
+    month: str = Query(..., description="対象月 (YYYY-MM)"),
+    line_user_id: str = Depends(get_line_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """月次請求書をLINEで送信"""
+    # 1. Get Restaurant
+    stmt = select(Restaurant).where(Restaurant.id == restaurant_id)
+    result = await db.execute(stmt)
+    restaurant = result.scalar_one_or_none()
+    
+    if not restaurant:
+        raise HTTPException(status_code=404, detail="飲食店が見つかりません")
+
+    # Access Check (restaurant's LINE user ID should match)
+    if restaurant.line_user_id != line_user_id:
+        raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+
+    # Validate month format
+    try:
+        datetime.strptime(month, "%Y-%m")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
+
+    # Construct PDF URL using orders router endpoint
+    # Note: The download_monthly_invoice endpoint is in orders.py
+    pdf_url = str(request.url_for("download_monthly_invoice")) + f"?restaurant_id={restaurant_id}&target_month={month}"
+
+    # Send to LINE
+    await line_service.send_monthly_invoice_message(restaurant_id, month, pdf_url, line_user_id=restaurant.line_user_id)
+    
+    return ResponseMessage(message="月次請求書をLINEに送信しました", success=True)
 
 
 @router.get("/dashboard/schedule")

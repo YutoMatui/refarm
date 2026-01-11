@@ -327,37 +327,8 @@ async def download_invoice(
     # Generate PDF
     pdf_content = generate_invoice_pdf(order)
 
-    # Background Task: Upload and Send to LINE
-    async def upload_and_send_line(order_obj, pdf_bytes):
-        try:
-            # Upload to Cloudinary
-            file_obj = io.BytesIO(pdf_bytes)
-            public_id = f"invoice_{order_obj.id}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-            
-            import asyncio
-            from functools import partial
-            
-            loop = asyncio.get_event_loop()
-            # Use resource_type='raw' to avoid 401 errors
-            public_id_pdf = public_id + ".pdf"
-            upload_result = await loop.run_in_executor(
-                None, 
-                partial(upload_file, file_obj, folder="refarm/invoices", resource_type="raw", public_id=public_id_pdf)
-            )
-            
-            if upload_result and 'secure_url' in upload_result:
-                pdf_url = upload_result['secure_url']
-                # Send to LINE
-                await line_service.send_invoice_message(order_obj, pdf_url)
-                
-                # Update DB (Need new session)
-                # Since we can't easily get a new session here without dependency injection, 
-                # and the main session is closed, we might skip saving the URL or use a context manager if strictly needed.
-                # For now, sending the message is the priority.
-        except Exception as e:
-            print(f"Failed to send invoice to LINE: {e}")
-
-    background_tasks.add_task(upload_and_send_line, order, pdf_content)
+    # Note: Previously we uploaded to Cloudinary in background, but this caused 401 errors.
+    # Now we serve PDFs directly via API. The send_invoice_line endpoint handles LINE notifications.
     
     # Return as stream
     return StreamingResponse(

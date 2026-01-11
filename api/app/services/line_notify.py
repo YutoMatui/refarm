@@ -276,4 +276,31 @@ No. {order.id} の請求書をお送りします。
 
         await self.send_push_message(token, target_user_id, message)
 
+    async def send_monthly_invoice_message(self, restaurant_id: int, month_str: str, pdf_url: str, line_user_id: str = None):
+        """Send monthly invoice PDF link to restaurant"""
+        # If line_user_id is not provided, fallback to test user
+        target_user_id = line_user_id or settings.LINE_TEST_USER_ID
+        
+        # Strict check for production
+        if line_user_id:
+            target_user_id = line_user_id
+        elif not settings.DEBUG:
+            print(f"No LINE user ID for restaurant {restaurant_id}")
+            return
+
+        token = await self.get_access_token(
+            settings.LINE_RESTAURANT_CHANNEL_ID,
+            settings.LINE_RESTAURANT_CHANNEL_SECRET
+        )
+
+        message = f"""【月次請求書送付のお知らせ】
+{month_str}分の月次請求書をお送りします。
+以下のリンクからダウンロードしてご確認ください。
+
+{pdf_url}
+
+※ このリンクの有効期限はありませんが、お早めに保存してください。"""
+
+        await self.send_push_message(token, target_user_id, message)
+
 line_service = LineNotificationService()
