@@ -56,6 +56,8 @@ class ProductUpdate(BaseModel):
     weight: Optional[int] = None
     description: Optional[str] = None
     price: Optional[Decimal] = Field(None, gt=0)
+    cost_price: Optional[int] = Field(None, description="仕入れ値")
+    harvest_status: Optional[HarvestStatus] = Field(None, description="収穫状況")
     tax_rate: Optional[TaxRate] = None
     unit: Optional[str] = Field(None, max_length=20)
     stock_type: Optional[StockType] = None

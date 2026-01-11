@@ -176,22 +176,6 @@ export default function History() {
                         </div>
                         <div className="flex gap-2">
                           <button
-                            onClick={() => handleDownloadInvoice(order.id)}
-                            className="p-2 bg-gray-100 text-gray-600 rounded-full shadow-sm active:bg-gray-200"
-                            title="請求書ダウンロード"
-                          >
-                            <FileText size={16} />
-                          </button>
-                          {(order.items.some(i => i.farmer_video_url) || order.items.some(i => (i as any).product?.farmer?.video_url?.length > 0)) && (
-                            <button
-                              onClick={() => handleDownloadMaterials(order)}
-                              className="p-2 bg-blue-50 text-blue-600 rounded-full shadow-sm active:bg-blue-100"
-                              title="動画素材ダウンロード"
-                            >
-                              <Video size={16} />
-                            </button>
-                          )}
-                          <button
                             onClick={() => handleReorder(order)}
                             className="bg-green-600 text-white text-xs px-4 py-2 rounded-full font-bold shadow-md active:bg-green-700 flex items-center"
                           >

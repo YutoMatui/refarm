@@ -311,7 +311,7 @@ def generate_monthly_invoice_pdf(restaurant, orders, target_month_str, invoice_p
         "sender_building": sender_info["building"],
         "sender_tel": sender_info["tel"],
         "sender_pic": sender_info["pic"],
-        "sender_reg_num": sender_info["reg_num"],
+        "sender_reg_num": sender_info.get("reg_num", ""),
         
         "total_amount_incl_tax": grand_total,
         "subtotal": total_subtotal,

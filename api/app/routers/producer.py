@@ -52,7 +52,6 @@ async def get_current_farmer(line_user_id: str, db: AsyncSession) -> Farmer:
 async def download_payment_notice(
     farmer_id: int = Query(None, description="生産者ID (省略可)"),
     month: str = Query(..., description="対象月 (YYYY-MM)"),
-    line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -68,12 +67,11 @@ async def download_payment_notice(
         farmer = result.scalar_one_or_none()
         if not farmer:
             raise HTTPException(status_code=404, detail="生産者が見つかりません")
-        # Access Check
-        if farmer.line_user_id != line_user_id:
-            raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
     else:
-        farmer = await get_current_farmer(line_user_id, db)
-        farmer_id = farmer.id
+        # Without line_user_id, we cannot auto-resolve farmer.
+        # But this endpoint is mainly called via link with farmer_id param.
+        # If farmer_id is missing here, it's an error.
+        raise HTTPException(status_code=400, detail="生産者IDが必要です")
 
     try:
         target_month = datetime.strptime(month, "%Y-%m")

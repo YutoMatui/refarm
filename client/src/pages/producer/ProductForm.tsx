@@ -194,11 +194,11 @@ export default function ProductForm() {
                 <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">栽培方法 <span className="text-red-500">*</span></label>
                     <div className="grid grid-cols-2 gap-3">
-                        <label className={`flex items - center justify - center p - 3 rounded - lg border - 2 cursor - pointer transition - all ${watch('farming_method') === FarmingMethod.ORGANIC ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600'} `}>
+                        <label className={`flex items-center justify-center p-3 rounded-lg border-2 cursor-pointer transition-all ${watch('farming_method') === FarmingMethod.ORGANIC ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600'} `}>
                             <input type="radio" value={FarmingMethod.ORGANIC} {...register('farming_method')} className="hidden" />
                             <span className="font-bold">有機</span>
                         </label>
-                        <label className={`flex items - center justify - center p - 3 rounded - lg border - 2 cursor - pointer transition - all ${watch('farming_method') === FarmingMethod.CONVENTIONAL ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600'} `}>
+                        <label className={`flex items-center justify-center p-3 rounded-lg border-2 cursor-pointer transition-all ${watch('farming_method') === FarmingMethod.CONVENTIONAL ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600'} `}>
                             <input type="radio" value={FarmingMethod.CONVENTIONAL} {...register('farming_method')} className="hidden" />
                             <span className="font-bold">慣行</span>
                         </label>
@@ -257,9 +257,9 @@ export default function ProductForm() {
                         ].map((opt) => (
                             <label
                                 key={opt.val}
-                                className={`flex items - center p - 3 rounded - lg border - 2 cursor - pointer transition - all ${watch('harvest_status') === opt.val
-                                        ? 'border-green-500 bg-green-50'
-                                        : 'border-gray-200'
+                                className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all ${watch('harvest_status') === opt.val
+                                    ? 'border-green-500 bg-green-50'
+                                    : 'border-gray-200'
                                     } `}
                             >
                                 <input
