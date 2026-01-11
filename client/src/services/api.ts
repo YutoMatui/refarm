@@ -388,4 +388,22 @@ export const adminApi = {
     apiClient.delete(`/admin/users/${id}`),
 }
 
+// Guest API
+export const guestApi = {
+  getRestaurant: (id: number) =>
+    apiClient.get<{ id: number; name: string; message: string | null }>(`/guest/restaurant/${id}`),
+
+  getFarmers: () =>
+    apiClient.get<{ id: number; name: string; main_crop?: string; image?: string; bio?: string; scenes: string[] }[]>('/guest/farmers'),
+
+  visit: (restaurantId: number) =>
+    apiClient.post<{ visit_id: number }>('/guest/visit', { restaurant_id: restaurantId }),
+
+  interaction: (data: { visit_id: number; farmer_id: number; interaction_type: string; stamp_type?: string; comment?: string; nickname?: string }) =>
+    apiClient.post('/guest/interaction', data),
+
+  log: (data: { visit_id: number; stay_time: number; scroll_depth?: number }) =>
+    apiClient.post('/guest/log', data),
+}
+
 export default apiClient

@@ -384,6 +384,8 @@ async def download_delivery_slip(order_id: int, db: AsyncSession = Depends(get_d
 async def download_monthly_invoice(
     restaurant_id: int,
     target_month: str = Query(..., description="対象月 (YYYY-MM)"),
+    request: Request = None,
+    background_tasks: BackgroundTasks = None,
     db: AsyncSession = Depends(get_db)
 ):
     """月次請求書をダウンロード"""
@@ -451,6 +453,21 @@ async def download_monthly_invoice(
     target_month_label = f"{year}年{month}月度"
     
     pdf_content = generate_monthly_invoice_pdf(restaurant, orders, target_month_label, period_str)
+
+    # Background Task: Send LINE notification with API URL
+    if request and background_tasks:
+        async def send_line_notification(restaurant_obj, month_str, request_obj):
+            try:
+                # Construct PDF URL using API endpoint
+                pdf_url = str(request_obj.url_for("download_monthly_invoice")) + f"?restaurant_id={restaurant_obj.id}&target_month={month_str}&no_notify=true"
+                # Send to LINE
+                await line_service.send_monthly_invoice_message(restaurant_obj.id, month_str, pdf_url, line_user_id=restaurant_obj.line_user_id)
+            except Exception as e:
+                print(f"Failed to send monthly invoice to LINE: {e}")
+
+        # Add background task only if no_notify parameter is not set
+        if request.query_params.get("no_notify") != "true":
+            background_tasks.add_task(send_line_notification, restaurant, target_month, request)
     
     return StreamingResponse(
         io.BytesIO(pdf_content),
