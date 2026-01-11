@@ -11,7 +11,6 @@ import Loading from '@/components/Loading'
 import ProductCard from '@/components/ProductCard'
 import { History as HistoryIcon, Heart, RotateCcw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { toast } from 'sonner'
 
 type TabType = 'history' | 'favorites'
 
