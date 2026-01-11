@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { authApi } from '../services/api';
+import { invitationApi, authApi } from '../services/api';
 import { liffService } from '../services/liff';
 import { toast } from 'sonner';
 import { useStore } from '../store/useStore';
@@ -11,22 +11,27 @@ export default function InviteHandler() {
     const [inputCode, setInputCode] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [lineUserId, setLineUserId] = useState<string | null>(null);
-    const [idToken, setIdToken] = useState<string | null>(null);
 
     const location = useLocation();
     const navigate = useNavigate();
-    const { setRestaurant, setFarmer, setUserRole, setLineUserId: setStoreLineUserId } = useStore();
+    const setRestaurant = useStore(state => state.setRestaurant);
+    const setStoreLineUserId = useStore(state => state.setLineUserId);
 
     useEffect(() => {
+        // 1. Get token from URL (query param or path param)
         const params = new URLSearchParams(location.search);
         let token = params.get('token');
 
+        // If not in query, check path (for legacy or alternative URL formats)
         if (!token && location.pathname.startsWith('/invite/')) {
             token = location.pathname.split('/')[2];
         }
 
         if (token) {
             setInviteToken(token);
+            // Clear any stale admin token to prevent interference with producer APIs
+            localStorage.removeItem('admin_token');
+            // Initialize LIFF to get user ID
             initializeLiff();
         }
     }, [location]);
@@ -38,14 +43,6 @@ export default function InviteHandler() {
                 liffService.login();
                 return;
             }
-            const token = liffService.getIDToken();
-            if (!token) {
-                toast.error("LINEからユーザー情報を取得できませんでした。");
-                // Potentially trigger login again or show error state
-                return;
-            }
-            setIdToken(token);
-
             const profile = await liffService.getProfile();
             if (profile) {
                 setLineUserId(profile.userId);
@@ -53,52 +50,56 @@ export default function InviteHandler() {
             }
         } catch (e) {
             console.error(e);
-            toast.error("LIFFの初期化に失敗しました。");
             // Fallback for dev
             if (process.env.NODE_ENV === 'development') {
                 const mockId = 'mock-user-id-' + Math.random();
                 setLineUserId(mockId);
                 setStoreLineUserId(mockId);
-                setIdToken('mock-id-token-invite');
             }
         }
     };
 
     const handleLink = async () => {
-        if (!idToken || !inviteToken) {
-            toast.error("認証情報が不足しています。ページを再読み込みしてください。");
-            return;
-        }
+        if (!lineUserId || !inviteToken) return;
 
         setIsLoading(true);
         try {
-            // Call the unified verify endpoint with invite details
-            const res = await authApi.verify(idToken, inviteToken, inputCode);
-            const { role, farmer, restaurant, message, is_registered } = res.data;
+            // 2. Call Link Account API
+            const res = await invitationApi.linkAccount(lineUserId, inviteToken, inputCode);
 
-            if (!is_registered) {
-                // This case should ideally not happen if linking was successful
-                throw new Error("アカウント連携に失敗しました。");
-            }
-            
-            // Update global store
-            setStoreLineUserId(res.data.line_user_id);
-            setUserRole(role as any);
-            if (role === 'farmer' && farmer) setFarmer(farmer);
-            if (role === 'restaurant' && restaurant) setRestaurant(restaurant);
+            toast.success(`${res.data.name}様のアカウント連携が完了しました！`);
 
-            toast.success(message || "アカウント連携が完了しました！");
-
-            setTimeout(() => {
-                if (role === 'farmer') {
-                    window.location.href = `/producer`;
+            // Redirect based on role
+            // Important: Add a small delay to ensure toast is seen
+            setTimeout(async () => {
+                if (res.data.role === 'farmer') {
+                    // For farmers, we might need to refresh the page to update LIFF context if it changed
+                    // But usually navigate is enough if the app structure supports it.
+                    // Force refresh to be safe and ensure clean state
+                    window.location.href = `/producer?farmer_id=${res.data.target_id || ''}`;
                 } else {
+                    // Refresh auth state before redirecting
+                    // We need to re-verify token because the user role has changed (is_registered became true)
+                    try {
+                        const idToken = liffService.getIDToken();
+                        if (idToken) {
+                            const authRes = await authApi.verify(idToken);
+                            if (authRes.data.restaurant) {
+                                setRestaurant(authRes.data.restaurant);
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Failed to refresh auth state", e);
+                    }
                     navigate('/');
                 }
             }, 1000);
 
         } catch (error: any) {
             console.error("Invitation linking error detail:", error);
+            if (error.response) {
+                console.error("API Error Response:", error.response.data);
+            }
             toast.error(error.response?.data?.detail || "コードが間違っているか、URLの有効期限が切れています。");
         } finally {
             setIsLoading(false);
@@ -131,7 +132,7 @@ export default function InviteHandler() {
 
                 <button
                     onClick={handleLink}
-                    disabled={isLoading || inputCode.length !== 4 || !idToken}
+                    disabled={isLoading || inputCode.length !== 4}
                     className="w-full bg-green-600 text-white font-bold py-4 rounded-xl text-lg shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                 >
                     {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
