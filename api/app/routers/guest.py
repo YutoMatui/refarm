@@ -35,7 +35,7 @@ class VisitResponse(BaseModel):
 
 class InteractionCreate(BaseModel):
     visit_id: int
-    farmer_id: int
+    farmer_id: Optional[int] = None
     interaction_type: str # STAMP, MESSAGE, INTEREST
     stamp_type: Optional[str] = None
     comment: Optional[str] = None

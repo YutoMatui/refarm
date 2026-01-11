@@ -182,10 +182,12 @@ from app.routers import (
     admin_users,
     delivery_schedules,
     guest,
+    admin_guest,
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(admin_auth.router, prefix="/api/admin/auth", tags=["Admin Authentication"])
+app.include_router(admin_guest.router, prefix="/api/admin/guest", tags=["Admin Guest Management"])
 app.include_router(admin_users.router, prefix="/api/admin/users", tags=["Admin Users"])
 app.include_router(delivery_schedules.router, prefix="/api/delivery-schedules", tags=["Delivery Schedules"])
 app.include_router(logistics.router, prefix="/api/logistics", tags=["Logistics"])

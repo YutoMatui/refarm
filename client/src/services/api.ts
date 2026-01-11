@@ -388,6 +388,24 @@ export const adminApi = {
     apiClient.delete(`/admin/users/${id}`),
 }
 
+// Admin Guest API
+export const adminGuestApi = {
+  getStores: () =>
+    apiClient.get<{ id: number; name: string; message: string | null; line_user_id: string | null }[]>('/admin/guest/stores'),
+
+  updateStoreMessage: (id: number, message: string) =>
+    apiClient.put<{ status: string }>(`/admin/guest/stores/${id}/message`, { message }),
+
+  getAnalysisSummary: () =>
+    apiClient.get<{ total_pv: number; avg_stay_time: number; total_comments: number; total_stamps: number }>('/admin/guest/analysis/summary'),
+
+  getComments: (limit?: number) =>
+    apiClient.get<{ id: number; created_at: string; interaction_type: string; comment: string; nickname: string; farmer_name: string | null; restaurant_name: string | null }[]>('/admin/guest/analysis/comments', { params: { limit } }),
+
+  getStamps: () =>
+    apiClient.get<{ farmer_id: number; farmer_name: string; count: number }[]>('/admin/guest/analysis/stamps'),
+}
+
 // Guest API
 export const guestApi = {
   getRestaurant: (id: number) =>
@@ -399,7 +417,7 @@ export const guestApi = {
   visit: (restaurantId: number) =>
     apiClient.post<{ visit_id: number }>('/guest/visit', { restaurant_id: restaurantId }),
 
-  interaction: (data: { visit_id: number; farmer_id: number; interaction_type: string; stamp_type?: string; comment?: string; nickname?: string }) =>
+  interaction: (data: { visit_id: number; farmer_id: number | null; interaction_type: string; stamp_type?: string; comment?: string; nickname?: string }) =>
     apiClient.post('/guest/interaction', data),
 
   log: (data: { visit_id: number; stay_time: number; scroll_depth?: number }) =>

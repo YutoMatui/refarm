@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, User, Send, X, MessageCircle, Heart, Star, Sprout, ThumbsUp, ChevronRight } from 'lucide-react';
+import { MapPin, User, Send, X, Heart, Star, Sprout, ThumbsUp, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { guestApi } from '@/services/api';
 
@@ -182,7 +182,7 @@ export default function GuestLanding() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!visitId || !selectedFarmer) return;
+        if (!visitId) return;
 
         const form = e.target as HTMLFormElement;
         const nickname = (form.elements.namedItem('nickname') as HTMLInputElement).value || '匿名のお客様';
@@ -191,7 +191,7 @@ export default function GuestLanding() {
         try {
             await guestApi.interaction({
                 visit_id: visitId,
-                farmer_id: selectedFarmer.id,
+                farmer_id: null as any, // Allow null for general messages
                 interaction_type: 'MESSAGE',
                 comment: message,
                 nickname: nickname
@@ -203,7 +203,7 @@ export default function GuestLanding() {
                     type: 'A',
                     title: '応援ありがとうございます！',
                     msg: '生産者さんにあなたの声を届けます。',
-                    image: selectedFarmer.image // Farmer Smile
+                    image: selectedFarmer ? selectedFarmer.image : 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&q=80' // Farmer or Generic Smile
                 },
                 {
                     type: 'B',
@@ -345,6 +345,46 @@ export default function GuestLanding() {
                         </motion.div>
                     ))}
                 </div>
+
+                {/* General Message Form */}
+                <div className="px-6 py-10 bg-white mt-8 border-t border-stone-100">
+                    <div className="max-w-md mx-auto">
+                        <div className="text-center mb-6">
+                            <h3 className="text-lg font-bold text-stone-800 mb-2">応援メッセージ</h3>
+                            <p className="text-sm text-stone-600 font-medium">
+                                農家さんの励みになりますので<br />応援コメントよろしくお願いします。
+                            </p>
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="space-y-4 bg-stone-50 p-6 rounded-2xl">
+                            <div>
+                                <label className="block text-xs font-bold text-stone-500 mb-1">ニックネーム</label>
+                                <input
+                                    name="nickname"
+                                    type="text"
+                                    placeholder="匿名のお客様"
+                                    className="w-full p-3 rounded-lg border border-stone-200 focus:ring-1 focus:ring-green-500 outline-none bg-white text-base"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-stone-500 mb-1">メッセージ</label>
+                                <textarea
+                                    name="message"
+                                    rows={3}
+                                    placeholder="美味しかった！応援しています。"
+                                    className="w-full p-3 rounded-lg border border-stone-200 focus:ring-1 focus:ring-green-500 outline-none bg-white text-base"
+                                />
+                            </div>
+                            <button
+                                type="submit"
+                                className="w-full bg-green-700 text-white font-bold py-3 rounded-xl shadow-md hover:bg-green-800 transition-colors flex items-center justify-center gap-2 active:scale-95"
+                            >
+                                <Send size={18} />
+                                送信する
+                            </button>
+                        </form>
+                    </div>
+                </div>
             </main>
 
             {/* Detail Modal */}
@@ -417,40 +457,6 @@ export default function GuestLanding() {
                                             ))}
                                         </div>
 
-                                        {/* Message Form (Always visible for better UX) */}
-                                        <div className="pt-4 border-t border-stone-200">
-                                            <h4 className="text-sm font-bold text-stone-700 mb-3 flex items-center gap-2">
-                                                <MessageCircle size={16} />
-                                                メッセージを送る（任意）
-                                            </h4>
-                                            <form onSubmit={handleSubmit} className="space-y-4">
-                                                <div>
-                                                    <label className="block text-xs font-bold text-stone-500 mb-1">ニックネーム</label>
-                                                    <input
-                                                        name="nickname"
-                                                        type="text"
-                                                        placeholder="匿名のお客様"
-                                                        className="w-full p-3 rounded-lg border border-stone-200 focus:ring-1 focus:ring-green-500 outline-none bg-white text-base"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-bold text-stone-500 mb-1">メッセージ</label>
-                                                    <textarea
-                                                        name="message"
-                                                        rows={3}
-                                                        placeholder="美味しかった！応援しています。"
-                                                        className="w-full p-3 rounded-lg border border-stone-200 focus:ring-1 focus:ring-green-500 outline-none bg-white text-base"
-                                                    />
-                                                </div>
-                                                <button
-                                                    type="submit"
-                                                    className="w-full bg-green-700 text-white font-bold py-3 rounded-xl shadow-md hover:bg-green-800 transition-colors flex items-center justify-center gap-2 active:scale-95"
-                                                >
-                                                    <Send size={18} />
-                                                    送信する
-                                                </button>
-                                            </form>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
