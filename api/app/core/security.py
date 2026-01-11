@@ -95,6 +95,21 @@ def verify_line_id_token_mock(id_token: str) -> dict:
             detail="Invalid token"
         )
     
+    # Try to extract real ID from token (unverified) to avoid ID mismatch in frontend
+    # This is useful when DEBUG=True but we are using real tokens (e.g. on device)
+    # and real verification fails (e.g. due to network/config).
+    try:
+        claims = jwt.get_unverified_claims(id_token)
+        if "sub" in claims:
+             return {
+                "user_id": claims["sub"],
+                "name": claims.get("name", "Test User"),
+                "picture": claims.get("picture"),
+                "email": claims.get("email"),
+            }
+    except Exception:
+        pass
+    
     # Default to Test User ID for development convenience
     # This ensures that if real verification fails in dev, we get a privileged user
     user_id = settings.LINE_TEST_USER_ID

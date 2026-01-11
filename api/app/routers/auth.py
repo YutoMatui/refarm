@@ -251,6 +251,7 @@ async def verify_line_token(
         return AuthResponse(
             line_user_id=line_user_id,
             restaurant=None,
+            farmer=None,
             role=None,
             is_registered=False,
             message="認証成功: アカウントの登録または連携が必要です"
