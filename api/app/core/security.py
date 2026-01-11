@@ -17,6 +17,8 @@ async def verify_line_id_token(id_token: str) -> dict:
     Verify LINE ID Token and extract user information.
     
     This prevents user impersonation by validating the token with LINE's server.
+    Tries validation against multiple channel IDs (Restaurant & Producer) since
+    tokens might come from different LIFF apps.
     
     Args:
         id_token: ID Token from LIFF SDK
@@ -27,61 +29,81 @@ async def verify_line_id_token(id_token: str) -> dict:
     Raises:
         HTTPException: If token is invalid or verification fails
     """
-    try:
-        # Step 1: Verify token with LINE's verification endpoint
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.line.me/oauth2/v2.1/verify",
-                data={
-                    "id_token": id_token,
-                    "client_id": settings.LINE_CHANNEL_ID,
-                }
-            )
-            
-            if response.status_code != 200:
-                logger.error(f"LINE token verification failed: {response.text}")
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid LINE ID Token"
-                )
-            
-            # Step 2: Decode token to get user information
-            payload = response.json()
-            
-            # Validate required fields
-            if "sub" not in payload:  # sub = LINE User ID
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid token payload"
-                )
-            
-            logger.info(f"LINE User authenticated: {payload.get('sub')}")
-            
-            return {
-                "user_id": payload.get("sub"),  # LINE User ID
-                "name": payload.get("name"),
-                "picture": payload.get("picture"),
-                "email": payload.get("email"),
-            }
-            
-    except httpx.RequestError as e:
-        logger.error(f"Network error during LINE token verification: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="LINE authentication service unavailable"
-        )
-    except JWTError as e:
-        logger.error(f"JWT decode error: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token format"
-        )
-    except Exception as e:
-        logger.error(f"Unexpected error during token verification: {str(e)}")
+    # List of Channel IDs to verify against
+    channel_ids = []
+    if settings.LINE_CHANNEL_ID:
+        channel_ids.append(settings.LINE_CHANNEL_ID)
+    
+    # Add Restaurant Channel ID (Messaging API channel often same as Login channel in unified provider, but LIFF might use Login Channel)
+    # Note: LIFF ID is different from Channel ID. The token aud matches the Login Channel ID.
+    # We should assume settings.LINE_RESTAURANT_CHANNEL_ID and PRODUCER might be the Login Channel IDs too
+    # or separate settings should exist.
+    # For now, let's try available IDs.
+    if settings.LINE_RESTAURANT_CHANNEL_ID and settings.LINE_RESTAURANT_CHANNEL_ID not in channel_ids:
+        channel_ids.append(settings.LINE_RESTAURANT_CHANNEL_ID)
+    if settings.LINE_PRODUCER_CHANNEL_ID and settings.LINE_PRODUCER_CHANNEL_ID not in channel_ids:
+        channel_ids.append(settings.LINE_PRODUCER_CHANNEL_ID)
+        
+    # If no channel IDs configured, we can't verify (unless we skip client_id check, but verify endpoint requires it)
+    if not channel_ids:
+        logger.error("No LINE Channel IDs configured for verification")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Authentication error"
+            detail="Server configuration error"
         )
+
+    last_error = None
+    
+    async with httpx.AsyncClient() as client:
+        for channel_id in channel_ids:
+            try:
+                response = await client.post(
+                    "https://api.line.me/oauth2/v2.1/verify",
+                    data={
+                        "id_token": id_token,
+                        "client_id": channel_id,
+                    }
+                )
+                
+                if response.status_code == 200:
+                    # Success!
+                    payload = response.json()
+                    
+                    # Validate required fields
+                    if "sub" not in payload:
+                        continue
+                    
+                    logger.info(f"LINE User authenticated: {payload.get('sub')} (Channel: {channel_id})")
+                    
+                    return {
+                        "user_id": payload.get("sub"),
+                        "name": payload.get("name"),
+                        "picture": payload.get("picture"),
+                        "email": payload.get("email"),
+                    }
+                else:
+                    # Capture error but continue to next channel ID
+                    error_detail = response.text
+                    # Only log if it's the last attempt or specific errors?
+                    # logger.debug(f"Verification failed for channel {channel_id}: {error_detail}")
+                    pass
+                    
+            except httpx.RequestError as e:
+                logger.error(f"Network error during LINE token verification: {str(e)}")
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="LINE authentication service unavailable"
+                )
+            except Exception as e:
+                logger.error(f"Unexpected error: {str(e)}")
+                last_error = e
+
+    # If we get here, all verifications failed
+    logger.error("All LINE token verification attempts failed.")
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid LINE ID Token"
+    )
 
 
 def verify_line_id_token_mock(id_token: str) -> dict:
