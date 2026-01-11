@@ -52,8 +52,8 @@ apiClient.interceptors.request.use(
     } else if (idToken) {
       // Otherwise: LIFF Token
       config.headers.Authorization = `Bearer ${idToken}`
-    } else if (adminToken) {
-      // Fallback: Admin Token if available
+    } else if (adminToken && (isAdminPage || isAdminApi)) {
+      // Fallback: Admin Token ONLY if it's an admin context
       config.headers.Authorization = `Bearer ${adminToken}`
     }
 
@@ -86,12 +86,8 @@ apiClient.interceptors.response.use(
 
 // Authentication API
 export const authApi = {
-  verify: (idToken: string, inviteToken?: string, inputCode?: string) =>
-    apiClient.post('/auth/verify', {
-      id_token: idToken,
-      invite_token: inviteToken,
-      input_code: inputCode
-    }),
+  verify: (idToken: string) =>
+    apiClient.post('/auth/verify', { id_token: idToken }),
 
   getMe: () =>
     apiClient.get<Restaurant>('/auth/me'),
@@ -390,24 +386,16 @@ export const adminApi = {
 
   deleteUser: (id: number) =>
     apiClient.delete(`/admin/users/${id}`),
-}
 
-// Admin Guest API
-export const adminGuestApi = {
-  getStores: () =>
-    apiClient.get<{ id: number; name: string; message: string | null; line_user_id: string | null }[]>('/admin/guest/stores'),
+  // Guest Management
+  getGuestStats: () =>
+    apiClient.get<any[]>('/admin/guest/stats'),
 
-  updateStoreMessage: (id: number, message: string) =>
-    apiClient.put<{ status: string }>(`/admin/guest/stores/${id}/message`, { message }),
+  getGuestComments: () =>
+    apiClient.get<any[]>('/admin/guest/comments'),
 
-  getAnalysisSummary: () =>
-    apiClient.get<{ total_pv: number; avg_stay_time: number; total_comments: number; total_stamps: number }>('/admin/guest/analysis/summary'),
-
-  getComments: (limit?: number) =>
-    apiClient.get<{ id: number; created_at: string; interaction_type: string; comment: string; nickname: string; farmer_name: string | null; restaurant_name: string | null }[]>('/admin/guest/analysis/comments', { params: { limit } }),
-
-  getStamps: () =>
-    apiClient.get<{ farmer_id: number; farmer_name: string; count: number }[]>('/admin/guest/analysis/stamps'),
+  updateRestaurantMessage: (restaurantId: number, message: string) =>
+    apiClient.put<{ status: string; message: string }>(`/admin/guest/restaurants/${restaurantId}/message`, { message }),
 }
 
 // Guest API
@@ -421,7 +409,7 @@ export const guestApi = {
   visit: (restaurantId: number) =>
     apiClient.post<{ visit_id: number }>('/guest/visit', { restaurant_id: restaurantId }),
 
-  interaction: (data: { visit_id: number; farmer_id: number | null; interaction_type: string; stamp_type?: string; comment?: string; nickname?: string }) =>
+  interaction: (data: { visit_id: number; farmer_id: number; interaction_type: string; stamp_type?: string; comment?: string; nickname?: string }) =>
     apiClient.post('/guest/interaction', data),
 
   log: (data: { visit_id: number; stay_time: number; scroll_depth?: number }) =>
