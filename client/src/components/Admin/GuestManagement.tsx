@@ -1,395 +1,299 @@
-
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { adminGuestApi } from '@/services/api';
-import {
-    Store, BarChart3, QrCode, MessageSquare,
-    Clock, MousePointerClick, Heart, ExternalLink,
-    RefreshCw, AlertTriangle, Edit2
-} from 'lucide-react';
+import { adminApi } from '@/services/api';
+import { Loader2, MessageSquare, BarChart2, QrCode } from 'lucide-react';
+import { format } from 'date-fns';
+import { ja } from 'date-fns/locale';
 import { toast } from 'sonner';
 
 // Types
-type AdminStore = {
-    id: number;
-    name: string;
+interface RestaurantStat {
+    restaurant_id: number;
+    restaurant_name: string;
     message: string | null;
-    line_user_id: string | null;
-};
+    visit_count: number;
+    interaction_count: number;
+    last_visit: string | null;
+}
 
-type AnalysisSummary = {
-    total_pv: number;
-    avg_stay_time: number;
-    total_comments: number;
-    total_stamps: number;
-};
-
-type CommentLog = {
+interface Comment {
     id: number;
     created_at: string;
-    interaction_type: string;
-    comment: string;
-    nickname: string;
-    farmer_name: string | null;
-    restaurant_name: string | null;
-};
-
-type StampRank = {
-    farmer_id: number;
+    restaurant_name: string;
     farmer_name: string;
-    count: number;
-};
+    nickname: string | null;
+    comment: string | null;
+    stamp_type: string | null;
+    interaction_type: string;
+}
 
 export default function GuestManagement() {
-    const [activeTab, setActiveTab] = useState<'stores' | 'analysis'>('stores');
-
-    return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-2xl font-bold text-gray-800">ゲスト機能管理</h2>
-                    <p className="text-sm text-gray-500 mt-1">店舗QRコードの発行・管理と、利用状況の分析が行えます</p>
-                </div>
-                <div className="flex bg-gray-100 p-1 rounded-lg">
-                    <button
-                        onClick={() => setActiveTab('stores')}
-                        className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'stores'
-                            ? 'bg-white text-green-700 shadow-sm'
-                            : 'text-gray-500 hover:text-gray-700'
-                            }`}
-                    >
-                        <div className="flex items-center gap-2">
-                            <Store size={16} />
-                            <span>店舗管理・QR</span>
-                        </div>
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('analysis')}
-                        className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'analysis'
-                            ? 'bg-white text-green-700 shadow-sm'
-                            : 'text-gray-500 hover:text-gray-700'
-                            }`}
-                    >
-                        <div className="flex items-center gap-2">
-                            <BarChart3 size={16} />
-                            <span>データ分析</span>
-                        </div>
-                    </button>
-                </div>
-            </div>
-
-            {activeTab === 'stores' ? <StoreConfigTab /> : <AnalysisTab />}
-        </div>
-    );
-}
-
-// --- Sub Components ---
-
-function StoreConfigTab() {
-    const [stores, setStores] = useState<AdminStore[]>([]);
+    const [stats, setStats] = useState<RestaurantStat[]>([]);
+    const [comments, setComments] = useState<Comment[]>([]);
     const [loading, setLoading] = useState(true);
-    const [editingStore, setEditingStore] = useState<AdminStore | null>(null);
-    const [qrModalStore, setQrModalStore] = useState<AdminStore | null>(null);
-
-    useEffect(() => {
-        loadStores();
-    }, []);
-
-    const loadStores = async () => {
-        try {
-            const res = await adminGuestApi.getStores();
-            setStores(res.data);
-        } catch (e) {
-            console.error(e);
-            toast.error('店舗一覧の取得に失敗しました');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    if (loading) return <div className="p-10 text-center"><RefreshCw className="animate-spin mx-auto text-gray-400" /></div>;
-
-    return (
-        <div className="grid gap-6">
-            {stores.map(store => (
-                <div key={store.id} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-start gap-6">
-                    <div className="p-4 bg-green-50 rounded-xl">
-                        <QrCode size={32} className="text-green-700" />
-                    </div>
-                    <div className="flex-1">
-                        <div className="flex justify-between items-start mb-4">
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                                    {store.name}
-                                    <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded">ID: {store.id}</span>
-                                </h3>
-                                <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
-                                    <ExternalLink size={14} />
-                                    <a
-                                        href={`${window.location.origin}/guest?store=${store.id}`}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="hover:underline hover:text-green-600"
-                                    >
-                                        ゲスト画面URLを確認
-                                    </a>
-                                </div>
-                            </div>
-                            <div className="flex gap-2 relative">
-                                <button
-                                    onClick={() => setEditingStore(store)}
-                                    className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg border border-gray-200 flex items-center gap-1"
-                                >
-                                    <Edit2 size={14} /> メッセージ編集
-                                </button>
-                                <button
-                                    onClick={() => setQrModalStore(store)}
-                                    className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg border border-red-200 flex items-center gap-1"
-                                >
-                                    <RefreshCw size={14} /> URL再生成
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                            <h4 className="text-xs font-bold text-gray-500 mb-2">こだわりメッセージ (トップ表示)</h4>
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                                {store.message || <span className="text-gray-400 italic">未設定</span>}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            ))}
-
-            {editingStore && (
-                <EditMessageModal
-                    store={editingStore}
-                    onClose={() => setEditingStore(null)}
-                    onSuccess={() => {
-                        setEditingStore(null);
-                        loadStores();
-                    }}
-                />
-            )}
-
-            {qrModalStore && (
-                <QRRegenModal
-                    store={qrModalStore}
-                    onClose={() => setQrModalStore(null)}
-                />
-            )}
-        </div>
-    );
-}
-
-function AnalysisTab() {
-    const [summary, setSummary] = useState<AnalysisSummary | null>(null);
-    const [comments, setComments] = useState<CommentLog[]>([]);
-    const [stamps, setStamps] = useState<StampRank[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [selectedRestaurant, setSelectedRestaurant] = useState<RestaurantStat | null>(null);
+    const [showQRModal, setShowQRModal] = useState(false);
+    const [editMessage, setEditMessage] = useState('');
 
     useEffect(() => {
         loadData();
     }, []);
 
     const loadData = async () => {
+        setLoading(true);
         try {
-            const [sumRes, comRes, stampRes] = await Promise.all([
-                adminGuestApi.getAnalysisSummary(),
-                adminGuestApi.getComments(100),
-                adminGuestApi.getStamps()
+            const [statsRes, commentsRes] = await Promise.all([
+                adminApi.getGuestStats(),
+                adminApi.getGuestComments()
             ]);
-            setSummary(sumRes.data);
-            setComments(comRes.data);
-            setStamps(stampRes.data);
+            setStats(statsRes.data);
+            setComments(commentsRes.data);
         } catch (e) {
             console.error(e);
-            toast.error('分析データの取得に失敗しました');
+            toast.error('データの読み込みに失敗しました');
         } finally {
             setLoading(false);
         }
     };
 
-    if (loading) return <div className="p-10 text-center"><RefreshCw className="animate-spin mx-auto text-gray-400" /></div>;
-    if (!summary) return null;
-
-    return (
-        <div className="space-y-8">
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <KPICard title="総アクセス数" value={summary.total_pv} unit="PV" icon={<MousePointerClick size={20} />} color="text-blue-500" bg="bg-blue-50" />
-                <KPICard title="平均滞在時間" value={summary.avg_stay_time} unit="秒" icon={<Clock size={20} />} color="text-purple-500" bg="bg-purple-50" />
-                <KPICard title="応援コメント" value={summary.total_comments} unit="件" icon={<MessageSquare size={20} />} color="text-green-500" bg="bg-green-50" />
-                <KPICard title="スタンプ総数" value={summary.total_stamps} unit="個" icon={<Heart size={20} />} color="text-pink-500" bg="bg-pink-50" />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Stamp Ranking */}
-                <div className="lg:col-span-1 border border-gray-200 rounded-xl p-6 bg-white">
-                    <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
-                        <Heart className="text-pink-500" size={18} />
-                        農家別スタンプ獲得数
-                    </h3>
-                    <div className="space-y-4">
-                        {stamps.map((stamp, index) => (
-                            <div key={stamp.farmer_id} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-100 transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${index === 0 ? 'bg-yellow-100 text-yellow-700' :
-                                        index === 1 ? 'bg-gray-200 text-gray-700' :
-                                            index === 2 ? 'bg-orange-100 text-orange-700' :
-                                                'bg-gray-50 text-gray-500'
-                                        }`}>
-                                        {index + 1}
-                                    </div>
-                                    <span className="font-medium text-gray-700">{stamp.farmer_name}</span>
-                                </div>
-                                <span className="font-bold text-xl text-gray-800">{stamp.count}</span>
-                            </div>
-                        ))}
-                        {stamps.length === 0 && <p className="text-center text-gray-400 py-10">データがありません</p>}
-                    </div>
-                </div>
-
-                {/* Recent Comments */}
-                <div className="lg:col-span-2 border border-gray-200 rounded-xl p-6 bg-white">
-                    <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
-                        <MessageSquare className="text-green-500" size={18} />
-                        最新の応援コメント
-                    </h3>
-                    <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
-                        {comments.map(comment => (
-                            <div key={comment.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-bold text-gray-700 text-sm">{comment.nickname || '匿名'}</span>
-                                        <span className="text-xs text-gray-400">
-                                            {itemDateTime(comment.created_at)}
-                                        </span>
-                                    </div>
-                                    <span className={`text-[10px] px-2 py-1 rounded border ${comment.farmer_name
-                                        ? 'bg-white border-green-200 text-green-700'
-                                        : 'bg-white border-gray-200 text-gray-500'
-                                        }`}>
-                                        {comment.farmer_name ? `${comment.farmer_name}さん宛` : '店舗・全体宛'}
-                                    </span>
-                                </div>
-                                <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                                    {comment.comment}
-                                </p>
-                            </div>
-                        ))}
-                        {comments.length === 0 && <p className="text-center text-gray-400 py-10">コメントはまだありません</p>}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// Helpers
-function KPICard({ title, value, unit, icon, color, bg }: any) {
-    return (
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-4 ${bg} ${color}`}>
-                {icon}
-            </div>
-            <p className="text-xs text-gray-500 font-bold mb-1">{title}</p>
-            <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold text-gray-800">{value.toLocaleString()}</span>
-                <span className="text-xs text-gray-500">{unit}</span>
-            </div>
-        </div>
-    );
-}
-
-function itemDateTime(iso: string) {
-    return new Date(iso).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-
-// Modals
-function EditMessageModal({ store, onClose, onSuccess }: any) {
-    const [message, setMessage] = useState(store.message || '');
-    const [saving, setSaving] = useState(false);
-
-    const handleSave = async () => {
-        setSaving(true);
+    const handleUpdateMessage = async () => {
+        if (!selectedRestaurant) return;
         try {
-            await adminGuestApi.updateStoreMessage(store.id, message);
-            toast.success('更新しました');
-            onSuccess();
+            await adminApi.updateRestaurantMessage(selectedRestaurant.restaurant_id, editMessage);
+            toast.success('メッセージを更新しました');
+            setSelectedRestaurant({ ...selectedRestaurant, message: editMessage });
+            // Update stats list
+            setStats(stats.map(s =>
+                s.restaurant_id === selectedRestaurant.restaurant_id
+                    ? { ...s, message: editMessage }
+                    : s
+            ));
         } catch (e) {
+            console.error(e);
             toast.error('更新に失敗しました');
-        } finally {
-            setSaving(false);
         }
     };
 
+    const openQRModal = (restaurant: RestaurantStat) => {
+        setSelectedRestaurant(restaurant);
+        setEditMessage(restaurant.message || '');
+        setShowQRModal(true);
+    };
+
+    if (loading) {
+        return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-green-600" /></div>;
+    }
+
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6"
-            >
-                <h3 className="text-lg font-bold mb-4">メッセージの編集</h3>
-                <div className="mb-6">
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
-                        店舗のこだわり（トップページ表示）
-                    </label>
-                    <textarea
-                        value={message}
-                        onChange={e => setMessage(e.target.value)}
-                        rows={5}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
-                        placeholder="例：当店は神戸市西区の新鮮な野菜を毎日仕入れています。"
-                    />
+        <div className="space-y-8">
+            {/* Overview Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                    <h3 className="text-gray-500 text-sm font-medium mb-2">総アクセス数 (PV)</h3>
+                    <p className="text-3xl font-bold text-gray-800">
+                        {stats.reduce((acc, curr) => acc + curr.visit_count, 0)}
+                    </p>
                 </div>
-                <div className="flex justify-end gap-3">
-                    <button onClick={onClose} className="px-4 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg">キャンセル</button>
-                    <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="px-4 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 disabled:opacity-50"
-                    >
-                        {saving ? '保存中...' : '保存する'}
-                    </button>
+                <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                    <h3 className="text-gray-500 text-sm font-medium mb-2">総リアクション数</h3>
+                    <p className="text-3xl font-bold text-gray-800">
+                        {stats.reduce((acc, curr) => acc + curr.interaction_count, 0)}
+                    </p>
                 </div>
-            </motion.div>
-        </div>
-    );
-}
+                <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                    <h3 className="text-gray-500 text-sm font-medium mb-2">導入店舗数</h3>
+                    <p className="text-3xl font-bold text-gray-800">
+                        {stats.length}
+                    </p>
+                </div>
+            </div>
 
-function QRRegenModal({ store, onClose }: any) {
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-white rounded-xl shadow-xl max-w-md w-full p-6"
-            >
-                <div className="flex items-center gap-3 text-red-600 mb-4 bg-red-50 p-4 rounded-lg">
-                    <AlertTriangle size={24} />
-                    <h3 className="font-bold">注意: {store.name} のURL再生成</h3>
+            {/* Restaurant List */}
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                    <h2 className="text-lg font-bold text-gray-800 flex items-center">
+                        <BarChart2 className="mr-2" size={20} />
+                        店舗別利用状況・QR管理
+                    </h2>
                 </div>
-                <p className="text-gray-700 mb-6 leading-relaxed">
-                    URLを再生成すると、<span className="font-bold text-red-600">現在印刷されているQRコードはすべて無効になります。</span><br />
-                    テーブルやメニュー等に設置済みのQRコードをすべて張り替える必要があります。
-                </p>
-
-                <p className="text-sm text-gray-500 mb-6 bg-gray-100 p-3 rounded">
-                    現在の仕様ではIDベースのURLを使用しているため、この機能は将来のセキュリティアップデート（トークン制）用です。現在はIDが変わらないためURLも変更されません。
-                </p>
-
-                <div className="flex justify-end gap-3">
-                    <button onClick={onClose} className="px-4 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-lg">キャンセル</button>
-                    <button
-                        onClick={() => { toast.info('現在は再生成の必要はありません'); onClose(); }}
-                        className="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700"
-                    >
-                        理解して再生成する
-                    </button>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left text-gray-600">
+                        <thead className="bg-gray-50 text-gray-700 uppercase font-medium">
+                            <tr>
+                                <th className="px-6 py-3">店舗名</th>
+                                <th className="px-6 py-3">設定メッセージ</th>
+                                <th className="px-6 py-3 text-center">アクセス</th>
+                                <th className="px-6 py-3 text-center">反応</th>
+                                <th className="px-6 py-3 text-right">アクション</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {stats.map((stat) => (
+                                <tr key={stat.restaurant_id} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 font-medium text-gray-900">
+                                        {stat.restaurant_name}
+                                    </td>
+                                    <td className="px-6 py-4 max-w-xs truncate" title={stat.message || ''}>
+                                        {stat.message || <span className="text-gray-400 italic">未設定</span>}
+                                    </td>
+                                    <td className="px-6 py-4 text-center">{stat.visit_count}</td>
+                                    <td className="px-6 py-4 text-center">{stat.interaction_count}</td>
+                                    <td className="px-6 py-4 text-right">
+                                        <button
+                                            onClick={() => openQRModal(stat)}
+                                            className="text-green-600 hover:text-green-800 font-medium inline-flex items-center"
+                                        >
+                                            <QrCode size={16} className="mr-1" />
+                                            詳細・QR
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
-            </motion.div>
+            </div>
+
+            {/* Recent Comments */}
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100">
+                    <h2 className="text-lg font-bold text-gray-800 flex items-center">
+                        <MessageSquare className="mr-2" size={20} />
+                        最新のリアクション
+                    </h2>
+                </div>
+                <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+                    {comments.length === 0 ? (
+                        <div className="p-8 text-center text-gray-400">履歴がありません</div>
+                    ) : (
+                        comments.map((comment) => (
+                            <div key={comment.id} className="p-4 hover:bg-gray-50 flex items-start gap-4">
+                                <div className={`
+                                    w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-lg
+                                    ${comment.interaction_type === 'STAMP' ? 'bg-orange-100' : 'bg-green-100'}
+                                `}>
+                                    {comment.interaction_type === 'STAMP' ? '👍' : '💬'}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex justify-between items-start mb-1">
+                                        <div>
+                                            <span className="font-bold text-gray-900 mr-2">{comment.nickname || 'ゲスト'}</span>
+                                            <span className="text-xs text-gray-500">
+                                                at {comment.restaurant_name} → {comment.farmer_name}
+                                            </span>
+                                        </div>
+                                        <span className="text-xs text-gray-400 whitespace-nowrap">
+                                            {format(new Date(comment.created_at), 'MM/dd HH:mm', { locale: ja })}
+                                        </span>
+                                    </div>
+
+                                    {comment.interaction_type === 'STAMP' ? (
+                                        <div className="inline-block bg-orange-50 text-orange-800 text-xs px-2 py-1 rounded-full font-bold">
+                                            スタンプ: {
+                                                comment.stamp_type === 'delicious' ? '美味しかった！' :
+                                                    comment.stamp_type === 'cheer' ? '応援してます' :
+                                                        comment.stamp_type === 'nice' ? 'こだわり素敵' :
+                                                            comment.stamp_type === 'eat_again' ? 'また食べたい' : comment.stamp_type
+                                            }
+                                        </div>
+                                    ) : (
+                                        <p className="text-gray-700 text-sm bg-gray-50 p-3 rounded-lg mt-1">
+                                            {comment.comment}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+
+            {/* QR & Settings Modal */}
+            {showQRModal && selectedRestaurant && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                        <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+                            <h3 className="text-xl font-bold text-gray-800">
+                                {selectedRestaurant.restaurant_name} の設定
+                            </h3>
+                            <button
+                                onClick={() => setShowQRModal(false)}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {/* Left: QR Code */}
+                            <div className="flex flex-col items-center justify-center bg-gray-50 p-6 rounded-xl border border-gray-200">
+                                <h4 className="font-bold text-gray-700 mb-4">店舗用QRコード</h4>
+                                <div className="bg-white p-4 rounded shadow-sm mb-4">
+                                    {/* Using simple img as placeholder if library fails, but logic implies SVG */}
+                                    {/* In real implementation, install qrcode.react: npm install qrcode.react */}
+                                    {/* Fallback to API generation or external service if needed */}
+                                    <img
+                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`${window.location.origin}/guest?store=${selectedRestaurant.restaurant_id}`)}`}
+                                        alt="店舗QRコード"
+                                        className="w-[200px] h-[200px]"
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-500 mb-4 text-center break-all">
+                                    {`${window.location.origin}/guest?store=${selectedRestaurant.restaurant_id}`}
+                                </p>
+                                <button
+                                    className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-bold shadow hover:bg-gray-900 transition-colors"
+                                    onClick={() => {
+                                        toast.success('本来はここで画像をダウンロードします');
+                                    }}
+                                >
+                                    QRコードをダウンロード
+                                </button>
+                            </div>
+
+                            {/* Right: Settings */}
+                            <div className="space-y-6">
+                                <div>
+                                    <h4 className="font-bold text-gray-700 mb-2">こだわりメッセージ</h4>
+                                    <p className="text-xs text-gray-500 mb-2">
+                                        ゲスト画面のトップに表示される、お店からのメッセージです。
+                                    </p>
+                                    <textarea
+                                        value={editMessage}
+                                        onChange={(e) => setEditMessage(e.target.value)}
+                                        rows={4}
+                                        className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-green-500 outline-none"
+                                        placeholder="例：当店は西区の新鮮野菜を使用しています。"
+                                    />
+                                </div>
+                                <button
+                                    onClick={handleUpdateMessage}
+                                    className="w-full bg-green-600 text-white py-3 rounded-lg font-bold shadow hover:bg-green-700 transition-colors"
+                                >
+                                    メッセージを更新
+                                </button>
+
+                                <div className="border-t border-gray-100 pt-4">
+                                    <h4 className="font-bold text-gray-700 mb-2 text-sm">統計情報</h4>
+                                    <ul className="text-sm space-y-2 text-gray-600">
+                                        <li className="flex justify-between">
+                                            <span>累計アクセス:</span>
+                                            <span className="font-bold">{selectedRestaurant.visit_count} 回</span>
+                                        </li>
+                                        <li className="flex justify-between">
+                                            <span>累計リアクション:</span>
+                                            <span className="font-bold">{selectedRestaurant.interaction_count} 回</span>
+                                        </li>
+                                        <li className="flex justify-between">
+                                            <span>最終アクセス:</span>
+                                            <span>{selectedRestaurant.last_visit ? format(new Date(selectedRestaurant.last_visit), 'yyyy/MM/dd HH:mm') : '-'}</span>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
