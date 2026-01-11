@@ -138,10 +138,36 @@ export default function FarmerManagement() {
 
     const handleSave = () => {
         if (!editingFarmer) return;
+
+        // 必要なフィールドのみ抽出して送信データを作成
+        const submitData = {
+            name: editingFarmer.name,
+            main_crop: editingFarmer.main_crop,
+            profile_photo_url: editingFarmer.profile_photo_url,
+            bio: editingFarmer.bio,
+            address: editingFarmer.address,
+            kodawari: editingFarmer.kodawari,
+            commitments: editingFarmer.commitments,
+            achievements: editingFarmer.achievements,
+            chef_comments: editingFarmer.chef_comments,
+            video_url: editingFarmer.video_url,
+            article_url: editingFarmer.article_url,
+            is_active: editingFarmer.is_active,
+            map_url: editingFarmer.map_url,
+            email: editingFarmer.email,
+            phone_number: editingFarmer.phone_number,
+            latitude: editingFarmer.latitude,
+            longitude: editingFarmer.longitude,
+            farming_method: editingFarmer.farming_method,
+            certifications: editingFarmer.certifications,
+            cover_photo_url: editingFarmer.cover_photo_url,
+            selectable_days: editingFarmer.selectable_days
+        };
+
         if (isCreateMode) {
-            createFarmerMutation.mutate(editingFarmer);
+            createFarmerMutation.mutate(submitData);
         } else {
-            updateFarmerMutation.mutate({ id: editingFarmer.id, data: editingFarmer });
+            updateFarmerMutation.mutate({ id: editingFarmer.id, data: submitData });
         }
     };
 

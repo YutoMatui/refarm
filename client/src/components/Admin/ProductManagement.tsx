@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { productApi } from '@/services/api'
+import { productApi, farmerApi } from '@/services/api'
 import { Product, FarmingMethod } from '@/types'
-import { Star, Loader2, Download, Edit, Plus, Trash2 } from 'lucide-react'
+import { Star, Loader2, Download, Edit, Plus, Trash2, Filter } from 'lucide-react'
 import Loading from '@/components/Loading'
 import { toast } from 'sonner'
 import ProductEditModal from './ProductEditModal'
@@ -10,6 +10,7 @@ import ProductEditModal from './ProductEditModal'
 export default function ProductManagement() {
     const queryClient = useQueryClient()
     const [filterText, setFilterText] = useState('')
+    const [selectedFarmerId, setSelectedFarmerId] = useState<number | 'all'>('all')
     const [editingProduct, setEditingProduct] = useState<Product | null>(null)
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
 
@@ -20,6 +21,14 @@ export default function ProductManagement() {
             return response.data
         },
     })
+
+    const { data: farmersData } = useQuery({
+        queryKey: ['admin-farmers-list'],
+        queryFn: async () => {
+            const response = await farmerApi.list({ limit: 1000 });
+            return response.data;
+        }
+    });
 
     const updateProductMutation = useMutation({
         mutationFn: async ({ id, isFeatured }: { id: number; isFeatured: number }) => {
@@ -101,11 +110,12 @@ export default function ProductManagement() {
 
     const filteredProducts = useMemo(() => {
         if (!productsData?.items) return []
-        return productsData.items.filter(p =>
-            p.name.includes(filterText) ||
-            (p.description && p.description.includes(filterText))
-        )
-    }, [productsData, filterText])
+        return productsData.items.filter(p => {
+            const matchesText = p.name.includes(filterText) || (p.description && p.description.includes(filterText));
+            const matchesFarmer = selectedFarmerId === 'all' || p.farmer_id === selectedFarmerId;
+            return matchesText && matchesFarmer;
+        })
+    }, [productsData, filterText, selectedFarmerId])
 
     if (isLoading) return <Loading message="商品情報を読み込み中..." />
 
@@ -134,14 +144,34 @@ export default function ProductManagement() {
                 </div>
             </div>
 
-            <div className="p-4 border-b">
-                <input
-                    type="text"
-                    placeholder="商品名で検索..."
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm"
-                    value={filterText}
-                    onChange={(e) => setFilterText(e.target.value)}
-                />
+            <div className="p-4 border-b flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                    <input
+                        type="text"
+                        placeholder="商品名で検索..."
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm"
+                        value={filterText}
+                        onChange={(e) => setFilterText(e.target.value)}
+                    />
+                </div>
+                <div className="sm:w-64">
+                    <div className="relative">
+                        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                        <select
+                            className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm appearance-none bg-white"
+                            value={selectedFarmerId}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setSelectedFarmerId(val === 'all' ? 'all' : Number(val));
+                            }}
+                        >
+                            <option value="all">全ての生産者</option>
+                            {farmersData?.items.map(f => (
+                                <option key={f.id} value={f.id}>{f.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
             </div>
 
             <div className="overflow-x-auto">
