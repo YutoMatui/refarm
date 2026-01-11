@@ -20,6 +20,13 @@ from app.schemas import (
     ResponseMessage,
 )
 
+# Admin Auth import for dependency injection
+# Note: Using string import or local import inside function to avoid circular dependency if needed
+# But here we will try to implement simple admin check or assume it's protected by main router configuration
+# Actually, looking at main.py, /api/farmers is included without dependencies.
+# So we need to protect this endpoint.
+from app.routers.admin_auth import get_current_admin
+
 router = APIRouter()
 
 
@@ -121,6 +128,31 @@ async def delete_farmer(farmer_id: int, db: AsyncSession = Depends(get_db)):
     await db.commit()
     
     return ResponseMessage(message="生産者を削除しました", success=True)
+
+
+@router.post("/{farmer_id}/unlink_line", response_model=ResponseMessage)
+async def unlink_farmer_line(
+    farmer_id: int, 
+    db: AsyncSession = Depends(get_db),
+    current_admin = Depends(get_current_admin)
+):
+    """
+    管理者によるLINE連携解除
+    """
+    stmt = select(Farmer).where(Farmer.id == farmer_id, Farmer.deleted_at.is_(None))
+    result = await db.execute(stmt)
+    farmer = result.scalar_one_or_none()
+    
+    if not farmer:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
+        
+    farmer.line_user_id = None
+    farmer.invite_token = None
+    farmer.invite_code = None
+    farmer.invite_expires_at = None
+    
+    await db.commit()
+    return ResponseMessage(message="LINE連携を解除しました", success=True)
 
 
 @router.post("/{farmer_id}/generate_invite", summary="招待URL生成")

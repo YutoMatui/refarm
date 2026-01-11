@@ -67,17 +67,18 @@ async def link_account(
     """
     招待URLと認証コードを使用して、LINEアカウントを既存の生産者・飲食店データに紐付けます。
     """
-    # 1. Check Farmer invitations
-    stmt_farmer = select(Farmer).where(
-        Farmer.invite_token == req.invite_token,
-        Farmer.invite_expires_at > datetime.now()
-    )
+    # 1. Check Farmer invitations (Check existence first to distinguish errors)
+    stmt_farmer = select(Farmer).where(Farmer.invite_token == req.invite_token)
     result_farmer = await db.execute(stmt_farmer)
     farmer = result_farmer.scalar_one_or_none()
 
     if farmer:
-        # Verify code
-        if farmer.invite_code != req.input_code:
+        # Check expiry
+        if not farmer.invite_expires_at or farmer.invite_expires_at <= datetime.now():
+             raise HTTPException(status_code=400, detail="招待URLの有効期限が切れています。管理者に再発行を依頼してください。")
+
+        # Verify code (Comparison with whitespace stripped)
+        if str(farmer.invite_code).strip() != str(req.input_code).strip():
             raise HTTPException(status_code=400, detail="認証コードが間違っています。")
         
         # Link account
@@ -91,16 +92,17 @@ async def link_account(
         return {"message": "連携が完了しました！", "name": farmer.name, "role": "farmer", "target_id": farmer.id}
 
     # 2. Check Restaurant invitations
-    stmt_restaurant = select(Restaurant).where(
-        Restaurant.invite_token == req.invite_token,
-        Restaurant.invite_expires_at > datetime.now()
-    )
+    stmt_restaurant = select(Restaurant).where(Restaurant.invite_token == req.invite_token)
     result_restaurant = await db.execute(stmt_restaurant)
     restaurant = result_restaurant.scalar_one_or_none()
 
     if restaurant:
+        # Check expiry
+        if not restaurant.invite_expires_at or restaurant.invite_expires_at <= datetime.now():
+             raise HTTPException(status_code=400, detail="招待URLの有効期限が切れています。管理者に再発行を依頼してください。")
+
         # Verify code
-        if restaurant.invite_code != req.input_code:
+        if str(restaurant.invite_code).strip() != str(req.input_code).strip():
             raise HTTPException(status_code=400, detail="認証コードが間違っています。")
             
         # Link account
@@ -113,7 +115,7 @@ async def link_account(
         await db.commit()
         return {"message": "連携が完了しました！", "name": restaurant.name, "role": "restaurant", "target_id": restaurant.id}
 
-    raise HTTPException(status_code=400, detail="招待URLが無効か、期限切れです。管理者に再発行を依頼してください。")
+    raise HTTPException(status_code=400, detail="招待URLが無効です。URLを確認してください。")
 
 
 class AuthRequest(BaseModel):
@@ -244,39 +246,44 @@ async def verify_line_token(
     # If user not found, try to link account using invite info
     if not restaurant and not farmer and auth_request.invite_token and auth_request.input_code:
         # Check Farmer invitations first
-        stmt_farmer_invite = select(Farmer).where(
-            Farmer.invite_token == auth_request.invite_token,
-            Farmer.invite_expires_at > datetime.now()
-        )
+        stmt_farmer_invite = select(Farmer).where(Farmer.invite_token == auth_request.invite_token)
         farmer_to_link = (await db.execute(stmt_farmer_invite)).scalar_one_or_none()
 
         if farmer_to_link:
-            if farmer_to_link.invite_code != auth_request.input_code:
+             # Check expiry
+            if not farmer_to_link.invite_expires_at or farmer_to_link.invite_expires_at <= datetime.now():
+                 # Token found but expired
+                 pass 
+            elif str(farmer_to_link.invite_code).strip() != str(auth_request.input_code).strip():
+                # Code mismatch
+                pass # verify_line_token usually doesn't raise http exception for partial failure, but here it's explicit linking
+                # But to maintain current behavior, we might raise 400 or just skip linking
                 raise HTTPException(status_code=400, detail="認証コードが間違っています。")
-            
-            farmer_to_link.line_user_id = line_user_id
-            farmer_to_link.invite_token = None
-            farmer_to_link.invite_code = None
-            farmer_to_link.invite_expires_at = None
-            await db.commit()
-            farmer = farmer_to_link
+            else:
+                farmer_to_link.line_user_id = line_user_id
+                farmer_to_link.invite_token = None
+                farmer_to_link.invite_code = None
+                farmer_to_link.invite_expires_at = None
+                await db.commit()
+                farmer = farmer_to_link
         else:
             # If not a farmer invite, check Restaurant invitations
-            stmt_restaurant_invite = select(Restaurant).where(
-                Restaurant.invite_token == auth_request.invite_token,
-                Restaurant.invite_expires_at > datetime.now()
-            )
+            stmt_restaurant_invite = select(Restaurant).where(Restaurant.invite_token == auth_request.invite_token)
             restaurant_to_link = (await db.execute(stmt_restaurant_invite)).scalar_one_or_none()
 
             if restaurant_to_link:
-                if restaurant_to_link.invite_code != auth_request.input_code:
+                # Check expiry
+                if not restaurant_to_link.invite_expires_at or restaurant_to_link.invite_expires_at <= datetime.now():
+                    pass
+                elif str(restaurant_to_link.invite_code).strip() != str(auth_request.input_code).strip():
                     raise HTTPException(status_code=400, detail="認証コードが間違っています。")
-                
-                restaurant_to_link.line_user_id = line_user_id
-                restaurant_to_link.invite_token = None
-                restaurant_to_link.invite_code = None
-                await db.commit()
-                restaurant = restaurant_to_link
+                else:
+                    restaurant_to_link.line_user_id = line_user_id
+                    restaurant_to_link.invite_token = None
+                    restaurant_to_link.invite_code = None
+                    restaurant_to_link.invite_expires_at = None
+                    await db.commit()
+                    restaurant = restaurant_to_link
             # If no invite is found, it will just fall through and return "not registered"
 
     # DEBUG MODE: If restaurant not found but it's a mock user, return a mock restaurant

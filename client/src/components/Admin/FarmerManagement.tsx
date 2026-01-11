@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { farmerApi, invitationApi, producerApi, uploadApi } from '@/services/api';
+import { farmerApi, invitationApi, uploadApi } from '@/services/api';
 import { Farmer, ChefComment, Commitment, Achievement } from '@/types';
 import { Edit2, Loader2, X, Link as LinkIcon, Copy, Unlink, Trash2, Camera } from 'lucide-react';
 import Loading from '@/components/Loading';
@@ -128,7 +128,7 @@ export default function FarmerManagement() {
         }
 
         try {
-            await producerApi.unlinkLine(farmer.id);
+            await farmerApi.unlinkLine(farmer.id);
             toast.success('LINE連携を解除しました');
             queryClient.invalidateQueries({ queryKey: ['admin-farmers'] });
         } catch (e) {

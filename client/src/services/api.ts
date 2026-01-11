@@ -138,6 +138,9 @@ export const farmerApi = {
 
   delete: (id: number) =>
     apiClient.delete(`/farmers/${id}`),
+
+  unlinkLine: (id: number) =>
+    apiClient.post<{ message: string; success: boolean }>(`/farmers/${id}/unlink_line`),
 }
 
 // Product API
