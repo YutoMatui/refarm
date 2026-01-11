@@ -19,8 +19,10 @@ export class LIFFService {
   /**
    * Initialize LIFF SDK
    */
-  async init(): Promise<void> {
+  async init(options: { role?: string } = {}): Promise<void> {
     if (this.initialized) return
+
+    const { role } = options;
 
     // Dynamic LIFF ID selection based on URL parameters
     const params = new URLSearchParams(window.location.search);
@@ -29,8 +31,7 @@ export class LIFFService {
     // Default to Restaurant LIFF ID, but check for Farmer param
     let liffId = import.meta.env.VITE_LIFF_ID;
 
-    // Also check path for /producer, /invite/farmer etc.
-    if (type === 'farmer' || window.location.pathname.startsWith('/producer') || window.location.pathname.startsWith('/invite/farmer')) {
+    if (role === 'farmer' || type === 'farmer' || window.location.pathname.startsWith('/producer') || window.location.pathname.startsWith('/invite/farmer')) {
       liffId = import.meta.env.VITE_FARMER_LIFF_ID || liffId;
     }
 

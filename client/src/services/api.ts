@@ -342,6 +342,10 @@ export const logisticsApi = {
 
 // Invitation API (Enhanced)
 export const invitationApi = {
+  // Add this new function
+  getInvitationInfo: (token: string) =>
+    apiClient.get<{ role: string }>(`/auth/invitation_info/${token}`),
+
   // Admin: Generate Invite
   generateFarmerInvite: (farmerId: number) =>
     apiClient.post<{ invite_url: string; access_code: string; expires_at: string }>(

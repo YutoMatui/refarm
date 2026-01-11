@@ -4,12 +4,14 @@ import { invitationApi, authApi } from '../services/api';
 import { liffService } from '../services/liff';
 import { toast } from 'sonner';
 import { useStore } from '../store/useStore';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 
 export default function InviteHandler() {
     const [inviteToken, setInviteToken] = useState<string | null>(null);
     const [inputCode, setInputCode] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [isInitializing, setIsInitializing] = useState(true);
+    const [initializationError, setInitializationError] = useState<string | null>(null);
     const [lineUserId, setLineUserId] = useState<string | null>(null);
 
     const location = useLocation();
@@ -18,43 +20,64 @@ export default function InviteHandler() {
     const setStoreLineUserId = useStore(state => state.setLineUserId);
 
     useEffect(() => {
-        // 1. Get token from URL (query param or path param)
+        const processInvitation = async (token: string) => {
+            try {
+                // First, determine the role from the invite token
+                const { data } = await invitationApi.getInvitationInfo(token);
+                const role = data.role;
+
+                // Now, initialize LIFF with the correct context
+                await initializeLiff(role);
+
+            } catch (error: any) {
+                console.error("Failed to process invitation:", error);
+                setInitializationError(error.response?.data?.detail || "招待URLが無効か、期限切れです。");
+            } finally {
+                setIsInitializing(false);
+            }
+        };
+
         const params = new URLSearchParams(location.search);
         let token = params.get('token');
 
-        // If not in query, check path (for legacy or alternative URL formats)
         if (!token && location.pathname.startsWith('/invite/')) {
             token = location.pathname.split('/')[2];
         }
 
         if (token) {
             setInviteToken(token);
-            // Clear any stale admin token to prevent interference with producer APIs
             localStorage.removeItem('admin_token');
-            // Initialize LIFF to get user ID
-            initializeLiff();
+            processInvitation(token);
+        } else {
+            setIsInitializing(false); // No token found, stop initializing
         }
     }, [location]);
 
-    const initializeLiff = async () => {
+    const initializeLiff = async (role: string) => {
         try {
-            await liffService.init();
+            await liffService.init({ role });
             if (!liffService.isLoggedIn()) {
                 liffService.login();
-                return;
+                return; // Stop execution to allow LIFF to handle login redirect
             }
             const profile = await liffService.getProfile();
             if (profile) {
                 setLineUserId(profile.userId);
                 setStoreLineUserId(profile.userId);
+            } else {
+                // This can happen if user revokes permissions
+                throw new Error("LINEプロフィールを取得できませんでした。");
             }
-        } catch (e) {
-            console.error(e);
-            // Fallback for dev
+        } catch (e: any) {
+            console.error("LIFF Initialization failed:", e);
+            // Fallback for dev, but show error in production
             if (process.env.NODE_ENV === 'development') {
                 const mockId = 'mock-user-id-' + Math.random();
                 setLineUserId(mockId);
                 setStoreLineUserId(mockId);
+                toast.warning("開発モード: LIFF初期化に失敗。モックIDを使用します。");
+            } else {
+                setInitializationError("LINEの認証に失敗しました。画面を再読み込みしてください。");
             }
         }
     };
@@ -64,22 +87,16 @@ export default function InviteHandler() {
 
         setIsLoading(true);
         try {
-            // 2. Call Link Account API
             const res = await invitationApi.linkAccount(lineUserId, inviteToken, inputCode);
 
             toast.success(`${res.data.name}様のアカウント連携が完了しました！`);
 
-            // Redirect based on role
-            // Important: Add a small delay to ensure toast is seen
             setTimeout(async () => {
                 if (res.data.role === 'farmer') {
-                    // For farmers, we might need to refresh the page to update LIFF context if it changed
-                    // But usually navigate is enough if the app structure supports it.
-                    // Force refresh to be safe and ensure clean state
+                    // Force refresh to ensure clean state and correct context for producer app
                     window.location.href = `/producer?farmer_id=${res.data.target_id || ''}`;
                 } else {
-                    // Refresh auth state before redirecting
-                    // We need to re-verify token because the user role has changed (is_registered became true)
+                    // For restaurants, we need to refresh auth state before redirecting
                     try {
                         const idToken = liffService.getIDToken();
                         if (idToken) {
@@ -97,16 +114,41 @@ export default function InviteHandler() {
 
         } catch (error: any) {
             console.error("Invitation linking error detail:", error);
-            if (error.response) {
-                console.error("API Error Response:", error.response.data);
-            }
             toast.error(error.response?.data?.detail || "コードが間違っているか、URLの有効期限が切れています。");
         } finally {
             setIsLoading(false);
         }
     };
 
-    if (!inviteToken) return null;
+    // This component should only be active if a token is present
+    if (!inviteToken && !isInitializing) return null;
+
+    // Loading state while fetching role and initializing LIFF
+    if (isInitializing) {
+        return (
+            <div className="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center p-6">
+                <Loader2 className="animate-spin text-green-600 h-12 w-12" />
+                <p className="mt-4 text-gray-600">招待情報を確認中...</p>
+            </div>
+        );
+    }
+
+    // Error state if invitation is invalid
+    if (initializationError) {
+        return (
+            <div className="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center p-6 text-center">
+                 <AlertCircle className="text-red-500 h-12 w-12" />
+                <h2 className="mt-4 text-xl font-bold text-gray-800">エラー</h2>
+                <p className="mt-2 text-gray-600">{initializationError}</p>
+                 <button
+                    onClick={() => window.location.reload()}
+                    className="mt-6 bg-green-600 text-white font-bold py-2 px-6 rounded-lg text-md shadow-md"
+                >
+                    再試行
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div className="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center p-6">
@@ -132,7 +174,7 @@ export default function InviteHandler() {
 
                 <button
                     onClick={handleLink}
-                    disabled={isLoading || inputCode.length !== 4}
+                    disabled={isLoading || inputCode.length !== 4 || !lineUserId}
                     className="w-full bg-green-600 text-white font-bold py-4 rounded-xl text-lg shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                 >
                     {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}

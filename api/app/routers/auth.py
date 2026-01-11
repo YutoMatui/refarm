@@ -17,6 +17,41 @@ from typing import Optional
 router = APIRouter()
 
 
+# --- New Schema for Invitation Info ---
+class InvitationInfoResponse(BaseModel):
+    role: str
+
+
+# --- New Endpoint for Invitation Info ---
+@router.get("/invitation_info/{token}", response_model=InvitationInfoResponse, summary="招待情報の役割を取得")
+async def get_invitation_info(
+    token: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    招待トークンを検証し、それが生産者向けか飲食店向けかを返します。
+    """
+    # 1. Check Farmer invitations
+    stmt_farmer = select(Farmer).where(
+        Farmer.invite_token == token,
+        Farmer.invite_expires_at > datetime.now()
+    )
+    result_farmer = await db.execute(stmt_farmer)
+    if result_farmer.scalar_one_or_none():
+        return InvitationInfoResponse(role="farmer")
+
+    # 2. Check Restaurant invitations
+    stmt_restaurant = select(Restaurant).where(
+        Restaurant.invite_token == token,
+        Restaurant.invite_expires_at > datetime.now()
+    )
+    result_restaurant = await db.execute(stmt_restaurant)
+    if result_restaurant.scalar_one_or_none():
+        return InvitationInfoResponse(role="restaurant")
+
+    raise HTTPException(status_code=404, detail="招待URLが無効か、期限切れです。")
+
+
 class LinkAccountRequest(BaseModel):
     """Request schema for linking account."""
     line_user_id: str
@@ -240,7 +275,6 @@ async def verify_line_token(
                 restaurant_to_link.line_user_id = line_user_id
                 restaurant_to_link.invite_token = None
                 restaurant_to_link.invite_code = None
-                restaurant_to_link.invite_expires_at = None
                 await db.commit()
                 restaurant = restaurant_to_link
             # If no invite is found, it will just fall through and return "not registered"
