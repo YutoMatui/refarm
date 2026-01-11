@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams, useOutletContext } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Camera, ArrowLeft, Loader2, Save } from 'lucide-react';
 import { producerApi, uploadApi, productApi } from '../../services/api';
@@ -24,7 +24,7 @@ export default function ProductForm() {
     const navigate = useNavigate();
     const { id } = useParams();
     const isEdit = !!id;
-    const { farmerId } = useOutletContext<{ farmerId: number }>();
+    // const { farmerId } = useOutletContext<{ farmerId: number }>(); // Not used anymore
 
     const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<ProductFormData>({
         defaultValues: {
@@ -105,13 +105,13 @@ export default function ProductForm() {
         try {
             const payload = {
                 ...data,
-                farmer_id: farmerId,
+                // farmer_id is determined by backend from token
                 image_url: imageUrl,
                 is_wakeari: data.is_wakeari ? 1 : 0
             };
 
             if (isEdit && id) {
-                await producerApi.updateProduct(parseInt(id), farmerId, payload);
+                await producerApi.updateProduct(parseInt(id), undefined, payload);
                 toast.success('商品を更新しました');
             } else {
                 await producerApi.createProduct(payload);

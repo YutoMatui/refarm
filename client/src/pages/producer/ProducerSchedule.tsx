@@ -16,7 +16,7 @@ type ScheduleItem = {
 };
 
 export default function ProducerSchedule() {
-    const { farmerId } = useOutletContext<{ farmerId: number }>();
+    useOutletContext<{ farmerId: number; }>();
     const [currentDate, setCurrentDate] = useState(new Date()); // Represents the currently displayed month
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [items, setItems] = useState<ScheduleItem[]>([]);
@@ -30,14 +30,14 @@ export default function ProducerSchedule() {
         const fetchMonthly = async () => {
             try {
                 const monthStr = format(currentDate, 'yyyy-MM');
-                const res = await producerApi.getSales(farmerId, monthStr);
+                const res = await producerApi.getSales(undefined, monthStr);
                 setMonthlyData(res.data.dailySales || []);
             } catch (e) {
                 console.error("Failed to fetch monthly sales for calendar:", e);
             }
         };
         fetchMonthly();
-    }, [currentDate, farmerId]);
+    }, [currentDate]);
 
     // Fetch data when selectedDate or farmerId changes
     useEffect(() => {
@@ -45,7 +45,7 @@ export default function ProducerSchedule() {
             setLoading(true);
             try {
                 const dateStr = format(selectedDate, 'yyyy-MM-dd');
-                const response = await producerApi.getSchedule(farmerId, dateStr);
+                const response = await producerApi.getSchedule(undefined, dateStr);
                 setItems(response.data);
             } catch (error) {
                 console.error("Failed to fetch schedule:", error);
@@ -56,7 +56,7 @@ export default function ProducerSchedule() {
         };
 
         fetchSchedule();
-    }, [selectedDate, farmerId]);
+    }, [selectedDate]);
 
     const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
     const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));

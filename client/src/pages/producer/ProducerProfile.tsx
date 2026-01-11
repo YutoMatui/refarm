@@ -24,7 +24,7 @@ interface ProfileFormData {
 }
 
 export default function ProducerProfile() {
-    const { farmerId } = useOutletContext<{ farmerId: number }>();
+    useOutletContext<{ farmerId: number; }>();
     const [loading, setLoading] = useState(true);
     const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
     const [coverPhotoUrl, setCoverPhotoUrl] = useState('');
@@ -44,11 +44,11 @@ export default function ProducerProfile() {
 
     useEffect(() => {
         loadProfile();
-    }, [farmerId]);
+    }, []);
 
     const loadProfile = async () => {
         try {
-            const res = await producerApi.getProfile(farmerId);
+            const res = await producerApi.getProfile();
             const f = res.data;
             setValue('name', f.name);
             setValue('bio', f.bio || '');
@@ -112,7 +112,7 @@ export default function ProducerProfile() {
 
     const onSubmit = async (data: ProfileFormData) => {
         try {
-            await producerApi.updateProfile(farmerId, {
+            await producerApi.updateProfile(undefined, {
                 ...data,
                 profile_photo_url: profilePhotoUrl,
                 cover_photo_url: coverPhotoUrl,

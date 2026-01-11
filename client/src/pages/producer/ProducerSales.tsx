@@ -15,7 +15,7 @@ type SalesData = {
 };
 
 export default function ProducerSales() {
-    const { farmerId } = useOutletContext<{ farmerId: number }>();
+    useOutletContext<{ farmerId: number; }>();
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [data, setData] = useState<SalesData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -25,7 +25,7 @@ export default function ProducerSales() {
             setLoading(true);
             try {
                 const monthStr = format(currentMonth, 'yyyy-MM');
-                const response = await producerApi.getSales(farmerId, monthStr);
+                const response = await producerApi.getSales(undefined, monthStr);
                 setData(response.data);
             } catch (error) {
                 console.error("Failed to fetch sales data:", error);
@@ -35,7 +35,7 @@ export default function ProducerSales() {
         };
 
         fetchSales();
-    }, [currentMonth, farmerId]);
+    }, [currentMonth]);
 
     const nextMonth = () => {
         const d = new Date(currentMonth);
@@ -77,15 +77,15 @@ export default function ProducerSales() {
             toast.info('支払通知書をLINEに送信しています...');
 
             // 1. Send to LINE
-            await producerApi.sendPaymentNoticeLine(farmerId, monthStr);
+            await producerApi.sendPaymentNoticeLine(undefined, monthStr);
             toast.success('LINEに支払通知書を送信しました');
 
             // 2. Download
-            const blob = await producerApi.downloadPaymentNotice(farmerId, monthStr);
+            const blob = await producerApi.downloadPaymentNotice(undefined, monthStr);
             const url = window.URL.createObjectURL(new Blob([blob]));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `payment_notice_${farmerId}_${monthStr}.pdf`);
+            link.setAttribute('download', `payment_notice_${monthStr}.pdf`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);

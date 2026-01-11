@@ -5,19 +5,19 @@ import { Product, HarvestStatus } from '../../types';
 import { Plus, ChevronRight, Loader2 } from 'lucide-react';
 
 export default function ProducerDashboard() {
-    const { farmerId } = useOutletContext<{ farmerId: number }>();
+    useOutletContext<{ farmerId: number; }>();
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
 
     useEffect(() => {
         loadProducts();
-    }, [farmerId]);
+    }, []);
 
     const loadProducts = async () => {
         setLoading(true);
         try {
-            const res = await producerApi.getProducts(farmerId);
+            const res = await producerApi.getProducts();
             setProducts(res.data.items);
         } catch (e) {
             console.error(e);
