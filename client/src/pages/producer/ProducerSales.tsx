@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, ShoppingBag, Download, Loader2, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, DollarSign, ShoppingBag, Loader2, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { producerApi } from '../../services/api';
 import { toast } from 'sonner';
@@ -61,7 +61,7 @@ export default function ProducerSales() {
         return <div className="text-center p-10 text-gray-500">データが読み込めませんでした</div>;
     }
 
-    const maxDaily = Math.max(...data.dailySales.map(d => d.amount), 1); // Avoid div by zero
+
 
     // Calculate growth rate
     const growthRate = data.lastMonthSales > 0
@@ -69,30 +69,7 @@ export default function ProducerSales() {
         : data.totalSales > 0 ? '100.0' : '0.0';
     const isPositive = parseFloat(growthRate) >= 0;
 
-    const handleDownloadCSV = () => {
-        if (!data) return;
 
-        // Header
-        const headers = ['日付', '売上金額'];
-        const rows = data.dailySales.map(d => [`${currentMonth.getFullYear()}/${currentMonth.getMonth() + 1}/${d.day}`, d.amount]);
-
-        // Add total
-        rows.push(['合計', data.totalSales]);
-
-        const csvContent = [
-            headers.join(','),
-            ...rows.map(row => row.join(','))
-        ].join('\n');
-
-        const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `sales_${format(currentMonth, 'yyyyMM')}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
 
     const handleDownloadPaymentNotice = async () => {
         try {
@@ -169,27 +146,7 @@ export default function ProducerSales() {
                 </div>
             </div>
 
-            {/* Daily Sales Chart */}
-            <div className="bg-white p-4 rounded-xl shadow">
-                <h3 className="font-bold text-gray-800 mb-4 text-sm">日別売上推移</h3>
-                <div className="h-40 flex items-end justify-between space-x-1">
-                    {data.dailySales.map((d, i) => (
-                        <div key={d.day} className="flex-1 flex flex-col items-center group relative">
-                            {/* Tooltip */}
-                            <div className="absolute bottom-full mb-1 bg-gray-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                                {d.day}日: {formatCurrency(d.amount)}
-                            </div>
-                            <div
-                                className="w-full bg-green-200 hover:bg-green-400 transition-colors rounded-t-sm"
-                                style={{ height: `${(d.amount / maxDaily) * 100}%` }}
-                            ></div>
-                            {i % 5 === 0 && (
-                                <div className="text-[10px] text-gray-400 mt-1">{d.day}</div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            </div>
+
 
             {/* Daily Sales Table (Details) */}
             <div className="bg-white rounded-xl shadow overflow-hidden">
@@ -255,22 +212,13 @@ export default function ProducerSales() {
                 </div>
             </div>
 
-            <div className="space-y-3">
-                <button
-                    onClick={handleDownloadCSV}
-                    className="w-full py-3 bg-gray-800 text-white rounded-lg flex items-center justify-center font-bold shadow-lg active:scale-95 transition-transform"
-                >
-                    <Download size={18} className="mr-2" />
-                    売上CSVをダウンロード
-                </button>
-                <button
-                    onClick={handleDownloadPaymentNotice}
-                    className="w-full py-3 bg-white border border-green-600 text-green-700 rounded-lg flex items-center justify-center font-bold shadow-sm active:bg-green-50 transition-colors"
-                >
-                    <FileText size={18} className="mr-2" />
-                    支払通知書を発行 (Refarm)
-                </button>
-            </div>
+            <button
+                onClick={handleDownloadPaymentNotice}
+                className="w-full py-3 bg-white border border-green-600 text-green-700 rounded-lg flex items-center justify-center font-bold shadow-sm active:bg-green-50 transition-colors"
+            >
+                <FileText size={18} className="mr-2" />
+                支払通知書を発行
+            </button>
         </div>
     );
 }

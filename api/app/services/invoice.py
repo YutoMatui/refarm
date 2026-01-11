@@ -196,10 +196,10 @@ def generate_farmer_payment_notice_pdf(farmer, total_amount, period_str, details
         "tax_amount": tax_val,
         
         "due_date": "翌月末日", # Payment terms
-        "bank_name": "", # Not needed for payment notice (we pay them)
-        "bank_branch": "",
-        "bank_type": "",
-        "bank_number": "",
+        "bank_name": farmer.bank_name or "（未設定）",
+        "bank_branch": farmer.bank_branch or "",
+        "bank_type": farmer.bank_account_type or "普通",
+        "bank_number": farmer.bank_account_number or "",
         
         "daily_items": items,
         "remarks": "いつも美味しいお野菜をありがとうございます。"
@@ -274,8 +274,8 @@ def generate_monthly_invoice_pdf(restaurant, orders, target_month_str, invoice_p
     sender_info = {
         "name": "りふぁーむ",
         "zip": "653-0845",
-        "address": "兵庫県神戸市長田区戸崎通 2-8-5",
-        "building": "メゾン戸崎通 101",
+        "address": "兵庫県神戸市長田区戸崎通2-8-5",
+        "building": "メゾン戸崎通101",
         "tel": "090-9614-4516",
         "pic": "松井優人",
         # "reg_num": "T1234567890123" # Dummy Invoice Registration Number (Commented out - not yet registered)

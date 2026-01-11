@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, ShoppingBag, Truck, ClipboardList, Store, Map, ShieldAlert } from 'lucide-react'
+import { Users, ShoppingBag, Truck, ClipboardList, Store, Map, ShieldAlert, MessageCircle } from 'lucide-react'
 import FarmerManagement from '@/components/Admin/FarmerManagement'
 import ProductManagement from '@/components/Admin/ProductManagement'
 import DeliveryManagement from '@/components/Admin/DeliveryManagement'
@@ -8,10 +8,11 @@ import RestaurantManagement from '@/components/Admin/RestaurantManagement'
 import RoutePlanning from '@/components/Admin/RoutePlanning'
 import AdminUserManagement from '@/components/Admin/AdminUserManagement'
 import DeliveryScheduleManagement from '@/components/Admin/DeliveryScheduleManagement'
+import GuestManagement from '@/components/Admin/GuestManagement'
 import { adminApi } from '@/services/api'
 
 export default function Admin() {
-    const [activeTab, setActiveTab] = useState<'farmers' | 'products' | 'delivery' | 'procurement' | 'restaurants' | 'route' | 'admin_users' | 'delivery_schedule'>('farmers')
+    const [activeTab, setActiveTab] = useState<'farmers' | 'products' | 'delivery' | 'procurement' | 'restaurants' | 'route' | 'admin_users' | 'delivery_schedule' | 'guest'>('farmers')
     const [userRole, setUserRole] = useState<string>('editor')
 
     useEffect(() => {
@@ -29,6 +30,7 @@ export default function Admin() {
         { id: 'delivery_schedule', label: '配送スケジュール', icon: Truck },
         { id: 'procurement', label: '仕入れ集計', icon: ClipboardList },
         { id: 'route', label: 'ルート最適化', icon: Map },
+        { id: 'guest', label: 'ゲスト機能管理', icon: MessageCircle },
     ] as const
 
     // Add Admin User Management tab only for super_admin
@@ -83,6 +85,7 @@ export default function Admin() {
                         {activeTab === 'restaurants' && <RestaurantManagement />}
                         {activeTab === 'route' && <RoutePlanning />}
                         {activeTab === 'admin_users' && <AdminUserManagement />}
+                        {activeTab === 'guest' && <GuestManagement />}
                     </div>
                 </div>
             </main>

@@ -165,6 +165,37 @@ class Farmer(Base, TimestampMixin, SoftDeleteMixin):
         comment="アクティブフラグ (0: 無効, 1: 有効)"
     )
     
+    # Bank Information (振込先情報)
+    bank_name = Column(
+        String(100),
+        nullable=True,
+        comment="銀行名"
+    )
+    
+    bank_branch = Column(
+        String(100),
+        nullable=True,
+        comment="支店名"
+    )
+    
+    bank_account_type = Column(
+        String(10),
+        nullable=True,
+        comment="口座種別 (普通/当座)"
+    )
+    
+    bank_account_number = Column(
+        String(20),
+        nullable=True,
+        comment="口座番号"
+    )
+    
+    bank_account_holder = Column(
+        String(100),
+        nullable=True,
+        comment="口座名義"
+    )
+    
     # Invitation System
     invite_token = Column(String(64), nullable=True, index=True)
     invite_code = Column(String(10), nullable=True)

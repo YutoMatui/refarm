@@ -120,6 +120,12 @@ export interface Farmer extends TimestampFields {
   commitments?: Commitment[] // [{title, body, image_url}]
   achievements?: Achievement[] // [{title, image_url}]
   chef_comments?: ChefComment[]
+  // Bank information
+  bank_name?: string | null
+  bank_branch?: string | null
+  bank_account_type?: string | null
+  bank_account_number?: string | null
+  bank_account_holder?: string | null
 }
 
 // Product

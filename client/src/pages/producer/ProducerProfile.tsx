@@ -16,6 +16,11 @@ interface ProfileFormData {
     address: string;
     name: string;
     kodawari: string;
+    bank_name: string;
+    bank_branch: string;
+    bank_account_type: string;
+    bank_account_number: string;
+    bank_account_holder: string;
 }
 
 export default function ProducerProfile() {
@@ -49,6 +54,11 @@ export default function ProducerProfile() {
             setValue('bio', f.bio || '');
             setValue('address', f.address || '');
             setValue('kodawari', f.kodawari || '');
+            setValue('bank_name', f.bank_name || '');
+            setValue('bank_branch', f.bank_branch || '');
+            setValue('bank_account_type', f.bank_account_type || '普通');
+            setValue('bank_account_number', f.bank_account_number || '');
+            setValue('bank_account_holder', f.bank_account_holder || '');
             setProfilePhotoUrl(f.profile_photo_url || '');
             setCoverPhotoUrl(f.cover_photo_url || '');
 
@@ -227,6 +237,58 @@ export default function ProducerProfile() {
                             className="w-full border border-gray-300 rounded-xl p-3.5 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
                             placeholder="栽培方法や味へのこだわり..."
                         />
+                    </div>
+
+                    <div className="border-t border-gray-100 pt-6 mt-6">
+                        <h3 className="text-sm font-bold text-gray-700 mb-4">振込先情報</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1.5">銀行名</label>
+                                <input
+                                    {...register('bank_name')}
+                                    className="w-full border border-gray-300 rounded-xl p-3.5 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
+                                    placeholder="例: 三井住友銀行"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1.5">支店名</label>
+                                <input
+                                    {...register('bank_branch')}
+                                    className="w-full border border-gray-300 rounded-xl p-3.5 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
+                                    placeholder="例: 板宿支店"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1.5">口座種別</label>
+                                <select
+                                    {...register('bank_account_type')}
+                                    className="w-full border border-gray-300 rounded-xl p-3.5 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
+                                >
+                                    <option value="普通">普通</option>
+                                    <option value="当座">当座</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1.5">口座番号</label>
+                                <input
+                                    {...register('bank_account_number')}
+                                    className="w-full border border-gray-300 rounded-xl p-3.5 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
+                                    placeholder="例: 1234567"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1.5">口座名義</label>
+                                <input
+                                    {...register('bank_account_holder')}
+                                    className="w-full border border-gray-300 rounded-xl p-3.5 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
+                                    placeholder="例: マツイ ユウト"
+                                />
+                            </div>
+                        </div>
                     </div>
 
                     <div className="border-t border-gray-100 pt-6 mt-6 space-y-8">
