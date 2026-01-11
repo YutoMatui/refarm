@@ -27,12 +27,16 @@ export default function InviteHandler() {
                 const role = data.role;
 
                 // Now, initialize LIFF with the correct context
-                await initializeLiff(role);
+                const isReady = await initializeLiff(role);
+
+                // Only stop initializing if we are not redirecting to login
+                if (isReady) {
+                    setIsInitializing(false);
+                }
 
             } catch (error: any) {
                 console.error("Failed to process invitation:", error);
                 setInitializationError(error.response?.data?.detail || "招待URLが無効か、期限切れです。");
-            } finally {
                 setIsInitializing(false);
             }
         };
@@ -53,12 +57,12 @@ export default function InviteHandler() {
         }
     }, [location]);
 
-    const initializeLiff = async (role: string) => {
+    const initializeLiff = async (role: string): Promise<boolean> => {
         try {
             await liffService.init({ role });
             if (!liffService.isLoggedIn()) {
                 liffService.login();
-                return; // Stop execution to allow LIFF to handle login redirect
+                return false; // Stop execution to allow LIFF to handle login redirect
             }
             const profile = await liffService.getProfile();
             if (profile) {
@@ -68,6 +72,7 @@ export default function InviteHandler() {
                 // This can happen if user revokes permissions
                 throw new Error("LINEプロフィールを取得できませんでした。");
             }
+            return true;
         } catch (e: any) {
             console.error("LIFF Initialization failed:", e);
             // Fallback for dev, but show error in production
@@ -79,6 +84,7 @@ export default function InviteHandler() {
             } else {
                 setInitializationError("LINEの認証に失敗しました。画面を再読み込みしてください。");
             }
+            return true;
         }
     };
 
@@ -137,10 +143,10 @@ export default function InviteHandler() {
     if (initializationError) {
         return (
             <div className="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center p-6 text-center">
-                 <AlertCircle className="text-red-500 h-12 w-12" />
+                <AlertCircle className="text-red-500 h-12 w-12" />
                 <h2 className="mt-4 text-xl font-bold text-gray-800">エラー</h2>
                 <p className="mt-2 text-gray-600">{initializationError}</p>
-                 <button
+                <button
                     onClick={() => window.location.reload()}
                     className="mt-6 bg-green-600 text-white font-bold py-2 px-6 rounded-lg text-md shadow-md"
                 >
