@@ -29,6 +29,7 @@ class GuestFarmerResponse(BaseModel):
 
 class VisitCreate(BaseModel):
     restaurant_id: int
+    visitor_id: Optional[str] = None
 
 class VisitResponse(BaseModel):
     visit_id: int
@@ -94,7 +95,10 @@ async def create_visit(visit: VisitCreate, db: AsyncSession = Depends(get_db)):
     """
     訪問セッションの開始（ログ記録）
     """
-    new_visit = GuestVisit(restaurant_id=visit.restaurant_id)
+    new_visit = GuestVisit(
+        restaurant_id=visit.restaurant_id,
+        visitor_id=visit.visitor_id
+    )
     db.add(new_visit)
     await db.commit()
     await db.refresh(new_visit)

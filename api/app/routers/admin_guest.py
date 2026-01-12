@@ -1,10 +1,13 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, case
 from typing import List, Optional
 from datetime import datetime, timedelta
 import secrets
+import csv
+import io
 
 from app.core.database import get_db
 from app.models.restaurant import Restaurant
@@ -21,8 +24,6 @@ class AdminStoreResponse(BaseModel):
     name: str
     message: Optional[str] = None
     line_user_id: Optional[str] = None
-    # QR code logic is frontend-side (url generation), but we might want a token in future
-    # For now, we assume ID-based URL: /guest?store={id}
 
 class StoreMessageUpdate(BaseModel):
     message: str
@@ -34,7 +35,7 @@ class InteractionLog(BaseModel):
     stamp_type: Optional[str] = None
     comment: Optional[str] = None
     nickname: Optional[str] = None
-    farmer_name: Optional[str] = None # None means "General" for comments
+    farmer_name: Optional[str] = None
     restaurant_name: Optional[str] = None
 
 class AnalysisSummary(BaseModel):
@@ -42,8 +43,14 @@ class AnalysisSummary(BaseModel):
     avg_stay_time: float
     total_comments: int
     total_stamps: int
+    total_interests: int
 
 class StampAggregation(BaseModel):
+    farmer_id: int
+    farmer_name: str
+    count: int
+
+class InterestAggregation(BaseModel):
     farmer_id: int
     farmer_name: str
     count: int
@@ -163,7 +170,7 @@ async def _aggregate_stamp_data(db: AsyncSession) -> List[StampAggregation]:
 @router.get("/stores", response_model=List[AdminStoreResponse])
 async def list_guest_stores(db: AsyncSession = Depends(get_db)):
     """
-    ゲスト機能を利用する店舗一覧 (QR生成用情報含む)
+    ゲスト機能を利用する店舗一覧
     """
     result = await db.execute(select(Restaurant))
     stores = result.scalars().all()
@@ -178,9 +185,6 @@ async def list_guest_stores(db: AsyncSession = Depends(get_db)):
 
 @router.put("/stores/{store_id}/message")
 async def update_store_message(store_id: int, data: StoreMessageUpdate, db: AsyncSession = Depends(get_db)):
-    """
-    店舗のこだわりメッセージを更新
-    """
     return await _update_store_message_internal(store_id, data, db)
 
 @router.put("/restaurants/{restaurant_id}/message")
@@ -189,27 +193,10 @@ async def update_restaurant_message(
     data: StoreMessageUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    店舗のこだわりメッセージを更新 (管理画面互換エンドポイント)
-    """
     return await _update_store_message_internal(restaurant_id, data, db)
-
-# TODO: QR regeneration logic requires a token field in Restaurant model.
-# For now, we only use ID. If user really wants "Lock/Regenerate", we need a schema change for 'guest_token'.
-# Given the urgent request, we will placeholder this or stick to ID-based for V1.
-# But user explicitly asked for "Regeneration Lock".
-# Let's assume we might implement token later or just mock it for now to satisfy UI req.
-# EDIT: I will skip schema change for token for now unless strictly needed, 
-# as ID-based is standard for this project phase.
-# I will implement the UI for it but maybe just warn "ID based URL cannot be changed properly without token system".
-# Actually, let's just stick to ID for now and allow editing "message".
-# The "QR Regeneration" might be out of scope for strict backend unless we add columns.
 
 @router.get("/stats", response_model=List[RestaurantStatsResponse])
 async def get_restaurant_stats(db: AsyncSession = Depends(get_db)):
-    """
-    店舗別のゲスト利用状況統計
-    """
     return await _fetch_restaurant_stats(db)
 
 @router.get("/analysis/summary", response_model=AnalysisSummary)
@@ -217,7 +204,7 @@ async def get_analysis_summary(db: AsyncSession = Depends(get_db)):
     """
     全体のアクセス解析サマリ
     """
-    # Total PV (Visits)
+    # Total PV
     pv_query = select(func.count(GuestVisit.id))
     total_pv = (await db.execute(pv_query)).scalar() or 0
 
@@ -225,7 +212,7 @@ async def get_analysis_summary(db: AsyncSession = Depends(get_db)):
     stay_query = select(func.avg(GuestVisit.stay_time_seconds)).where(GuestVisit.stay_time_seconds > 0)
     avg_stay = (await db.execute(stay_query)).scalar() or 0.0
 
-    # Comments (Interaction MESSAGE)
+    # Comments
     comment_query = select(func.count(GuestInteraction.id)).where(GuestInteraction.interaction_type == 'MESSAGE')
     total_comments = (await db.execute(comment_query)).scalar() or 0
 
@@ -233,37 +220,135 @@ async def get_analysis_summary(db: AsyncSession = Depends(get_db)):
     stamp_query = select(func.count(GuestInteraction.id)).where(GuestInteraction.interaction_type == 'STAMP')
     total_stamps = (await db.execute(stamp_query)).scalar() or 0
 
+    # Interests
+    interest_query = select(func.count(GuestInteraction.id)).where(GuestInteraction.interaction_type == 'INTEREST')
+    total_interests = (await db.execute(interest_query)).scalar() or 0
+
     return AnalysisSummary(
         total_pv=total_pv,
         avg_stay_time=round(avg_stay, 1),
         total_comments=total_comments,
-        total_stamps=total_stamps
+        total_stamps=total_stamps,
+        total_interests=total_interests
     )
 
 @router.get("/analysis/comments", response_model=List[InteractionLog])
 async def list_comments(limit: int = 50, db: AsyncSession = Depends(get_db)):
-    """
-    最新のコメント一覧
-    """
     return await _fetch_comment_logs(limit, db)
 
 @router.get("/comments", response_model=List[InteractionLog])
 async def list_comments_admin(limit: int = 50, db: AsyncSession = Depends(get_db)):
-    """
-    最新のコメント一覧 (管理画面互換エンドポイント)
-    """
     return await _fetch_comment_logs(limit, db)
 
 @router.get("/analysis/stamps", response_model=List[StampAggregation])
 async def aggregate_stamps(db: AsyncSession = Depends(get_db)):
-    """
-    農家ごとのスタンプ獲得数ランキング
-    """
     return await _aggregate_stamp_data(db)
 
 @router.get("/stamps", response_model=List[StampAggregation])
 async def aggregate_stamps_admin(db: AsyncSession = Depends(get_db)):
-    """
-    農家ごとのスタンプ獲得数ランキング (管理画面互換エンドポイント)
-    """
     return await _aggregate_stamp_data(db)
+
+@router.get("/analysis/interests", response_model=List[InterestAggregation])
+async def aggregate_interests(db: AsyncSession = Depends(get_db)):
+    """
+    農家ごとの興味あり（クリック）数ランキング
+    """
+    query = (
+        select(
+            Farmer.id,
+            Farmer.name,
+            func.count(GuestInteraction.id).label("count"),
+        )
+        .join(GuestInteraction, Farmer.id == GuestInteraction.farmer_id)
+        .where(GuestInteraction.interaction_type == "INTEREST")
+        .group_by(Farmer.id, Farmer.name)
+        .order_by(desc("count"))
+    )
+    result = await db.execute(query)
+    rows = result.all()
+    return [
+        InterestAggregation(
+            farmer_id=row.id,
+            farmer_name=row.name,
+            count=row.count
+        )
+        for row in rows
+    ]
+
+@router.get("/analysis/csv")
+async def export_guest_data_csv(db: AsyncSession = Depends(get_db)):
+    """
+    ゲスト利用データをCSVでエクスポート (アクセス解析用)
+    """
+    # Query visits
+    query = (
+        select(
+            GuestVisit,
+            Restaurant.name.label("restaurant_name")
+        )
+        .join(Restaurant, GuestVisit.restaurant_id == Restaurant.id)
+        .order_by(desc(GuestVisit.created_at))
+    )
+    result = await db.execute(query)
+    rows = result.all()
+    
+    # In-memory CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow([
+        "Visit ID", "Restaurant", "Visitor ID", "Date", "Stay Time (sec)", 
+        "Scroll Depth (%)", "Nth Visit"
+    ])
+    
+    # Calculate Nth visit in Python for now (simple counter)
+    visitor_counts = {}
+    
+    # Since we ordered by DESC date, if we want Nth visit, we should process ASC or handle reverse.
+    # Actually, simpler to just query all and sort by ASC created_at to count.
+    # But rows are DESC.
+    # Let's re-query ASC for counting, or just do it smart.
+    
+    # Re-querying in correct order for accurate Nth calculation
+    query_asc = (
+        select(
+            GuestVisit,
+            Restaurant.name.label("restaurant_name")
+        )
+        .join(Restaurant, GuestVisit.restaurant_id == Restaurant.id)
+        .order_by(GuestVisit.created_at)
+    )
+    result_asc = await db.execute(query_asc)
+    rows_asc = result_asc.all()
+    
+    csv_rows = []
+    
+    for visit, r_name in rows_asc:
+        v_id = visit.visitor_id or "Anonymous"
+        if v_id not in visitor_counts:
+            visitor_counts[v_id] = 0
+        visitor_counts[v_id] += 1
+        
+        csv_rows.append([
+            visit.id,
+            r_name,
+            v_id,
+            visit.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            visit.stay_time_seconds or 0,
+            visit.scroll_depth or 0,
+            visitor_counts[v_id]
+        ])
+    
+    # Reverse back to DESC for export
+    csv_rows.reverse()
+    
+    for row in csv_rows:
+        writer.writerow(row)
+        
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=guest_analytics.csv"}
+    )

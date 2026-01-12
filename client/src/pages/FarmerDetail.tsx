@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { farmerApi, productApi } from '@/services/api';
+import { farmerApi, productApi, followApi } from '@/services/api';
 import { Farmer, Product, Commitment, Achievement } from '@/types';
 import {
     ArrowLeft, Loader2, Leaf, PlayCircle, ExternalLink, ChefHat, Heart
 } from 'lucide-react';
+import { toast } from 'sonner';
 import ProductCard from '@/components/ProductCard';
 
 export default function FarmerDetail() {
@@ -15,13 +16,17 @@ export default function FarmerDetail() {
     const [loading, setLoading] = useState(true);
 
     const [isFollowed, setIsFollowed] = useState(false);
+    const [followCount, setFollowCount] = useState(0);
 
     // タブ切り替えステート: 'products' | 'story'
     const [activeTab, setActiveTab] = useState<'products' | 'story'>('products');
 
     useEffect(() => {
         window.scrollTo(0, 0); // Scroll to top when loaded
-        if (id) loadFarmer(parseInt(id));
+        if (id) {
+            loadFarmer(parseInt(id));
+            loadFollowStatus(parseInt(id));
+        }
     }, [id]);
 
     const loadFarmer = async (farmerId: number) => {
@@ -33,6 +38,29 @@ export default function FarmerDetail() {
             navigate(-1);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadFollowStatus = async (farmerId: number) => {
+        try {
+            const res = await followApi.getFarmerStatus(farmerId);
+            setIsFollowed(res.data.is_following);
+            setFollowCount(res.data.count);
+        } catch (e) {
+            console.error("Follow status check failed", e);
+        }
+    }
+
+    const handleFollow = async () => {
+        if (!id) return;
+        try {
+            const res = await followApi.toggleFarmer(parseInt(id));
+            setIsFollowed(res.data.is_following);
+            setFollowCount(res.data.count);
+            toast.success(res.data.is_following ? 'フォローしました' : 'フォロー解除しました');
+        } catch (e) {
+            console.error(e);
+            toast.error('フォロー操作に失敗しました。ログインしているか確認してください。');
         }
     };
 
@@ -156,7 +184,7 @@ export default function FarmerDetail() {
                         {/* フォローボタン */}
                         <div className="pt-4">
                             <button
-                                onClick={() => setIsFollowed(!isFollowed)}
+                                onClick={handleFollow}
                                 className={`w-full py-3 border-2 rounded-xl font-bold transition-colors flex items-center justify-center gap-2 ${isFollowed
                                     ? 'border-green-600 bg-green-50 text-green-700 hover:bg-green-100'
                                     : 'border-gray-200 text-gray-700 hover:bg-gray-50'
@@ -164,6 +192,7 @@ export default function FarmerDetail() {
                             >
                                 <Heart size={20} className={isFollowed ? "text-green-600 fill-green-600" : "text-gray-400"} />
                                 {isFollowed ? 'フォロー中' : 'この生産者をフォローする'}
+                                <span className="text-sm font-normal ml-1">({followCount})</span>
                             </button>
                         </div>
                     </div>

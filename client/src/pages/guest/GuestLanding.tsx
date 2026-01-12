@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, User, Send, X, Heart, Star, Sprout, ThumbsUp, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { guestApi } from '@/services/api';
+import { useAnalytics } from '@/hooks/useAnalytics';
 
 // Types
 type Farmer = {
@@ -40,6 +41,9 @@ export default function GuestLanding() {
     // showForm state removed to make form always visible
     const [isSuccess, setIsSuccess] = useState(false);
 
+    // Analytics
+    const { visitorId } = useAnalytics();
+
     // Analytics refs
     const startTimeRef = useRef(Date.now());
     const scrollDepthRef = useRef(0);
@@ -57,8 +61,10 @@ export default function GuestLanding() {
                 const storeId = storeIdParam ? parseInt(storeIdParam) : 1; // Default to 1 for demo
 
                 // 1. Visit Log
-                const visitRes = await guestApi.visit(storeId);
-                setVisitId(visitRes.data.visit_id);
+                if (visitorId) {
+                    const visitRes = await guestApi.visit(storeId, visitorId);
+                    setVisitId(visitRes.data.visit_id);
+                }
 
                 // 2. Fetch Restaurant
                 const restRes = await guestApi.getRestaurant(storeId);
@@ -75,8 +81,10 @@ export default function GuestLanding() {
                 setLoading(false);
             }
         };
-        init();
-    }, [searchParams]);
+        if (visitorId) {
+            init();
+        }
+    }, [searchParams, visitorId]);
 
     // Analytics: Scroll & Stay Time
     useEffect(() => {

@@ -332,3 +332,32 @@ export interface DeliverySchedule extends TimestampFields {
   time_slot?: string | null
 }
 
+// Guest Management
+export interface StampAggregation {
+  farmer_id: number;
+  farmer_name: string;
+  stamp_type: string;
+  count: number;
+}
+
+export interface InteractionLog {
+  id: number;
+  created_at: string;
+  interaction_type: string;
+  stamp_type?: string;
+  comment?: string;
+  nickname?: string;
+  farmer_name?: string;
+  restaurant_name?: string;
+}
+
+export interface VisitLog {
+  id: number;
+  restaurant_name: string;
+  created_at: string;
+  stay_time_seconds?: number;
+  scroll_depth?: number;
+  interaction_count: number;
+  interactions: InteractionLog[];
+}
+

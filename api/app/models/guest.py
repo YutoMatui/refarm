@@ -13,6 +13,7 @@ class GuestVisit(Base, TimestampMixin):
     
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     restaurant_id = Column(Integer, ForeignKey("restaurants.id"), nullable=False, index=True)
+    visitor_id = Column(String(100), nullable=True, index=True, comment="訪問者ID (Cookie/UUID)")
     
     stay_time_seconds = Column(Integer, nullable=True, comment="滞在時間(秒)")
     scroll_depth = Column(Integer, nullable=True, comment="スクロール到達率(%)")

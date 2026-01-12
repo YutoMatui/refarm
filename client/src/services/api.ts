@@ -403,6 +403,19 @@ export const adminApi = {
 
   updateRestaurantMessage: (restaurantId: number, message: string) =>
     apiClient.put<{ status: string; message: string }>(`/admin/guest/restaurants/${restaurantId}/message`, { message }),
+
+  getAnalysisSummary: () =>
+    apiClient.get('/admin/guest/analysis/summary'),
+  getStampAggregation: () =>
+    apiClient.get('/admin/guest/analysis/stamps'),
+  getInterestAggregation: () =>
+    apiClient.get('/admin/guest/analysis/interests'),
+  getComments: () =>
+    apiClient.get('/admin/guest/analysis/comments'),
+  downloadGuestCsv: async () => {
+    const response = await apiClient.get('/admin/guest/analysis/csv', { responseType: 'blob' })
+    return response.data
+  }
 }
 
 // Guest API
@@ -413,14 +426,22 @@ export const guestApi = {
   getFarmers: () =>
     apiClient.get<{ id: number; name: string; main_crop?: string; image?: string; bio?: string; scenes: string[] }[]>('/guest/farmers'),
 
-  visit: (restaurantId: number) =>
-    apiClient.post<{ visit_id: number }>('/guest/visit', { restaurant_id: restaurantId }),
+  visit: (restaurantId: number, visitorId?: string) =>
+    apiClient.post<{ visit_id: number }>('/guest/visit', { restaurant_id: restaurantId, visitor_id: visitorId }),
 
   interaction: (data: { visit_id: number; farmer_id: number; interaction_type: string; stamp_type?: string; comment?: string; nickname?: string }) =>
     apiClient.post('/guest/interaction', data),
 
   log: (data: { visit_id: number; stay_time: number; scroll_depth?: number }) =>
     apiClient.post('/guest/log', data),
+}
+
+// Follow API
+export const followApi = {
+  toggleFarmer: (farmerId: number) =>
+    apiClient.post<{ is_following: boolean; count: number }>(`/farmers/${farmerId}/follow`),
+  getFarmerStatus: (farmerId: number) =>
+    apiClient.get<{ is_following: boolean; count: number }>(`/farmers/${farmerId}/follow`),
 }
 
 export default apiClient
