@@ -55,21 +55,21 @@ export default function ImageCropperModal({
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90dvh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4 sm:p-6">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90dvh] transform -translate-y-8 sm:-translate-y-0">
                 {/* Header */}
                 <div className="px-6 py-4 border-b flex items-center justify-between shrink-0">
-                    <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+                    <h3 className="text-xl font-bold text-gray-900">{title}</h3>
                     <button
                         onClick={onCancel}
-                        className="text-gray-500 hover:text-gray-700 transition-colors"
+                        className="text-gray-500 hover:text-gray-700 transition-colors p-2"
                     >
-                        <X className="w-6 h-6" />
+                        <X className="w-8 h-8" />
                     </button>
                 </div>
 
                 {/* Cropper Area */}
-                <div className="relative flex-1 bg-gray-900 min-h-[200px] sm:min-h-[400px]">
+                <div className="relative flex-1 bg-gray-900 min-h-[300px]">
                     <Cropper
                         image={imageSrc}
                         crop={crop}
@@ -84,10 +84,10 @@ export default function ImageCropperModal({
                 </div>
 
                 {/* Controls */}
-                <div className="p-4 sm:p-6 bg-white space-y-4 sm:space-y-6 shrink-0 overflow-y-auto">
+                <div className="p-6 bg-white space-y-6 shrink-0 overflow-y-auto">
                     {/* Zoom Control */}
                     <div className="flex items-center gap-4">
-                        <ZoomIn className="w-5 h-5 text-gray-500 shrink-0" />
+                        <ZoomIn className="w-8 h-8 text-gray-600 shrink-0" />
                         <input
                             type="range"
                             value={zoom}
@@ -96,13 +96,13 @@ export default function ImageCropperModal({
                             step={0.1}
                             aria-labelledby="Zoom"
                             onChange={(e) => setZoom(Number(e.target.value))}
-                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                            className="w-full h-4 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
                         />
                     </div>
 
                     {/* Rotation Control */}
                     <div className="flex items-center gap-4">
-                        <RotateCw className="w-5 h-5 text-gray-500 shrink-0" />
+                        <RotateCw className="w-8 h-8 text-gray-600 shrink-0" />
                         <input
                             type="range"
                             value={rotation}
@@ -111,29 +111,29 @@ export default function ImageCropperModal({
                             step={1}
                             aria-labelledby="Rotation"
                             onChange={(e) => setRotation(Number(e.target.value))}
-                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                            className="w-full h-4 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
                         />
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex justify-end gap-3 pt-2">
+                    <div className="flex justify-end gap-4 pt-4">
                         <button
                             onClick={onCancel}
-                            className="px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                            className="px-6 py-3 text-lg rounded-xl border-2 border-gray-300 text-gray-700 font-bold hover:bg-gray-50 transition-colors"
                         >
                             キャンセル
                         </button>
                         <button
                             onClick={handleSave}
                             disabled={isProcessing}
-                            className="px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-6 py-3 text-lg rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
                         >
                             {isProcessing ? (
                                 <span>処理中...</span>
                             ) : (
                                 <>
-                                    <Check className="w-4 h-4" />
-                                    保存して適用
+                                    <Check className="w-6 h-6" />
+                                    保存
                                 </>
                             )}
                         </button>
