@@ -76,6 +76,7 @@ export default function InviteHandler() {
         } catch (e: any) {
             console.error("LIFF Initialization failed:", e);
             // Fallback for dev, but show error in production
+            /*
             if (process.env.NODE_ENV === 'development') {
                 const mockId = 'mock-user-id-' + Math.random();
                 setLineUserId(mockId);
@@ -84,6 +85,8 @@ export default function InviteHandler() {
             } else {
                 setInitializationError("LINEの認証に失敗しました。画面を再読み込みしてください。");
             }
+            */
+            setInitializationError("LINEの認証に失敗しました。画面を再読み込みしてください。");
             return true;
         }
     };

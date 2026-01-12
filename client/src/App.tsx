@@ -150,7 +150,7 @@ function App() {
           } catch (err: any) {
             console.error('Authentication failed:', err)
 
-            // Check if we can fallback to mock data
+            /*
             if (idToken === 'mock-id-token') {
               console.warn('Backend verification failed for mock token, falling back to local mock data');
 
@@ -164,6 +164,8 @@ function App() {
             } else {
               setError('認証に失敗しました')
             }
+            */
+            setError('認証に失敗しました')
           }
         }
       } else {
@@ -178,6 +180,7 @@ function App() {
             return
           }
 
+          /*
           // Dev mode logic...
           console.warn('Not in LIFF environment. Using mock data.')
           // ... existing mock logic ...
@@ -197,6 +200,7 @@ function App() {
             setLineUserId('Uk-id-token')
             setRestaurant(null)
           }
+          */
         }
       }
 

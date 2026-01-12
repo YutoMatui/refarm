@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     # Application
     APP_NAME: str = "Refarm EOS"
     APP_VERSION: str = "3.0.0"
-    DEBUG: bool = True
+    DEBUG: bool = False
     
     # Database
     DATABASE_URL: str

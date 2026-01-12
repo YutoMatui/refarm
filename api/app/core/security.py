@@ -120,6 +120,7 @@ def verify_line_id_token_mock(id_token: str) -> dict:
     # Try to extract real ID from token (unverified) to avoid ID mismatch in frontend
     # This is useful when DEBUG=True but we are using real tokens (e.g. on device)
     # and real verification fails (e.g. due to network/config).
+    """
     try:
         claims = jwt.get_unverified_claims(id_token)
         if "sub" in claims:
@@ -147,6 +148,11 @@ def verify_line_id_token_mock(id_token: str) -> dict:
         "picture": None,
         "email": None,
     }
+    """
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Mock verification disabled"
+    )
 
 
 async def get_current_user_from_token(id_token: str) -> dict:

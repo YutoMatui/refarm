@@ -36,10 +36,16 @@ export class LIFFService {
     }
 
     if (!liffId || liffId === 'mock-liff-id-for-development') {
+      // In production, we should NOT use mock mode implicitly
+      if (import.meta.env.PROD) {
+        console.error('LIFF ID is missing in production!')
+      }
       console.warn('LIFF ID not configured. Using mock mode.')
+      /*
       this.initialized = true
       this.mockMode = true
       return
+      */
     }
 
     try {
