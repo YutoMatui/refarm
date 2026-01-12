@@ -34,10 +34,12 @@ import AdminLogin from '@/pages/AdminLogin'
 import AdminRoute from '@/components/AdminRoute'
 import Login from '@/pages/Login'
 import GuestLanding from '@/pages/guest/GuestLanding'
+import LinkAccountGuide from '@/pages/LinkAccountGuide'
 
 // Auth Guard Component
 const AuthGuard = ({ children }: { children: JSX.Element }) => {
   const restaurant = useStore(state => state.restaurant)
+  const farmer = useStore(state => state.farmer)
   const lineUserId = useStore(state => state.lineUserId)
   const location = useLocation()
 
@@ -50,7 +52,25 @@ const AuthGuard = ({ children }: { children: JSX.Element }) => {
   // NOTE: If role based routing is needed later, add logic here
 
   if (!lineUserId) return <Navigate to="/login" replace />
-  if (!restaurant) return <Navigate to="/register" replace />
+
+  // If not linked to any account (neither restaurant nor farmer)
+  if (!restaurant && !farmer) {
+    // Allow access to link-guide and register page (if needed)
+    if (location.pathname === '/link-guide' || location.pathname === '/register') {
+      return children
+    }
+    return <Navigate to="/link-guide" replace />
+  }
+
+  // If linked as farmer but trying to access restaurant routes (root)
+  // Ideally we should separate routes better, but for now:
+  if (!restaurant && farmer) {
+    // Redirect to producer dashboard if accessing root
+    if (location.pathname === '/' || location.pathname.startsWith('/products')) {
+      return <Navigate to="/producer" replace />
+    }
+  }
+
   return children
 }
 
@@ -199,6 +219,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/invite/:code" element={<InviteHandler />} />
+          <Route path="/link-guide" element={<LinkAccountGuide />} />
 
           <Route path="/register" element={
             !restaurant && lineUserId ? <Register /> : <Navigate to="/" replace />
