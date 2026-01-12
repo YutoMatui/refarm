@@ -44,6 +44,18 @@ async def verify_line_id_token(id_token: str) -> dict:
     if settings.LINE_PRODUCER_CHANNEL_ID and settings.LINE_PRODUCER_CHANNEL_ID not in channel_ids:
         channel_ids.append(settings.LINE_PRODUCER_CHANNEL_ID)
         
+    # Auto-detect Login Channel IDs from LIFF IDs
+    # LIFF ID format: {CHANNEL_ID}-{APP_ID}
+    if settings.RESTAURANT_LIFF_ID and "-" in settings.RESTAURANT_LIFF_ID:
+        restaurant_login_channel = settings.RESTAURANT_LIFF_ID.split("-")[0]
+        if restaurant_login_channel not in channel_ids:
+            channel_ids.append(restaurant_login_channel)
+            
+    if settings.FARMER_LIFF_ID and "-" in settings.FARMER_LIFF_ID:
+        farmer_login_channel = settings.FARMER_LIFF_ID.split("-")[0]
+        if farmer_login_channel not in channel_ids:
+            channel_ids.append(farmer_login_channel)
+        
     # If no channel IDs configured, we can't verify (unless we skip client_id check, but verify endpoint requires it)
     if not channel_ids:
         logger.error("No LINE Channel IDs configured for verification")

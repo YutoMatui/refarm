@@ -6,7 +6,6 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { farmerApi } from '@/services/api'
 import Loading from '@/components/Loading'
-import { ExternalLink, MapPin } from 'lucide-react'
 
 export default function Farmers() {
   const navigate = useNavigate()

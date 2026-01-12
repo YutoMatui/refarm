@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { invitationApi, authApi } from '../services/api';
 import { liffService } from '../services/liff';
 import { toast } from 'sonner';
@@ -15,7 +15,6 @@ export default function InviteHandler() {
     const [lineUserId, setLineUserId] = useState<string | null>(null);
 
     const location = useLocation();
-    const navigate = useNavigate();
     const setRestaurant = useStore(state => state.setRestaurant);
     const setStoreLineUserId = useStore(state => state.setLineUserId);
 
