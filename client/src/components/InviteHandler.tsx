@@ -114,7 +114,8 @@ export default function InviteHandler() {
                     } catch (e) {
                         console.error("Failed to refresh auth state", e);
                     }
-                    navigate('/');
+                    // For restaurant, refresh page to ensure clean state and correct routing
+                    window.location.href = '/products';
                 }
             }, 1000);
 
