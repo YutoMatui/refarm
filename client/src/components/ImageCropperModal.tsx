@@ -56,9 +56,9 @@ export default function ImageCropperModal({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90dvh]">
                 {/* Header */}
-                <div className="px-6 py-4 border-b flex items-center justify-between">
+                <div className="px-6 py-4 border-b flex items-center justify-between shrink-0">
                     <h3 className="text-lg font-bold text-gray-900">{title}</h3>
                     <button
                         onClick={onCancel}
@@ -69,7 +69,7 @@ export default function ImageCropperModal({
                 </div>
 
                 {/* Cropper Area */}
-                <div className="relative flex-1 bg-gray-900 min-h-[400px]">
+                <div className="relative flex-1 bg-gray-900 min-h-[200px] sm:min-h-[400px]">
                     <Cropper
                         image={imageSrc}
                         crop={crop}
@@ -84,10 +84,10 @@ export default function ImageCropperModal({
                 </div>
 
                 {/* Controls */}
-                <div className="p-6 bg-white space-y-6">
+                <div className="p-4 sm:p-6 bg-white space-y-4 sm:space-y-6 shrink-0 overflow-y-auto">
                     {/* Zoom Control */}
                     <div className="flex items-center gap-4">
-                        <ZoomIn className="w-5 h-5 text-gray-500" />
+                        <ZoomIn className="w-5 h-5 text-gray-500 shrink-0" />
                         <input
                             type="range"
                             value={zoom}
@@ -102,7 +102,7 @@ export default function ImageCropperModal({
 
                     {/* Rotation Control */}
                     <div className="flex items-center gap-4">
-                        <RotateCw className="w-5 h-5 text-gray-500" />
+                        <RotateCw className="w-5 h-5 text-gray-500 shrink-0" />
                         <input
                             type="range"
                             value={rotation}
@@ -119,14 +119,14 @@ export default function ImageCropperModal({
                     <div className="flex justify-end gap-3 pt-2">
                         <button
                             onClick={onCancel}
-                            className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                            className="px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
                         >
                             キャンセル
                         </button>
                         <button
                             onClick={handleSave}
                             disabled={isProcessing}
-                            className="px-5 py-2.5 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isProcessing ? (
                                 <span>処理中...</span>
