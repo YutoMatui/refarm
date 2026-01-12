@@ -1,16 +1,16 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { orderApi, restaurantApi, uploadApi } from '@/services/api';
 import { useStore } from '@/store/useStore';
 import {
     FileText, Package, Edit3, Save, X, Truck, Building2, Phone, MapPin,
-    Download, Camera, UtensilsCrossed, Calendar, Loader2
+    Download, Camera, UtensilsCrossed, Calendar, Loader2, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import Loading from '@/components/Loading';
 import { Order, OrderStatus } from '@/types';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, addMonths, subMonths } from 'date-fns';
 import ImageCropperModal from '@/components/ImageCropperModal';
 import { compressImage } from '@/utils/imageUtils';
 
@@ -53,8 +53,8 @@ export default function RestaurantMyPage() {
     const [profilePhotoUrl, setProfilePhotoUrl] = useState(restaurant?.profile_photo_url || '');
     const [cropperImage, setCropperImage] = useState<string | null>(null);
 
-    // For Invoice Download
-    const [invoiceMonth, setInvoiceMonth] = useState(new Date());
+    // For Invoice Download & Monthly Usage
+    const [targetDate, setTargetDate] = useState(new Date());
 
     // For Order Details Modal
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -72,42 +72,41 @@ export default function RestaurantMyPage() {
         }
     });
 
-    // 1. Fetch Orders
+    // 1. Fetch Orders (All time, to calculate local usage if needed, OR we could fetch by month)
+    // For simplicity, let's fetch recently updated orders or just rely on backend aggregation if possible.
+    // But currently we fetch last 50 orders. If user wants to see very old months, this might be insufficient.
+    // Ideally we should use a backend endpoint for monthly usage. 
+    // Since we don't have one specific for total usage in 'orderApi', we will calc client side from list for now, 
+    // but bump limit or fetch by date range would be better.
+    // Let's bump limit to 200 for now to cover a few months history in moderate usage.
     const { data: ordersData, isLoading: isOrdersLoading } = useQuery({
         queryKey: ['my-orders', restaurant?.id],
         queryFn: async () => {
             if (!restaurant) return null;
-            const res = await orderApi.list({ restaurant_id: restaurant.id, limit: 50 });
+            const res = await orderApi.list({ restaurant_id: restaurant.id, limit: 200 });
             return res.data;
         },
         enabled: !!restaurant
     });
 
-    // 2. Calculate Monthly Usage (Dynamic based on closing date)
+    // 2. Calculate Monthly Usage (Dynamic based on closing date AND targetDate)
     const monthlyUsage = useMemo(() => {
         if (!ordersData?.items || !restaurant) return 0;
 
-        const now = new Date();
         const closingDay = restaurant.closing_date || 99;
 
         let startDate, endDate;
 
+        // Calculate billing period based on targetDate (displayed month)
         if (closingDay >= 28) {
-            // End of month logic: 1st to End
-            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-            endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+            // End of month closing: 1st to End of targetDate's month
+            startDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+            endDate = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0, 23, 59, 59);
         } else {
-            // e.g. 20th: Prev 21st to Curr 20th
-            if (now.getDate() > closingDay) {
-                // Current period: This Month 21st to Next Month 20th? No, usually invoice period is past or current.
-                // Let's assume "Current Billing Cycle"
-                startDate = new Date(now.getFullYear(), now.getMonth(), closingDay + 1);
-                endDate = new Date(now.getFullYear(), now.getMonth() + 1, closingDay, 23, 59, 59);
-            } else {
-                // Current period: Prev Month 21st to This Month 20th
-                startDate = new Date(now.getFullYear(), now.getMonth() - 1, closingDay + 1);
-                endDate = new Date(now.getFullYear(), now.getMonth(), closingDay, 23, 59, 59);
-            }
+            // e.g. 20th closing.
+            // If target is May, billing period is Apr 21 - May 20.
+            startDate = new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, closingDay + 1);
+            endDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), closingDay, 23, 59, 59);
         }
 
         return ordersData.items.reduce((sum, order) => {
@@ -121,7 +120,7 @@ export default function RestaurantMyPage() {
             }
             return sum;
         }, 0);
-    }, [ordersData, restaurant]);
+    }, [ordersData, restaurant, targetDate]);
 
     // 3. Profile Update Mutation
     const updateProfileMutation = useMutation({
@@ -173,7 +172,7 @@ export default function RestaurantMyPage() {
     // 4. Monthly Invoice Download
     const handleDownloadMonthlyInvoice = async () => {
         if (!restaurant) return;
-        const monthStr = format(invoiceMonth, 'yyyy-MM');
+        const monthStr = format(targetDate, 'yyyy-MM');
 
         try {
             const blob = await orderApi.downloadMonthlyInvoice(restaurant.id, monthStr);
@@ -241,12 +240,11 @@ export default function RestaurantMyPage() {
 
     // Helper for "Current Month" Display
     const currentMonthLabel = () => {
-        const closingDay = restaurant.closing_date || 99;
-        if (closingDay >= 28) return `${new Date().getMonth() + 1}月度`;
-        // If today is before closing day, it's current month billing. If after, it's next.
-        // Simplified for display: just show "Current Usage"
-        return "今月のご利用金額";
+        return `${targetDate.getMonth() + 1}月度`;
     };
+
+    const nextMonth = () => setTargetDate(addMonths(targetDate, 1));
+    const prevMonth = () => setTargetDate(subMonths(targetDate, 1));
 
     return (
         <div className="max-w-3xl mx-auto pb-24 px-4 font-sans text-gray-800">
@@ -261,13 +259,31 @@ export default function RestaurantMyPage() {
             <div className="space-y-6">
                 {/* A. Monthly Usage Card */}
                 <section className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-                    <div className="flex justify-between items-start mb-2">
+                    <div className="flex justify-between items-center mb-4">
                         <h2 className="text-sm font-bold text-gray-500">
-                            {currentMonthLabel()}
+                            ご利用金額
                         </h2>
+                        <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                            <button onClick={prevMonth} className="p-1 hover:bg-gray-200 rounded">
+                                <ChevronLeft size={16} />
+                            </button>
+                            <span className="text-sm font-bold w-16 text-center">{currentMonthLabel()}</span>
+                            <button onClick={nextMonth} className="p-1 hover:bg-gray-200 rounded">
+                                <ChevronRight size={16} />
+                            </button>
+                        </div>
                     </div>
                     <div className="text-4xl font-extrabold tracking-tight mt-1 text-gray-900">
                         ¥{monthlyUsage.toLocaleString()}
+                    </div>
+                    <div className="mt-4 flex justify-end">
+                        <button
+                            onClick={handleDownloadMonthlyInvoice}
+                            className="text-xs text-gray-500 flex items-center gap-1 hover:text-green-600 transition-colors"
+                        >
+                            <FileText size={14} />
+                            この月の請求書をダウンロード
+                        </button>
                     </div>
                 </section>
 
@@ -419,7 +435,8 @@ export default function RestaurantMyPage() {
                     </div>
                 </section>
 
-                {/* C. Monthly Invoice */}
+                {/* C. Monthly Invoice - REMOVED redundant section */}
+                {/*
                 <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
                     <h2 className="font-bold flex items-center gap-2 mb-4">
                         <FileText size={18} className="text-gray-500" />
@@ -444,6 +461,7 @@ export default function RestaurantMyPage() {
                         ※ 設定された締め日に基づいて集計されます（現在は日次集計のみ対応）
                     </p>
                 </section>
+                */}
 
                 {/* D. Order History */}
                 <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">

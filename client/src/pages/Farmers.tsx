@@ -75,7 +75,8 @@ export default function Farmers() {
                 詳細を見る
               </button>
 
-              {/* Map Link */}
+              {/* Map Link - REMOVED */}
+              {/*
               {farmer.map_url && (
                 <a
                   href={farmer.map_url}
@@ -88,6 +89,7 @@ export default function Farmers() {
                   <ExternalLink className="w-4 h-4" />
                 </a>
               )}
+              */}
             </div>
           ))}
         </div>
