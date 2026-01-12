@@ -267,7 +267,11 @@ function App() {
           } />
 
           {/* Producer App Routes (Separated) */}
-          <Route path="/producer" element={<ProducerLayout />}>
+          <Route path="/producer" element={
+            <AuthGuard>
+              <ProducerLayout />
+            </AuthGuard>
+          }>
             <Route index element={<ProducerDashboard />} />
             <Route path="profile" element={<ProducerProfile />} />
             <Route path="products/new" element={<ProductForm />} />
