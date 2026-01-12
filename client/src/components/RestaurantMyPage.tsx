@@ -1,11 +1,11 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { orderApi, restaurantApi, uploadApi } from '@/services/api';
 import { useStore } from '@/store/useStore';
 import {
     FileText, Package, Edit3, Save, X, Truck, Building2, Phone, MapPin,
-    Download, Camera, UtensilsCrossed, Calendar, Loader2, ChevronLeft, ChevronRight
+    Camera, UtensilsCrossed, Calendar, Loader2, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import Loading from '@/components/Loading';
 import { Order, OrderStatus } from '@/types';
