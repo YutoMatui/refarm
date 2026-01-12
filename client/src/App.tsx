@@ -40,6 +40,7 @@ import LinkAccountGuide from '@/pages/LinkAccountGuide'
 const AuthGuard = ({ children }: { children: JSX.Element }) => {
   const restaurant = useStore(state => state.restaurant)
   const farmer = useStore(state => state.farmer)
+  const userRole = useStore(state => state.userRole)
   const lineUserId = useStore(state => state.lineUserId)
   const location = useLocation()
 
@@ -53,9 +54,10 @@ const AuthGuard = ({ children }: { children: JSX.Element }) => {
 
   if (!lineUserId) return <Navigate to="/login" replace />
 
-  // If not linked to any account (neither restaurant nor farmer)
-  if (!restaurant && !farmer) {
-    // Allow access to link-guide and register page (if needed)
+  // If not linked to any account (neither restaurant nor farmer) OR no role assigned
+  // This handles cases where state might be partially stale or user unlinked
+  if ((!restaurant && !farmer) || !userRole) {
+    // Allow access to link-guide and register page
     if (location.pathname === '/link-guide' || location.pathname === '/register') {
       return children
     }
@@ -129,11 +131,21 @@ function App() {
             setUserRole(role as any)
 
             if (is_registered) {
-              if (role === 'restaurant') setRestaurant(restaurant!)
-              if (role === 'farmer') setFarmer(farmer!)
+              if (role === 'restaurant') {
+                setRestaurant(restaurant!)
+                setFarmer(null)
+              }
+              if (role === 'farmer') {
+                setFarmer(farmer!)
+                setRestaurant(null)
+              }
             } else {
               console.log('User not registered')
               // User is authenticated with LINE but not registered in our DB
+              // Clear state to ensure no stale data persists (Fix for unlinking issue)
+              setRestaurant(null)
+              setFarmer(null)
+              // userRole is already set to null/role by setUserRole above
             }
           } catch (err: any) {
             console.error('Authentication failed:', err)
