@@ -11,7 +11,7 @@ from app.models.enums import OrderStatus, DeliverySlotType
 # ==========================================
 
 class DeliverySlotInfoForOrder(BaseModel):
-    """Simplified slot response for embedding in order details."""
+    """注文詳細に埋め込むための簡易受取枠情報"""
     id: int
     date: date
     slot_type: DeliverySlotType
@@ -22,13 +22,13 @@ class DeliverySlotInfoForOrder(BaseModel):
     class Config:
         from_attributes = True
 
-# ▼▼▼ 追加: 商品情報の循環参照を防ぐための簡易クラス ▼▼▼
+# ▼▼▼ 追加: これがないと 'ProductResponse is not defined' になります ▼▼▼
 class ProductInfoForOrder(BaseModel):
-    """Simplified product info for embedding."""
+    """注文明細に埋め込むための簡易商品情報"""
     id: int
     name: str
     unit: str
-    price: str # または Decimal
+    price: str
     image_url: Optional[str] = None
     
     class Config:
@@ -65,9 +65,9 @@ class ConsumerOrderItemResponse(BaseSchema, TimestampSchema):
     product_name: str
     product_unit: str
 
-    # ▼▼▼ 追加: これで ProductResponse エラーが消えます ▼▼▼
+    # ▼▼▼ 修正: ProductResponse ではなく、上で作った ProductInfoForOrder を使う ▼▼▼
     product: Optional[ProductInfoForOrder] = None
-    # ▲▲▲ 追加ここまで ▲▲▲
+    # ▲▲▲ 修正ここまで ▲▲▲
 
 
 class ConsumerCompact(BaseModel):
@@ -88,7 +88,7 @@ class ConsumerOrderResponse(TimestampSchema, BaseSchema):
     consumer_id: int
     consumer: Optional[ConsumerCompact] = None
     
-    # ここは先ほどの修正通りでOK
+    # 簡易クラスを使用
     delivery_slot: Optional[DeliverySlotInfoForOrder] = None 
     delivery_slot_id: Optional[int]
     
@@ -112,7 +112,18 @@ class ConsumerOrderResponse(TimestampSchema, BaseSchema):
     class Config:
         json_schema_extra = {
             "example": {
-                # ... (既存のexample) ...
+                "id": 1,
+                "consumer_id": 1,
+                "delivery_slot_id": 10,
+                "delivery_type": "HOME",
+                "delivery_label": "自宅配送",
+                "delivery_time_label": "14:00-16:00",
+                "status": "confirmed",
+                "subtotal": "1000",
+                "tax_amount": "80",
+                "shipping_fee": 300,
+                "total_amount": "1380",
+                "items": []
             }
         }
 
