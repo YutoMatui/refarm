@@ -21,6 +21,7 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Upgrade database schema."""
     delivery_slot_type_enum = sa.Enum('HOME', 'UNIV', name='deliveryslottype')
+    delivery_slot_type_enum.drop(op.get_bind(), checkfirst=True)
     delivery_slot_type_enum.create(op.get_bind(), checkfirst=True)
 
     op.create_table(
