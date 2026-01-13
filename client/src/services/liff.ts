@@ -24,14 +24,20 @@ export class LIFFService {
 
     const { role } = options;
 
-    // Dynamic LIFF ID selection based on URL parameters
+    // Dynamic LIFF ID selection based on URL parameters and path
     const params = new URLSearchParams(window.location.search);
     const type = params.get('type');
+    const pathname = window.location.pathname;
 
-    // Default to Restaurant LIFF ID, but check for Farmer param
+    // Default to Restaurant LIFF ID
     let liffId = import.meta.env.VITE_LIFF_ID;
 
-    if (role === 'farmer' || type === 'farmer' || window.location.pathname.startsWith('/producer') || window.location.pathname.startsWith('/invite/farmer')) {
+    // Consumer (Local) LIFF ID
+    if (pathname.startsWith('/local')) {
+      liffId = import.meta.env.VITE_CONSUMER_LIFF_ID || liffId;
+    }
+    // Farmer LIFF ID
+    else if (role === 'farmer' || type === 'farmer' || pathname.startsWith('/producer') || pathname.startsWith('/invite/farmer')) {
       liffId = import.meta.env.VITE_FARMER_LIFF_ID || liffId;
     }
 
