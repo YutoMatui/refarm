@@ -106,6 +106,3 @@ class FavoriteToggleResponse(BaseModel):
                 }
             ]
         }
-
-# Resolve forward references
-FavoriteWithProductResponse.model_rebuild()

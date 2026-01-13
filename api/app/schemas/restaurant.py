@@ -86,6 +86,3 @@ class RestaurantListResponse(BaseModel):
     total: int
     skip: int
     limit: int
-
-# Resolve forward references
-RestaurantResponse.model_rebuild()

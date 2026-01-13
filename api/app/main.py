@@ -217,6 +217,28 @@ app.include_router(settings_router.router, prefix="/api/settings", tags=["Settin
 app.include_router(guest.router, prefix="/api") # guest router has /guest prefix already
 
 
+# ----------------------------------------------------
+# Manually resolve forward references in Pydantic models
+# This is crucial for models with circular dependencies
+# ----------------------------------------------------
+from app.schemas.favorite import FavoriteWithProductResponse
+from app.schemas.product import ProductResponse
+from app.schemas.order import OrderResponse
+from app.schemas.restaurant import RestaurantResponse
+from app.schemas.consumer_order import ConsumerOrderResponse
+
+logger.info("Resolving forward references in Pydantic schemas...")
+FavoriteWithProductResponse.model_rebuild()
+# ProductResponse doesn't have forward refs, but rebuilding is safe
+ProductResponse.model_rebuild()
+OrderResponse.model_rebuild()
+RestaurantResponse.model_rebuild()
+# ConsumerOrderResponse uses a local schema, but rebuilding for consistency
+ConsumerOrderResponse.model_rebuild()
+logger.info("Pydantic schemas rebuilt successfully.")
+# ----------------------------------------------------
+
+
 @app.get("/api/debug/seed", tags=["Debug"])
 async def debug_seed_data():
     """

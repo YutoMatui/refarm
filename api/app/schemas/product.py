@@ -135,6 +135,3 @@ class ProductFilterParams(BaseModel):
     is_active: Optional[int] = Field(None, description="販売状態で絞り込み")
     is_featured: Optional[int] = Field(None, description="おすすめ商品のみ")
     search: Optional[str] = Field(None, description="商品名で検索")
-
-# Resolve forward references
-ProductResponse.model_rebuild()
