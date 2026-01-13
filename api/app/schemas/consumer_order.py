@@ -9,17 +9,17 @@ from app.models.enums import OrderStatus, DeliverySlotType
 # from app.schemas.delivery_slot import DeliverySlotResponse # 依存関係を完全に断ち切る
 
 
-class DeliverySlotInfoForOrder(BaseModel):
-    """Simplified slot response for embedding in order details."""
-    id: int
-    date: date
-    slot_type: DeliverySlotType
-    time_text: str
-    start_time: Optional[time] = None
-    end_time: Optional[time] = None
+# class DeliverySlotInfoForOrder(BaseModel):
+#     """Simplified slot response for embedding in order details."""
+#     id: int
+#     date: date
+#     slot_type: DeliverySlotType
+#     time_text: str
+#     start_time: Optional[time] = None
+#     end_time: Optional[time] = None
 
-    class Config:
-        from_attributes = True
+#     class Config:
+#         from_attributes = True
 
 
 class ConsumerOrderItemCreate(BaseModel):
@@ -70,8 +70,8 @@ class ConsumerOrderResponse(TimestampSchema, BaseSchema):
     consumer_id: int
     consumer: Optional[ConsumerCompact] = None
     
-    delivery_slot: Optional[DeliverySlotInfoForOrder] = None 
-    delivery_slot_id: Optional[int]
+    # delivery_slot: Optional[DeliverySlotInfoForOrder] = None 
+    # delivery_slot_id: Optional[int]
     
     delivery_type: DeliverySlotType
     delivery_label: str
