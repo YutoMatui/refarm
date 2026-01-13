@@ -63,6 +63,10 @@ async def create_restaurant(
             restaurant_data.latitude = str(coords["lat"])
             restaurant_data.longitude = str(coords["lng"])
             
+    # Convert empty string line_user_id to None to avoid unique constraint violation
+    if restaurant_data.line_user_id == "":
+        restaurant_data.line_user_id = None
+            
     db_restaurant = Restaurant(**restaurant_data.model_dump())
     db.add(db_restaurant)
     await db.commit()
