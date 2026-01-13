@@ -1,131 +1,106 @@
 """
-Favorite API Router - お気に入り管理
+Favorite Pydantic schemas.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
-from sqlalchemy.orm import selectinload
-
-from app.core.database import get_db
-from app.models import Favorite, Product
-from app.schemas import (
-    FavoriteCreate,
-    FavoriteResponse,
-    FavoriteWithProductResponse,
-    FavoriteListResponse,
-    FavoriteToggleRequest,
-    FavoriteToggleResponse,
-    ResponseMessage,
-)
-
-router = APIRouter()
+from typing import Optional
+from pydantic import BaseModel, Field
+from app.schemas.base import BaseSchema, TimestampSchema
+from app.schemas.product import ProductResponse
 
 
-@router.post("/toggle", response_model=FavoriteToggleResponse)
-async def toggle_favorite(
-    restaurant_id: int,
-    toggle_data: FavoriteToggleRequest,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    お気に入りのトグル（追加/削除）
-    フロントエンドから使いやすいエンドポイント
-    """
-    # Check if favorite exists
-    stmt = select(Favorite).where(
-        and_(
-            Favorite.restaurant_id == restaurant_id,
-            Favorite.product_id == toggle_data.product_id
-        )
-    )
-    result = await db.execute(stmt)
-    favorite = result.scalar_one_or_none()
+class FavoriteBase(BaseModel):
+    """Base favorite fields."""
+    restaurant_id: int = Field(..., description="飲食店ID")
+    product_id: int = Field(..., description="商品ID")
+
+
+class FavoriteCreate(FavoriteBase):
+    """Schema for creating a favorite."""
+    notes: Optional[str] = Field(None, description="メモ")
+
+
+class FavoriteUpdate(BaseModel):
+    """Schema for updating a favorite."""
+    notes: Optional[str] = Field(None, description="メモ")
+
+
+class FavoriteResponse(BaseSchema, TimestampSchema):
+    """Schema for favorite response."""
+    id: int
+    restaurant_id: int
+    product_id: int
+    notes: Optional[int]
     
-    if favorite:
-        # Remove from favorites
-        await db.delete(favorite)
-        await db.commit()
-        return FavoriteToggleResponse(
-            is_favorited=False,
-            message="お気に入りから削除しました"
-        )
-    else:
-        # Add to favorites
-        new_favorite = Favorite(
-            restaurant_id=restaurant_id,
-            product_id=toggle_data.product_id
-        )
-        db.add(new_favorite)
-        await db.commit()
-        return FavoriteToggleResponse(
-            is_favorited=True,
-            message="お気に入りに追加しました"
-        )
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": 1,
+                "restaurant_id": 1,
+                "product_id": 5,
+                "notes": None,
+                "created_at": "2024-01-01T00:00:00+09:00",
+                "updated_at": "2024-01-01T00:00:00+09:00"
+            }
+        }
 
 
-@router.get("/restaurant/{restaurant_id}", response_model=FavoriteListResponse)
-async def get_restaurant_favorites(
-    restaurant_id: int,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    飲食店のお気に入り商品一覧を取得
-    商品情報を含む
-    """
-    query = (
-        select(Favorite)
-        .options(selectinload(Favorite.product))
-        .where(Favorite.restaurant_id == restaurant_id)
-        .order_by(Favorite.created_at.desc())
-    )
+class FavoriteWithProductResponse(FavoriteResponse):
+    """Schema for favorite response with product details."""
+    product: ProductResponse
     
-    count_query = select(func.count()).select_from(query.subquery())
-    total = await db.scalar(count_query)
-    
-    query = query.offset(skip).limit(limit)
-    result = await db.execute(query)
-    favorites = result.scalars().all()
-    
-    return FavoriteListResponse(items=favorites, total=total or 0, skip=skip, limit=limit)
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": 1,
+                "restaurant_id": 1,
+                "product_id": 5,
+                "notes": None,
+                "product": {
+                    "id": 5,
+                    "name": "神戸産 フリルレタス",
+                    "price": "280.00",
+                    "stock_type": "KOBE"
+                },
+                "created_at": "2024-01-01T00:00:00+09:00",
+                "updated_at": "2024-01-01T00:00:00+09:00"
+            }
+        }
 
 
-@router.get("/check/{restaurant_id}/{product_id}", response_model=dict)
-async def check_favorite_status(
-    restaurant_id: int,
-    product_id: int,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    お気に入り状態を確認
-    """
-    stmt = select(Favorite).where(
-        and_(
-            Favorite.restaurant_id == restaurant_id,
-            Favorite.product_id == product_id
-        )
-    )
-    result = await db.execute(stmt)
-    favorite = result.scalar_one_or_none()
-    
-    return {"is_favorited": favorite is not None}
+class FavoriteListResponse(BaseModel):
+    """Schema for paginated favorite list."""
+    items: list[FavoriteWithProductResponse]
+    total: int
+    skip: int
+    limit: int
 
 
-@router.delete("/{favorite_id}", response_model=ResponseMessage)
-async def delete_favorite(favorite_id: int, db: AsyncSession = Depends(get_db)):
-    """お気に入りを削除"""
-    stmt = select(Favorite).where(Favorite.id == favorite_id)
-    result = await db.execute(stmt)
-    favorite = result.scalar_one_or_none()
+class FavoriteToggleRequest(BaseModel):
+    """Schema for toggling favorite status."""
+    product_id: int = Field(..., description="商品ID")
     
-    if not favorite:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="お気に入りが見つかりません"
-        )
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "product_id": 5
+            }
+        }
+
+
+class FavoriteToggleResponse(BaseModel):
+    """Schema for favorite toggle response."""
+    is_favorited: bool = Field(..., description="お気に入り状態")
+    message: str = Field(..., description="メッセージ")
     
-    await db.delete(favorite)
-    await db.commit()
-    
-    return ResponseMessage(message="お気に入りを削除しました", success=True)
+    class Config:
+        json_schema_extra = {
+            "examples": [
+                {
+                    "is_favorited": True,
+                    "message": "お気に入りに追加しました"
+                },
+                {
+                    "is_favorited": False,
+                    "message": "お気に入りから削除しました"
+                }
+            ]
+        }
