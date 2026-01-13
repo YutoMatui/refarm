@@ -31,6 +31,7 @@ class OrderItemResponse(BaseSchema, TimestampSchema):
     tax_rate: int
     subtotal: Decimal
     tax_amount: Decimal
+    shipping_fee: int = Field(0, description="配送料 (税込)")
     total_amount: Decimal
     product_name: str
     product_unit: str
@@ -103,6 +104,7 @@ class OrderResponse(OrderBase, TimestampSchema, BaseSchema):
     status: OrderStatus
     subtotal: Decimal
     tax_amount: Decimal
+    shipping_fee: int = Field(0, description="配送料 (税込)")
     total_amount: Decimal
     invoice_url: Optional[str]
     confirmed_at: Optional[datetime]

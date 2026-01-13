@@ -64,6 +64,19 @@ def _generate_pdf(order, title):
             "amount": int(item.subtotal)
         })
 
+    # 配送料があれば追加
+    shipping_fee = getattr(order, 'shipping_fee', 0) or 0
+    if shipping_fee > 0:
+        # 配送料の税抜金額を計算（簡易的に1.1で割る）
+        shipping_base = math.ceil(shipping_fee / 1.1)
+        items.append({
+            "name": "配送料",
+            "quantity": 1,
+            "unit": "式",
+            "unit_price": shipping_base,
+            "amount": shipping_base
+        })
+
     # 合計金額 (税込)
     # order.total_amount を正とする
     total_val = int(order.total_amount)
@@ -81,6 +94,12 @@ def _generate_pdf(order, title):
         subtotal_val = price_excl_tax
     else:
         # DBに税額がある場合
+        # 商品分の税額(tax_amount)に、配送料分の税額を加算して表示上の辻褄を合わせる
+        if shipping_fee > 0:
+            shipping_base = math.ceil(shipping_fee / 1.1)
+            shipping_tax = shipping_fee - shipping_base
+            tax_val += shipping_tax
+            
         subtotal_val = total_val - tax_val
     
     # 発行元情報

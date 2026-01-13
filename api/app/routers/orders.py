@@ -90,10 +90,14 @@ async def create_order(
         subtotal += item_subtotal
         tax_amount += item_tax
     
+    # Add shipping fee (税込 800円)
+    shipping_fee = Decimal(800)
+    db_order.shipping_fee = shipping_fee
+    
     # Update order totals
     db_order.subtotal = subtotal
     db_order.tax_amount = tax_amount
-    db_order.total_amount = subtotal + tax_amount
+    db_order.total_amount = subtotal + tax_amount + shipping_fee
     
     await db.commit()
     

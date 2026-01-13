@@ -80,6 +80,13 @@ class Order(Base, TimestampMixin):
         default=0,
         comment="合計金額 (税込)"
     )
+
+    shipping_fee = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="配送料 (税込)"
+    )
     
     # Delivery Details
     delivery_address = Column(
