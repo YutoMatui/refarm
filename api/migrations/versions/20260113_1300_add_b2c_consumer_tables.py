@@ -58,12 +58,12 @@ def upgrade() -> None:
     op.create_index('ix_delivery_slots_date_type', 'delivery_slots', ['date', 'slot_type'], unique=False)
 
     order_status_enum = sa.Enum(
-        'pending',
-        'confirmed',
-        'preparing',
-        'shipped',
-        'delivered',
-        'cancelled',
+        'PENDING',
+        'CONFIRMED',
+        'PREPARING',
+        'SHIPPED',
+        'DELIVERED',
+        'CANCELLED',
         name='orderstatus',
         create_type=False
     )

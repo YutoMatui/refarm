@@ -45,12 +45,12 @@ class DeliverySlotType(str, enum.Enum):
 
 class OrderStatus(str, enum.Enum):
     """注文ステータス (Order Status)."""
-    PENDING = "pending"        # 受注待ち
-    CONFIRMED = "confirmed"    # 受注確定
-    PREPARING = "preparing"    # 準備中
-    SHIPPED = "shipped"        # 配送中
-    DELIVERED = "delivered"    # 配達完了
-    CANCELLED = "cancelled"    # キャンセル
+    PENDING = "PENDING"        # 受注待ち
+    CONFIRMED = "CONFIRMED"    # 受注確定
+    PREPARING = "PREPARING"    # 準備中
+    SHIPPED = "SHIPPED"        # 配送中
+    DELIVERED = "DELIVERED"    # 配達完了
+    CANCELLED = "CANCELLED"    # キャンセル
 
 
 class ProductCategory(str, enum.Enum):

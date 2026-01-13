@@ -10,7 +10,7 @@ from app.models.enums import OrderStatus, DeliverySlotType
 # 同一ファイル内に DeliverySlotResponse があると仮定します。
 # 別ファイルにある場合は: from app.schemas.delivery import DeliverySlotResponse
 if TYPE_CHECKING:
-    from app.schemas.delivery import DeliverySlotResponse 
+    from app.schemas.delivery_slot import DeliverySlotResponse 
 
 # ... (ConsumerOrderItemCreate, ConsumerOrderCreate はそのまま) ...
 
