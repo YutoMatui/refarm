@@ -1,7 +1,7 @@
 """
 Pydantic schemas for B2C delivery slots.
 """
-from datetime import date, time
+from datetime import date as Date, time
 from typing import Optional
 from pydantic import BaseModel, Field
 
@@ -12,7 +12,7 @@ from app.models.enums import DeliverySlotType
 class DeliverySlotBase(BaseModel):
     """Base fields for delivery slots."""
 
-    date: date = Field(..., description="対象日")
+    date: Date = Field(..., description="対象日")
     slot_type: DeliverySlotType = Field(..., description="枠種別")
     start_time: Optional[time] = Field(None, description="開始時刻")
     end_time: Optional[time] = Field(None, description="終了時刻")
@@ -29,7 +29,7 @@ class DeliverySlotCreate(DeliverySlotBase):
 class DeliverySlotUpdate(BaseModel):
     """Partial update schema for delivery slot."""
 
-    date: Optional[date] = None
+    date: Optional[Date] = None
     slot_type: Optional[DeliverySlotType] = None
     start_time: Optional[time] = None
     end_time: Optional[time] = None
@@ -63,7 +63,7 @@ class DeliverySlotPublicResponse(BaseModel):
     """Simplified slot response for consumer UI."""
 
     id: int
-    date: date
+    date: Date
     slot_type: DeliverySlotType
     time_text: str
     is_active: bool
