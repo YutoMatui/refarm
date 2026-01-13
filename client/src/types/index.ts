@@ -237,7 +237,6 @@ export interface ConsumerOrder extends TimestampFields {
   consumer_id: number
   consumer?: Consumer
   delivery_slot_id?: number | null
-  delivery_slot?: DeliverySlot | null
   delivery_type: DeliverySlotType
   delivery_label: string
   delivery_time_label: string
@@ -435,10 +434,10 @@ export interface DeliverySlot extends TimestampFields {
   id: number
   date: string
   slot_type: DeliverySlotType
-  start_time?: string | null
-  end_time?: string | null
   time_text: string
   is_active: boolean
+  start_time?: string | null
+  end_time?: string | null
   note?: string | null
 }
 

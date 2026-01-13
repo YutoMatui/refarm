@@ -7,7 +7,6 @@ from decimal import Decimal
 from pydantic import BaseModel, Field
 
 from app.schemas.base import BaseSchema, TimestampSchema
-from app.schemas.delivery_slot import DeliverySlotPublicResponse
 from app.models.enums import OrderStatus, DeliverySlotType
 
 
@@ -85,7 +84,6 @@ class ConsumerOrderResponse(TimestampSchema, BaseSchema):
     consumer_id: int
     consumer: Optional[ConsumerCompact] = None
     delivery_slot_id: Optional[int]
-    delivery_slot: Optional[DeliverySlotPublicResponse] = None
     delivery_type: DeliverySlotType
     delivery_label: str
     delivery_time_label: str
