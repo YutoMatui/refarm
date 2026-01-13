@@ -20,9 +20,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade database schema."""
-    delivery_slot_type_enum = sa.Enum('HOME', 'UNIV', name='deliveryslottype')
-    delivery_slot_type_enum.drop(op.get_bind(), checkfirst=True)
-    delivery_slot_type_enum.create(op.get_bind(), checkfirst=True)
+    op.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'deliveryslottype') THEN
+                CREATE TYPE deliveryslottype AS ENUM ('HOME', 'UNIV');
+            END IF;
+        END$$;
+    """)
+    delivery_slot_type_enum = sa.Enum('HOME', 'UNIV', name='deliveryslottype', create_type=False)
 
     op.create_table(
         'consumers',
