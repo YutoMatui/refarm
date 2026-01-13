@@ -1,12 +1,14 @@
 """
 Favorite Pydantic schemas.
 """
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Any
 from pydantic import BaseModel, Field
 from app.schemas.base import BaseSchema, TimestampSchema
 
 if TYPE_CHECKING:
     from app.schemas.product import ProductResponse
+else:
+    ProductResponse = Any
 
 
 class FavoriteBase(BaseModel):
@@ -47,7 +49,7 @@ class FavoriteResponse(BaseSchema, TimestampSchema):
 
 class FavoriteWithProductResponse(FavoriteResponse):
     """Schema for favorite response with product details."""
-    product: "ProductResponse"
+    product: ProductResponse
     
     class Config:
         json_schema_extra = {

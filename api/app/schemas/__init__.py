@@ -66,6 +66,9 @@ from app.schemas.consumer_order import (
     ConsumerOrderItemResponse,
 )
 
+# Forward reference resolution for circular dependencies
+FavoriteWithProductResponse.model_rebuild()
+
 __all__ = [
     # Base
     "BaseSchema",

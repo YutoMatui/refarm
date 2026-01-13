@@ -1,7 +1,7 @@
 """
 Routers module initialization.
 """
-from app.routers import (
+from . import (
     auth,
     restaurants,
     farmers,
@@ -18,7 +18,7 @@ from app.routers import (
     admin_users,
     admin_delivery_slots,
     delivery_schedules,
-    delivery_slots,
+    delivery_slot,
     guest,
     admin_guest,
 )
@@ -40,7 +40,7 @@ __all__ = [
     "admin_users",
     "admin_delivery_slots",
     "delivery_schedules",
-    "delivery_slots",
+    "delivery_slot",
     "guest",
     "admin_guest",
 ]

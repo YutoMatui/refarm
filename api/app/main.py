@@ -189,7 +189,7 @@ from app.routers import (
     admin_users,
     admin_delivery_slots as admin_delivery_slots_router,
     delivery_schedules,
-    delivery_slots as delivery_slots_router,
+    delivery_slot as delivery_slot_router,
     consumers as consumers_router,
     consumer_orders as consumer_orders_router,
     guest,
@@ -202,7 +202,7 @@ app.include_router(admin_guest.router, prefix="/api/admin/guest", tags=["Admin G
 app.include_router(admin_users.router, prefix="/api/admin/users", tags=["Admin Users"])
 app.include_router(admin_delivery_slots_router.router, prefix="/api/admin/delivery-slots", tags=["Admin Delivery Slots"])
 app.include_router(delivery_schedules.router, prefix="/api/delivery-schedules", tags=["Delivery Schedules"])
-app.include_router(delivery_slots_router.router, prefix="/api/delivery-slots", tags=["Delivery Slots"])
+app.include_router(delivery_slot_router.router, prefix="/api/delivery-slots", tags=["Delivery Slots"])
 app.include_router(logistics.router, prefix="/api/logistics", tags=["Logistics"])
 app.include_router(restaurants.router, prefix="/api/restaurants", tags=["Restaurants"])
 app.include_router(farmers.router, prefix="/api/farmers", tags=["Farmers"])
