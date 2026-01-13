@@ -120,7 +120,7 @@ def upgrade() -> None:
             sa.Column('delivery_notes', sa.Text(), nullable=True, comment='受取メモ'),
             sa.Column('payment_method', sa.String(length=50), nullable=False, server_default=sa.text("'cash_on_delivery'"), comment='支払方法'),
             sa.Column('order_notes', sa.Text(), nullable=True, comment='注文メモ'),
-            sa.Column('status', order_status_enum, nullable=False, server_default=sa.text("'pending'"), comment='注文ステータス'),
+            sa.Column('status', order_status_enum, nullable=False, server_default=sa.text("'PENDING'"), comment='注文ステータス'),
             sa.Column('subtotal', sa.Numeric(precision=10, scale=2), nullable=False, server_default=sa.text('0'), comment='商品小計'),
             sa.Column('tax_amount', sa.Numeric(precision=10, scale=2), nullable=False, server_default=sa.text('0'), comment='消費税額'),
             sa.Column('shipping_fee', sa.Integer(), nullable=False, server_default=sa.text('0'), comment='送料'),
