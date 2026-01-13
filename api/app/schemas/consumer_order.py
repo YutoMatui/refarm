@@ -6,8 +6,9 @@ from pydantic import BaseModel, Field
 from app.schemas.base import BaseSchema, TimestampSchema
 from app.models.enums import OrderStatus, DeliverySlotType
 
-# from app.schemas.delivery_slot import DeliverySlotResponse # 依存関係を完全に断ち切る
-
+# ==========================================
+# 1. 依存関係回避用の簡易クラス定義エリア
+# ==========================================
 
 class DeliverySlotInfoForOrder(BaseModel):
     """Simplified slot response for embedding in order details."""
@@ -21,15 +22,30 @@ class DeliverySlotInfoForOrder(BaseModel):
     class Config:
         from_attributes = True
 
+# ▼▼▼ 追加: 商品情報の循環参照を防ぐための簡易クラス ▼▼▼
+class ProductInfoForOrder(BaseModel):
+    """Simplified product info for embedding."""
+    id: int
+    name: str
+    unit: str
+    price: str # または Decimal
+    image_url: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+# ▲▲▲ 追加ここまで ▲▲▲
+
+
+# ==========================================
+# 2. メインのスキーマ定義
+# ==========================================
 
 class ConsumerOrderItemCreate(BaseModel):
-    # ... existing code ...
     product_id: int
     quantity: int
 
 
 class ConsumerOrderCreate(BaseModel):
-    # ... existing code ...
     delivery_slot_id: int
     delivery_notes: Optional[str] = None
     order_notes: Optional[str] = None
@@ -37,7 +53,6 @@ class ConsumerOrderCreate(BaseModel):
 
 
 class ConsumerOrderItemResponse(BaseSchema, TimestampSchema):
-    # ... existing code ...
     id: int
     order_id: int
     product_id: int
@@ -50,9 +65,12 @@ class ConsumerOrderItemResponse(BaseSchema, TimestampSchema):
     product_name: str
     product_unit: str
 
+    # ▼▼▼ 追加: これで ProductResponse エラーが消えます ▼▼▼
+    product: Optional[ProductInfoForOrder] = None
+    # ▲▲▲ 追加ここまで ▲▲▲
+
 
 class ConsumerCompact(BaseModel):
-    # ... existing code ...
     id: int
     name: str
     phone_number: str
@@ -70,6 +88,7 @@ class ConsumerOrderResponse(TimestampSchema, BaseSchema):
     consumer_id: int
     consumer: Optional[ConsumerCompact] = None
     
+    # ここは先ほどの修正通りでOK
     delivery_slot: Optional[DeliverySlotInfoForOrder] = None 
     delivery_slot_id: Optional[int]
     
@@ -104,5 +123,3 @@ class ConsumerOrderListResponse(BaseModel):
     total: int
     skip: int
     limit: int
-
-# ConsumerOrderResponse.model_rebuild() # 不要になったので削除
