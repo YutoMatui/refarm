@@ -37,6 +37,12 @@ class DeliveryTimeSlot(str, enum.Enum):
     SLOT_16_18 = "16-18"  # 16:00-18:00
 
 
+class DeliverySlotType(str, enum.Enum):
+    """B2C向け受取枠種別."""
+    HOME = "HOME"  # 自宅配送
+    UNIVERSITY = "UNIV"  # 兵庫県立大学 正門受取
+
+
 class OrderStatus(str, enum.Enum):
     """注文ステータス (Order Status)."""
     PENDING = "pending"        # 受注待ち

@@ -20,6 +20,11 @@ export enum DeliveryTimeSlot {
   SLOT_16_18 = '16-18',
 }
 
+export enum DeliverySlotType {
+  HOME = 'HOME',
+  UNIVERSITY = 'UNIV',
+}
+
 export enum OrderStatus {
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
@@ -75,6 +80,17 @@ export interface Restaurant extends TimestampFields {
   cuisine_type?: string
   kodawari?: string
   closing_date?: number
+}
+
+// Consumer (B2C)
+export interface Consumer extends TimestampFields {
+  id: number
+  line_user_id: string
+  name: string
+  phone_number: string
+  postal_code: string
+  address: string
+  building?: string | null
 }
 
 // Chef Comment
@@ -200,6 +216,46 @@ export interface Order extends TimestampFields {
   items: OrderItem[]
 }
 
+// Consumer Order Item
+export interface ConsumerOrderItem extends TimestampFields {
+  id: number
+  order_id: number
+  product_id: number
+  quantity: number
+  unit_price: string
+  tax_rate: number
+  subtotal: string
+  tax_amount: string
+  total_amount: string
+  product_name: string
+  product_unit: string
+}
+
+// Consumer Order
+export interface ConsumerOrder extends TimestampFields {
+  id: number
+  consumer_id: number
+  consumer?: Consumer
+  delivery_slot_id?: number | null
+  delivery_slot?: DeliverySlot | null
+  delivery_type: DeliverySlotType
+  delivery_label: string
+  delivery_time_label: string
+  delivery_address?: string | null
+  delivery_notes?: string | null
+  order_notes?: string | null
+  payment_method: string
+  status: OrderStatus
+  subtotal: string
+  tax_amount: string
+  shipping_fee: number
+  total_amount: string
+  confirmed_at?: string | null
+  delivered_at?: string | null
+  cancelled_at?: string | null
+  items: ConsumerOrderItem[]
+}
+
 // Favorite
 export interface Favorite extends TimestampFields {
   id: number
@@ -240,6 +296,19 @@ export interface OrderCreateRequest {
   items: Array<{
     product_id: number
     quantity: number | string
+  }>
+}
+
+// Consumer Order Create Request
+export interface ConsumerOrderCreateRequest {
+  consumer_id: number
+  delivery_slot_id: number
+  delivery_address?: string
+  delivery_notes?: string
+  order_notes?: string
+  items: Array<{
+    product_id: number
+    quantity: number
   }>
 }
 
@@ -289,6 +358,35 @@ export interface RegisterRequest {
   notes?: string
 }
 
+// Consumer Auth / Registration
+export interface ConsumerAuthRequest {
+  id_token: string
+}
+
+export interface ConsumerRegisterRequest {
+  id_token: string
+  name: string
+  phone_number: string
+  postal_code: string
+  address: string
+  building?: string
+}
+
+export interface ConsumerUpdateRequest {
+  name?: string
+  phone_number?: string
+  postal_code?: string
+  address?: string
+  building?: string | null
+}
+
+export interface ConsumerAuthResponse {
+  line_user_id: string
+  consumer?: Consumer | null
+  is_registered: boolean
+  message: string
+}
+
 // Route Optimization
 export interface RouteStep {
   type: 'start' | 'visit' | 'end'
@@ -331,6 +429,30 @@ export interface DeliverySchedule extends TimestampFields {
   delivery_staff?: string | null
   time_slot?: string | null
 }
+
+// Delivery Slot (B2C)
+export interface DeliverySlot extends TimestampFields {
+  id: number
+  date: string
+  slot_type: DeliverySlotType
+  start_time?: string | null
+  end_time?: string | null
+  time_text: string
+  is_active: boolean
+  note?: string | null
+}
+
+export interface DeliverySlotCreateRequest {
+  date: string
+  slot_type: DeliverySlotType
+  start_time?: string | null
+  end_time?: string | null
+  time_text: string
+  is_active?: boolean
+  note?: string | null
+}
+
+export interface DeliverySlotUpdateRequest extends Partial<DeliverySlotCreateRequest> { }
 
 // Guest Management
 export interface StampAggregation {

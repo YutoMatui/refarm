@@ -3,18 +3,20 @@
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Restaurant, Farmer, Product, CartItem } from '@/types'
+import type { Restaurant, Farmer, Product, CartItem, Consumer } from '@/types'
 
 interface AppState {
   // User & Auth
   restaurant: Restaurant | null
   setRestaurant: (restaurant: Restaurant | null) => void
+  consumer: Consumer | null
+  setConsumer: (consumer: Consumer | null) => void
   lineUserId: string | null
   setLineUserId: (id: string | null) => void
   farmer: Farmer | null
   setFarmer: (farmer: Farmer | null) => void
-  userRole: 'restaurant' | 'farmer' | 'admin' | null
-  setUserRole: (role: 'restaurant' | 'farmer' | 'admin' | null) => void
+  userRole: 'restaurant' | 'farmer' | 'admin' | 'consumer' | null
+  setUserRole: (role: 'restaurant' | 'farmer' | 'admin' | 'consumer' | null) => void
 
   // Cart
   cart: CartItem[]
@@ -42,6 +44,8 @@ export const useStore = create<AppState>()(
       // User & Auth
       restaurant: null,
       setRestaurant: (restaurant) => set({ restaurant }),
+      consumer: null,
+      setConsumer: (consumer) => set({ consumer }),
       lineUserId: null,
       setLineUserId: (id) => set({ lineUserId: id }),
       farmer: null,
@@ -125,6 +129,7 @@ export const useStore = create<AppState>()(
       name: 'refarm-eos-storage',
       partialize: (state) => ({
         restaurant: state.restaurant,
+        consumer: state.consumer,
         lineUserId: state.lineUserId,
         farmer: state.farmer,
         userRole: state.userRole,

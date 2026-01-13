@@ -2,7 +2,7 @@
  * Main App Component
  * Handles LIFF initialization and routing
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { useStore } from './store/useStore'
@@ -35,6 +35,7 @@ import AdminRoute from '@/components/AdminRoute'
 import Login from '@/pages/Login'
 import GuestLanding from '@/pages/guest/GuestLanding'
 import LinkAccountGuide from '@/pages/LinkAccountGuide'
+import LocalApp from './pages/local/LocalApp'
 
 // Auth Guard Component
 const AuthGuard = ({ children }: { children: JSX.Element }) => {
@@ -86,32 +87,7 @@ function App() {
   const setUserRole = useStore(state => state.setUserRole)
   const setLineUserId = useStore(state => state.setLineUserId)
 
-  useEffect(() => {
-    const path = window.location.pathname;
-
-    // Guest pages do not need LIFF initialization
-    if (path.startsWith('/guest')) {
-      setLoading(false);
-      return;
-    }
-
-    // Admin pages do not need LIFF initialization
-    if (path.startsWith('/admin')) {
-      setLoading(false);
-      return;
-    }
-
-    // Skip initialization if we are on the invite page
-    // BUT we still need to initialize LIFF to get the user ID for linking
-    if (path.startsWith('/invite/') || window.location.search.includes('token=')) {
-      // InviteHandler will handle initialization
-      setLoading(false);
-      return;
-    }
-    initializeApp()
-  }, [])
-
-  const initializeApp = async () => {
+  const initializeApp = useCallback(async () => {
     try {
       // Initialize LIFF SDK
       await liffService.init()
@@ -149,22 +125,6 @@ function App() {
             }
           } catch (err: any) {
             console.error('Authentication failed:', err)
-
-            /*
-            if (idToken === 'mock-id-token') {
-              console.warn('Backend verification failed for mock token, falling back to local mock data');
-
-              // Set dummy data locally
-              const mockLineUserId = 'Uk-id-token'
-              setLineUserId(mockLineUserId)
-
-              // For dev purposes, if mock fails, assume new user
-              setRestaurant(null)
-              setFarmer(null)
-            } else {
-              setError('認証に失敗しました')
-            }
-            */
             setError('認証に失敗しました')
           }
         }
@@ -179,28 +139,6 @@ function App() {
             liffService.login()
             return
           }
-
-          /*
-          // Dev mode logic...
-          console.warn('Not in LIFF environment. Using mock data.')
-          // ... existing mock logic ...
-          try {
-            const response = await authApi.verify('mock-id-token')
-            const { line_user_id, restaurant, farmer, role, is_registered } = response.data
-
-            setLineUserId(line_user_id)
-            setUserRole(role as any)
-
-            if (is_registered) {
-              if (role === 'restaurant') setRestaurant(restaurant!)
-              if (role === 'farmer') setFarmer(farmer!)
-            }
-          } catch (e) {
-            // Fallback
-            setLineUserId('Uk-id-token')
-            setRestaurant(null)
-          }
-          */
         }
       }
 
@@ -210,7 +148,39 @@ function App() {
       setError('アプリの初期化に失敗しました')
       setLoading(false)
     }
-  }
+  }, [setFarmer, setLineUserId, setRestaurant, setUserRole, setError, setLoading])
+
+  useEffect(() => {
+    const path = window.location.pathname;
+
+    // Guest pages do not need LIFF initialization
+    if (path.startsWith('/guest')) {
+      setLoading(false);
+      return;
+    }
+
+    // Admin pages do not need LIFF initialization
+    if (path.startsWith('/admin')) {
+      setLoading(false);
+      return;
+    }
+
+    // Consumer pages handle their own initialization
+    if (path.startsWith('/local')) {
+      setLoading(false);
+      return;
+    }
+
+    // Skip initialization if we are on the invite page
+    // BUT we still need to initialize LIFF to get the user ID for linking
+    if (path.startsWith('/invite/') || window.location.search.includes('token=')) {
+      // InviteHandler will handle initialization
+      setLoading(false);
+      return;
+    }
+    initializeApp()
+  }, [initializeApp])
+
 
   if (loading) {
     return <Loading message="読み込み中..." />
@@ -247,6 +217,8 @@ function App() {
           </Route>
 
           <Route path="/guest" element={<GuestLanding />} />
+
+          <Route path="/local/*" element={<LocalApp />} />
 
           <Route path="/" element={
             <AuthGuard>

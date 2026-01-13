@@ -44,6 +44,27 @@ from app.schemas.favorite import (
     FavoriteToggleRequest,
     FavoriteToggleResponse,
 )
+from app.schemas.consumer import (
+    ConsumerAuthRequest,
+    ConsumerRegisterRequest,
+    ConsumerUpdateRequest,
+    ConsumerResponse,
+    ConsumerAuthResponse,
+    ConsumerExistsResponse,
+)
+from app.schemas.delivery_slot import (
+    DeliverySlotCreate,
+    DeliverySlotUpdate,
+    DeliverySlotResponse,
+    DeliverySlotPublicResponse,
+    DeliverySlotListResponse,
+)
+from app.schemas.consumer_order import (
+    ConsumerOrderCreate,
+    ConsumerOrderResponse,
+    ConsumerOrderListResponse,
+    ConsumerOrderItemResponse,
+)
 
 __all__ = [
     # Base
@@ -83,4 +104,22 @@ __all__ = [
     "FavoriteListResponse",
     "FavoriteToggleRequest",
     "FavoriteToggleResponse",
+    # Consumer
+    "ConsumerAuthRequest",
+    "ConsumerRegisterRequest",
+    "ConsumerUpdateRequest",
+    "ConsumerResponse",
+    "ConsumerAuthResponse",
+    "ConsumerExistsResponse",
+    # Delivery Slot
+    "DeliverySlotCreate",
+    "DeliverySlotUpdate",
+    "DeliverySlotResponse",
+    "DeliverySlotPublicResponse",
+    "DeliverySlotListResponse",
+    # Consumer Orders
+    "ConsumerOrderCreate",
+    "ConsumerOrderResponse",
+    "ConsumerOrderListResponse",
+    "ConsumerOrderItemResponse",
 ]

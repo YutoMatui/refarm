@@ -21,7 +21,18 @@ import type {
   FullRouteResponse,
   DeliverySettings,
   DeliverySchedule,
+  Consumer,
+  ConsumerOrder,
+  ConsumerOrderCreateRequest,
+  ConsumerAuthRequest,
+  ConsumerAuthResponse,
+  ConsumerRegisterRequest,
+  ConsumerUpdateRequest,
+  DeliverySlot,
+  DeliverySlotCreateRequest,
+  DeliverySlotUpdateRequest,
 } from '@/types'
+import { DeliverySlotType } from '@/types'
 
 // Create Axios instance
 const apiClient: AxiosInstance = axios.create({
@@ -45,16 +56,14 @@ apiClient.interceptors.request.use(
     // If backend URL for admin APIs starts with /api/admin, we can check config.url
     const isAdminApi = config.url?.startsWith('/admin') || config.url?.includes('/admin/');
     const isAdminPage = window.location.pathname.startsWith('/admin');
+    const isAdminContext = isAdminPage || isAdminApi;
 
-    if ((isAdminPage || isAdminApi) && adminToken) {
-      // Priority: Admin Token for Admin pages/APIs
-      config.headers.Authorization = `Bearer ${adminToken}`
+    if (isAdminContext) {
+      if (adminToken) {
+        config.headers.Authorization = `Bearer ${adminToken}`
+      }
     } else if (idToken) {
-      // Otherwise: LIFF Token
       config.headers.Authorization = `Bearer ${idToken}`
-    } else if (adminToken && (isAdminPage || isAdminApi)) {
-      // Fallback: Admin Token ONLY if it's an admin context
-      config.headers.Authorization = `Bearer ${adminToken}`
     }
 
     return config
@@ -94,6 +103,24 @@ export const authApi = {
 
   register: (data: RegisterRequest) =>
     apiClient.post('/auth/register', data),
+}
+
+// Consumer API (B2C)
+export const consumerApi = {
+  verify: (data: ConsumerAuthRequest) =>
+    apiClient.post<ConsumerAuthResponse>('/consumers/auth/verify', data),
+
+  check: () =>
+    apiClient.get<ConsumerAuthResponse>('/consumers/check'),
+
+  register: (data: ConsumerRegisterRequest) =>
+    apiClient.post<Consumer>('/consumers/register', data),
+
+  getMe: () =>
+    apiClient.get<Consumer>('/consumers/me'),
+
+  updateMe: (data: ConsumerUpdateRequest) =>
+    apiClient.put<Consumer>('/consumers/me', data),
 }
 
 // Restaurant API
@@ -247,6 +274,19 @@ export const orderApi = {
     apiClient.post<{ message: string; success: boolean }>(`/orders/${orderId}/send_invoice_line`),
 }
 
+// Consumer Order API
+export const consumerOrderApi = {
+  create: (data: ConsumerOrderCreateRequest) =>
+    apiClient.post<ConsumerOrder>('/consumer-orders/', data),
+
+  list: (params?: { skip?: number; limit?: number }) =>
+    apiClient.get<PaginatedResponse<ConsumerOrder>>('/consumer-orders/', { params }),
+
+  getById: (id: number) =>
+    apiClient.get<ConsumerOrder>(`/consumer-orders/${id}`),
+}
+
+
 // Favorite API
 export const favoriteApi = {
   toggle: (restaurantId: number, data: FavoriteToggleRequest) =>
@@ -319,6 +359,27 @@ export const deliveryScheduleApi = {
 
   update: (dateStr: string, data: Partial<DeliverySchedule>) =>
     apiClient.put<DeliverySchedule>(`/delivery-schedules/${dateStr}`, data),
+}
+
+// Delivery Slot API (public)
+export const deliverySlotApi = {
+  list: (params?: { slot_type?: DeliverySlotType; target_date?: string }) =>
+    apiClient.get<DeliverySlot[]>('/delivery-slots/', { params }),
+}
+
+// Admin Delivery Slot API
+export const adminDeliverySlotApi = {
+  list: (params?: { skip?: number; limit?: number }) =>
+    apiClient.get<PaginatedResponse<DeliverySlot>>('/admin/delivery-slots/', { params }),
+
+  create: (data: DeliverySlotCreateRequest) =>
+    apiClient.post<DeliverySlot>('/admin/delivery-slots/', data),
+
+  update: (slotId: number, data: DeliverySlotUpdateRequest) =>
+    apiClient.put<DeliverySlot>(`/admin/delivery-slots/${slotId}`, data),
+
+  delete: (slotId: number) =>
+    apiClient.delete(`/admin/delivery-slots/${slotId}`),
 }
 
 // Settings API

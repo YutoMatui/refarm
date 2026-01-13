@@ -180,7 +180,11 @@ from app.routers import (
     logistics,
     admin_auth,
     admin_users,
+    admin_delivery_slots as admin_delivery_slots_router,
     delivery_schedules,
+    delivery_slots as delivery_slots_router,
+    consumers as consumers_router,
+    consumer_orders as consumer_orders_router,
     guest,
     admin_guest,
 )
@@ -189,13 +193,17 @@ app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(admin_auth.router, prefix="/api/admin/auth", tags=["Admin Authentication"])
 app.include_router(admin_guest.router, prefix="/api/admin/guest", tags=["Admin Guest Management"])
 app.include_router(admin_users.router, prefix="/api/admin/users", tags=["Admin Users"])
+app.include_router(admin_delivery_slots_router.router, prefix="/api/admin/delivery-slots", tags=["Admin Delivery Slots"])
 app.include_router(delivery_schedules.router, prefix="/api/delivery-schedules", tags=["Delivery Schedules"])
+app.include_router(delivery_slots_router.router, prefix="/api/delivery-slots", tags=["Delivery Slots"])
 app.include_router(logistics.router, prefix="/api/logistics", tags=["Logistics"])
 app.include_router(restaurants.router, prefix="/api/restaurants", tags=["Restaurants"])
 app.include_router(farmers.router, prefix="/api/farmers", tags=["Farmers"])
 app.include_router(products.router, prefix="/api/products", tags=["Products"])
 app.include_router(producer.router, prefix="/api/producer", tags=["Producer"])
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
+app.include_router(consumer_orders_router.router, prefix="/api/consumer-orders", tags=["Consumer Orders"])
+app.include_router(consumers_router.router, prefix="/api/consumers", tags=["Consumers"])
 app.include_router(favorites.router, prefix="/api/favorites", tags=["Favorites"])
 app.include_router(upload.router, prefix="/api/upload", tags=["Upload"])
 app.include_router(settings_router.router, prefix="/api/settings", tags=["Settings"])

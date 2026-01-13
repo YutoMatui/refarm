@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from app.core.database import get_db
 from app.core.security import get_current_user_from_token
-from app.models import Restaurant
+from app.models import Restaurant, Consumer
 
 
 async def get_line_user_id(
@@ -88,3 +88,35 @@ async def get_current_restaurant(
     Raises:
         HTTPException: If restaurant not found
     """
+    stmt = select(Restaurant).where(
+        Restaurant.line_user_id == line_user_id,
+        Restaurant.deleted_at.is_(None)
+    )
+    result = await db.execute(stmt)
+    restaurant = result.scalar_one_or_none()
+
+    if not restaurant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="飲食店が登録されていません"
+        )
+
+    return restaurant
+
+
+async def get_current_consumer(
+    line_user_id: str = Depends(get_line_user_id),
+    db: AsyncSession = Depends(get_db)
+) -> Consumer:
+    """Get current consumer from verified LINE User ID."""
+    stmt = select(Consumer).where(Consumer.line_user_id == line_user_id)
+    result = await db.execute(stmt)
+    consumer = result.scalar_one_or_none()
+
+    if not consumer:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="会員登録が必要です"
+        )
+
+    return consumer

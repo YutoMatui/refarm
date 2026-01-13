@@ -1,8 +1,10 @@
 import httpx
 from datetime import datetime
+from decimal import Decimal
 from typing import Dict, List, Any
 from app.core.config import settings
-from app.models import Order, OrderItem
+from app.models import Order, OrderItem, ConsumerOrder
+from app.models.enums import DeliverySlotType
 
 class LineNotificationService:
     BASE_URL = "https://api.line.me"
@@ -76,6 +78,13 @@ class LineNotificationService:
 
     def format_currency(self, amount) -> str:
         return f"¥{int(amount):,}"
+
+    def format_currency_plain(self, amount) -> str:
+        try:
+            value = Decimal(amount)
+        except Exception:
+            value = Decimal(0)
+        return f"{int(value):,}円"
 
     def format_date(self, date_obj) -> str:
         if not date_obj:
@@ -212,6 +221,115 @@ No. {order.id}
 {items_text}
 ------------------------
 💰 今回の売上予定: {self.format_currency(data["total_sales"])}
+------------------------
+
+お野菜のご準備、よろしくお願いいたします！🚛"""
+
+            await self.send_push_message(token, target_user_id, message)
+
+    async def notify_consumer_order(self, order: ConsumerOrder):
+        """Send confirmation message to consumer."""
+        consumer = getattr(order, "consumer", None)
+        target_user_id = None
+        if consumer and consumer.line_user_id:
+            target_user_id = consumer.line_user_id
+        elif settings.LINE_TEST_USER_ID:
+            target_user_id = settings.LINE_TEST_USER_ID
+        else:
+            print("No target user ID for consumer notification")
+            return
+
+        token = await self.get_access_token(
+            settings.LINE_RESTAURANT_CHANNEL_ID,
+            settings.LINE_RESTAURANT_CHANNEL_SECRET
+        )
+
+        items_lines = ""
+        for item in order.order_items:
+            items_lines += f"・{item.product_name} × {item.quantity}\n"
+        if not items_lines:
+            items_lines = "・商品情報が取得できませんでした\n"
+
+        subtotal_text = self.format_currency_plain(order.subtotal)
+        shipping_label = order.delivery_label or "受取"
+        shipping_text = self.format_currency_plain(order.shipping_fee)
+        total_text = self.format_currency_plain(order.total_amount)
+
+        pickup_place = "ご自宅" if order.delivery_type == DeliverySlotType.HOME else shipping_label
+        time_label = order.delivery_time_label or (order.delivery_slot.time_text if order.delivery_slot else "")
+
+        consumer_name = consumer.name if consumer else "お客様"
+        message = f"""{consumer_name}様 ベジコベをご利用いただきありがとうございます。
+
+■ご注文内容
+{items_lines}[商品合計] {subtotal_text}
+[送料] {shipping_text}（{shipping_label}）
+[お支払い合計] {total_text}
+
+■お受け取り
+日時：{time_label}
+場所：{pickup_place}
+
+※お支払いは【商品受取時に現金】でお願いいたします。
+※お釣りが出ないようご協力をお願いいたします。"""
+
+        await self.send_push_message(token, target_user_id, message)
+
+    async def notify_farmers_consumer_order(self, order: ConsumerOrder):
+        """Notify farmers about consumer orders (same format as restaurant orders)."""
+        token = await self.get_access_token(
+            settings.LINE_PRODUCER_CHANNEL_ID,
+            settings.LINE_PRODUCER_CHANNEL_SECRET
+        )
+
+        farmers_items: Dict[int, Dict[str, Any]] = {}
+        for item in order.order_items:
+            product = getattr(item, "product", None)
+            farmer = getattr(product, "farmer", None)
+            if not farmer or not farmer.line_user_id:
+                continue
+
+            farmer_id = farmer.id
+            if farmer_id not in farmers_items:
+                farmers_items[farmer_id] = {
+                    "farmer_name": farmer.name,
+                    "line_user_id": farmer.line_user_id,
+                    "items": [],
+                    "total_sales": Decimal(0)
+                }
+            farmers_items[farmer_id]["items"].append(item)
+            farmers_items[farmer_id]["total_sales"] += Decimal(item.total_amount or 0)
+
+        if not farmers_items:
+            return
+
+        delivery_date_str = ""
+        if order.delivery_slot and order.delivery_slot.date:
+            delivery_date_str = self.format_date(order.delivery_slot.date)
+        time_label = order.delivery_time_label or (order.delivery_slot.time_text if order.delivery_slot else "")
+
+        for farmer_id, data in farmers_items.items():
+            target_user_id = data["line_user_id"]
+            items_text = ""
+            for item in data["items"]:
+                emoji = "📦"
+                if "人参" in item.product_name: emoji = "🥕"
+                elif "トマト" in item.product_name: emoji = "🍅"
+                elif "ネギ" in item.product_name: emoji = "🥬"
+
+                items_text += f"{emoji} {item.product_name}\n"
+                items_text += f"   数量: {item.quantity}{item.product_unit}\n"
+
+            message = f"""【🎉 注文が入りました！】
+{data['farmer_name']}さん、お疲れ様です！
+一般消費者から注文が入りました。収穫・出荷の準備をお願いします。
+
+■ 受渡予定
+{delivery_date_str} {time_label}
+
+■ 収穫リスト
+{items_text}------------------------
+💰 今回の売上予定: {self.format_currency(data['total_sales'])}
 ------------------------
 
 お野菜のご準備、よろしくお願いいたします！🚛"""
