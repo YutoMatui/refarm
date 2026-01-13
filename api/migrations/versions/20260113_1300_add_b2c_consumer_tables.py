@@ -20,23 +20,35 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade database schema."""
-    # Create deliveryslottype ENUM if not exists
-    conn = op.get_bind()
-    result = conn.execute(sa.text("SELECT 1 FROM pg_type WHERE typname = 'deliveryslottype'"))
-    type_exists = result.fetchone() is not None
+    # Create deliveryslottype ENUM if not exists using PostgreSQL's DO block
+    # This is idempotent and will not fail if the type already exists
+    op.execute("""
+        DO $$ 
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'deliveryslottype') THEN
+                CREATE TYPE deliveryslottype AS ENUM ('HOME', 'UNIV');
+            END IF;
+        EXCEPTION
+            WHEN duplicate_object THEN
+                NULL;  -- Type already exists, do nothing
+        END $$;
+    """)
     
-    if not type_exists:
-        op.execute("CREATE TYPE deliveryslottype AS ENUM ('HOME', 'UNIV')")
+    # Import PostgreSQL ENUM type from sqlalchemy.dialects.postgresql
+    from sqlalchemy.dialects.postgresql import ENUM
     
-    # Use existing ENUM type
-    delivery_slot_type_enum = sa.Enum('HOME', 'UNIV', name='deliveryslottype', create_type=False)
+    # Use existing ENUM type - explicitly use PostgreSQL's ENUM
+    delivery_slot_type_enum = ENUM('HOME', 'UNIV', name='deliveryslottype', create_type=False)
 
-    # Skip table creation if consumers table already exists
-    from sqlalchemy import inspect
-    inspector = inspect(conn)
-    existing_tables = inspector.get_table_names()
+    # Check for existing tables using PostgreSQL's information_schema
+    conn = op.get_bind()
     
-    if 'consumers' not in existing_tables:
+    # Check if consumers table exists
+    consumers_exists = conn.execute(sa.text(
+        "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'consumers')"
+    )).scalar()
+    
+    if not consumers_exists:
         op.create_table(
             'consumers',
             sa.Column('id', sa.Integer(), autoincrement=True, nullable=False, comment='消費者ID'),
@@ -53,7 +65,12 @@ def upgrade() -> None:
         )
         op.create_index('ix_consumers_line_user_id', 'consumers', ['line_user_id'], unique=True)
 
-    if 'delivery_slots' not in existing_tables:
+    # Check if delivery_slots table exists
+    delivery_slots_exists = conn.execute(sa.text(
+        "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'delivery_slots')"
+    )).scalar()
+    
+    if not delivery_slots_exists:
         op.create_table(
             'delivery_slots',
             sa.Column('id', sa.Integer(), autoincrement=True, nullable=False, comment='受取枠ID'),
@@ -72,7 +89,9 @@ def upgrade() -> None:
         op.create_index('ix_delivery_slots_date', 'delivery_slots', ['date'], unique=False)
         op.create_index('ix_delivery_slots_date_type', 'delivery_slots', ['date', 'slot_type'], unique=False)
 
-    order_status_enum = sa.Enum(
+    # orderstatus ENUM should already exist from initial migration
+    # Use PostgreSQL's ENUM to avoid auto-creation
+    order_status_enum = ENUM(
         'PENDING',
         'CONFIRMED',
         'PREPARING',
@@ -83,7 +102,12 @@ def upgrade() -> None:
         create_type=False
     )
 
-    if 'consumer_orders' not in existing_tables:
+    # Check if consumer_orders table exists
+    consumer_orders_exists = conn.execute(sa.text(
+        "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'consumer_orders')"
+    )).scalar()
+    
+    if not consumer_orders_exists:
         op.create_table(
             'consumer_orders',
             sa.Column('id', sa.Integer(), autoincrement=True, nullable=False, comment='注文ID'),
@@ -115,7 +139,12 @@ def upgrade() -> None:
         op.create_index('ix_consumer_orders_consumer_status', 'consumer_orders', ['consumer_id', 'status'], unique=False)
         op.create_index('ix_consumer_orders_status', 'consumer_orders', ['status'], unique=False)
 
-    if 'consumer_order_items' not in existing_tables:
+    # Check if consumer_order_items table exists
+    consumer_order_items_exists = conn.execute(sa.text(
+        "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'consumer_order_items')"
+    )).scalar()
+    
+    if not consumer_order_items_exists:
         op.create_table(
             'consumer_order_items',
             sa.Column('id', sa.Integer(), autoincrement=True, nullable=False, comment='注文明細ID'),
@@ -158,5 +187,7 @@ def downgrade() -> None:
     op.drop_index('ix_consumers_line_user_id', table_name='consumers')
     op.drop_table('consumers')
 
-    delivery_slot_type_enum = sa.Enum('HOME', 'UNIV', name='deliveryslottype')
+    # Only drop the ENUM type if no other tables are using it
+    from sqlalchemy.dialects.postgresql import ENUM
+    delivery_slot_type_enum = ENUM('HOME', 'UNIV', name='deliveryslottype')
     delivery_slot_type_enum.drop(op.get_bind(), checkfirst=True)
