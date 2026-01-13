@@ -237,6 +237,8 @@ export interface ConsumerOrder extends TimestampFields {
   consumer_id: number
   consumer?: Consumer
   delivery_slot_id?: number | null
+  // ▼ 修正: DeliverySlot型への参照を追加
+  delivery_slot?: DeliverySlot | null
   delivery_type: DeliverySlotType
   delivery_label: string
   delivery_time_label: string
@@ -481,4 +483,3 @@ export interface VisitLog {
   interaction_count: number;
   interactions: InteractionLog[];
 }
-
