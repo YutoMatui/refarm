@@ -39,20 +39,24 @@ async def lifespan(app: FastAPI):
     # Run Alembic migrations automatically
     try:
         logger.info("Running database migrations...")
-        # Check if alembic is available in path
-        result = subprocess.run(["alembic", "upgrade", "head"], capture_output=True, text=True)
-        if result.returncode == 0:
-            logger.info("Database migrations completed successfully")
-        else:
-            logger.error(f"Migration failed with return code {result.returncode}")
-            logger.error(f"Migration stdout: {result.stdout}")
-            logger.error(f"Migration stderr: {result.stderr}")
-            # Do NOT raise error here to allow app to start even if migration fails
-            # This is critical for 500/CORS errors when DB connection is flaky
-            
+        # Using check=True to raise an exception if the command fails
+        subprocess.run(
+            ["alembic", "upgrade", "head"], 
+            capture_output=True, 
+            text=True, 
+            check=True
+        )
+        logger.info("Database migrations completed successfully")
+    except subprocess.CalledProcessError as e:
+        logger.error("Database migration failed.")
+        logger.error(f"Return code: {e.returncode}")
+        logger.error(f"Stdout: {e.stdout}")
+        logger.error(f"Stderr: {e.stderr}")
+        # Re-raise the exception to stop the application startup
+        raise e
     except Exception as e:
-        logger.error(f"Migration error: {e}")
-        # Continue startup
+        logger.error(f"An unexpected error occurred during migration: {e}")
+        raise e
 
     # Initialize database (optional, use Alembic for production)
     if settings.DEBUG:
@@ -133,6 +137,9 @@ async def global_exception_handler(request: Request, exc: Exception):
     if origin in allowed_origins or "*" in allowed_origins:
         headers["Access-Control-Allow-Origin"] = origin
         headers["Access-Control-Allow-Credentials"] = "true"
+        # Add headers needed for preflight requests
+        headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        headers["Access-Control-Allow-Headers"] = request.headers.get("Access-Control-Request-Headers", "*")
 
     return JSONResponse(
         status_code=500,
