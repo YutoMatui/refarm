@@ -1,21 +1,43 @@
-from typing import Optional, List, TYPE_CHECKING
-from datetime import datetime
+from typing import Optional, List
+from datetime import datetime, date, time
 from decimal import Decimal
 from pydantic import BaseModel, Field
 
 from app.schemas.base import BaseSchema, TimestampSchema
 from app.models.enums import OrderStatus, DeliverySlotType
 
-# 循環参照回避のため、TYPE_CHECKING ブロック内でインポートするか、
-# 同一ファイル内に DeliverySlotResponse があると仮定します。
-# 別ファイルにある場合は: from app.schemas.delivery import DeliverySlotResponse
-if TYPE_CHECKING:
-    from app.schemas.delivery_slot import DeliverySlotResponse 
+# from app.schemas.delivery_slot import DeliverySlotResponse # 依存関係を完全に断ち切る
 
-# ... (ConsumerOrderItemCreate, ConsumerOrderCreate はそのまま) ...
+
+class DeliverySlotInfoForOrder(BaseModel):
+    """Simplified slot response for embedding in order details."""
+    id: int
+    date: date
+    slot_type: DeliverySlotType
+    time_text: str
+    start_time: Optional[time] = None
+    end_time: Optional[time] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ConsumerOrderItemCreate(BaseModel):
+    # ... existing code ...
+    product_id: int
+    quantity: int
+
+
+class ConsumerOrderCreate(BaseModel):
+    # ... existing code ...
+    delivery_slot_id: int
+    delivery_notes: Optional[str] = None
+    order_notes: Optional[str] = None
+    items: List[ConsumerOrderItemCreate]
+
 
 class ConsumerOrderItemResponse(BaseSchema, TimestampSchema):
-    # ... (変更なし) ...
+    # ... existing code ...
     id: int
     order_id: int
     product_id: int
@@ -28,8 +50,9 @@ class ConsumerOrderItemResponse(BaseSchema, TimestampSchema):
     product_name: str
     product_unit: str
 
+
 class ConsumerCompact(BaseModel):
-    # ... (変更なし) ...
+    # ... existing code ...
     id: int
     name: str
     phone_number: str
@@ -39,6 +62,7 @@ class ConsumerCompact(BaseModel):
     class Config:
         from_attributes = True
 
+
 class ConsumerOrderResponse(TimestampSchema, BaseSchema):
     """Consumer order response schema."""
 
@@ -46,9 +70,7 @@ class ConsumerOrderResponse(TimestampSchema, BaseSchema):
     consumer_id: int
     consumer: Optional[ConsumerCompact] = None
     
-    # ▼▼▼ 修正: フロントエンドのエラーを解消するためここに追加 ▼▼▼
-    # 文字列 "DeliverySlotResponse" にすることで RecursionError を回避します
-    delivery_slot: Optional["DeliverySlotResponse"] = None 
+    delivery_slot: Optional[DeliverySlotInfoForOrder] = None 
     delivery_slot_id: Optional[int]
     
     delivery_type: DeliverySlotType
@@ -75,6 +97,7 @@ class ConsumerOrderResponse(TimestampSchema, BaseSchema):
             }
         }
 
+
 class ConsumerOrderListResponse(BaseModel):
     """Paginated response for consumer orders."""
     items: List[ConsumerOrderResponse]
@@ -82,4 +105,4 @@ class ConsumerOrderListResponse(BaseModel):
     skip: int
     limit: int
 
-ConsumerOrderResponse.model_rebuild()
+# ConsumerOrderResponse.model_rebuild() # 不要になったので削除
