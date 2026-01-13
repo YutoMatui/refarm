@@ -1,10 +1,12 @@
 """
 Favorite Pydantic schemas.
 """
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from pydantic import BaseModel, Field
 from app.schemas.base import BaseSchema, TimestampSchema
-from app.schemas.product import ProductResponse
+
+if TYPE_CHECKING:
+    from app.schemas.product import ProductResponse
 
 
 class FavoriteBase(BaseModel):
@@ -45,7 +47,7 @@ class FavoriteResponse(BaseSchema, TimestampSchema):
 
 class FavoriteWithProductResponse(FavoriteResponse):
     """Schema for favorite response with product details."""
-    product: ProductResponse
+    product: "ProductResponse"
     
     class Config:
         json_schema_extra = {
@@ -104,3 +106,6 @@ class FavoriteToggleResponse(BaseModel):
                 }
             ]
         }
+
+# Resolve forward references
+FavoriteWithProductResponse.model_rebuild()

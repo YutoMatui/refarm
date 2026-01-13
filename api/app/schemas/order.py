@@ -166,3 +166,6 @@ class OrderStatusUpdate(BaseModel):
                 "status": "confirmed"
             }
         }
+
+# Resolve forward references
+OrderResponse.model_rebuild()
