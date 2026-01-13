@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.dependencies import get_line_user_id
-from app.models import Product, Order, OrderItem, Restaurant
+from app.models import Product, Order, OrderItem, Restaurant, Farmer
 from app.models.enums import StockType, ProductCategory
 from app.schemas import (
     ProductCreate,
@@ -49,7 +49,12 @@ async def list_products(
     db: AsyncSession = Depends(get_db)
 ):
     """商品一覧を取得（カタログ用）"""
-    query = select(Product).options(selectinload(Product.farmer)).where(Product.deleted_at.is_(None))
+    # Join with Farmer to check active status
+    query = select(Product).join(Product.farmer).options(selectinload(Product.farmer)).where(
+        Product.deleted_at.is_(None),
+        Farmer.deleted_at.is_(None),
+        Farmer.is_active == 1  # Only show products from active farmers
+    )
     
     if stock_type:
         query = query.where(Product.stock_type == stock_type)

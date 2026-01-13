@@ -308,6 +308,7 @@ export default function FarmerManagement() {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">画像</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">生産者名</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ステータス</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">主要作物</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">連携状況</th>
                                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">操作</th>
@@ -325,6 +326,11 @@ export default function FarmerManagement() {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{farmer.name}</td>
+                                    <td className="px-6 py-4">
+                                        <span className={`px-2 py-1 rounded text-xs font-bold ${farmer.is_active === 1 ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-500'}`}>
+                                            {farmer.is_active === 1 ? '表示中' : '非表示'}
+                                        </span>
+                                    </td>
                                     <td className="px-6 py-4 text-sm text-gray-500">{farmer.main_crop}</td>
                                     <td className="px-6 py-4 text-sm text-gray-500">
                                         {/* @ts-ignore - line_user_id might not be in type yet */}
