@@ -94,6 +94,15 @@ export default function FarmerManagement() {
         },
     });
 
+    const handleToggleActive = (farmer: Farmer, e: React.MouseEvent) => {
+        e.stopPropagation(); // 行クリック等のイベント伝播を防ぐ
+        const newValue = farmer.is_active === 1 ? 0 : 1;
+        updateFarmerMutation.mutate({
+            id: farmer.id,
+            data: { is_active: newValue }
+        });
+    };
+
     const handleDelete = async (farmer: Farmer) => {
         if (confirm(`${farmer.name}さんを削除しますか？\nこの操作は取り消せません。`)) {
             deleteFarmerMutation.mutate(farmer.id);
@@ -308,10 +317,10 @@ export default function FarmerManagement() {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">画像</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">生産者名</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ステータス</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">主要作物</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">連携状況</th>
                                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">操作</th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">表示/非表示</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
@@ -326,11 +335,6 @@ export default function FarmerManagement() {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{farmer.name}</td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 rounded text-xs font-bold ${farmer.is_active === 1 ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-500'}`}>
-                                            {farmer.is_active === 1 ? '表示中' : '非表示'}
-                                        </span>
-                                    </td>
                                     <td className="px-6 py-4 text-sm text-gray-500">{farmer.main_crop}</td>
                                     <td className="px-6 py-4 text-sm text-gray-500">
                                         {/* @ts-ignore - line_user_id might not be in type yet */}
@@ -374,6 +378,21 @@ export default function FarmerManagement() {
                                         >
                                             <Trash2 size={18} />
                                         </button>
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                        <button
+                                            onClick={(e) => handleToggleActive(farmer, e)}
+                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${farmer.is_active === 1 ? 'bg-blue-600' : 'bg-gray-200'
+                                                }`}
+                                        >
+                                            <span
+                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${farmer.is_active === 1 ? 'translate-x-6' : 'translate-x-1'
+                                                    }`}
+                                            />
+                                        </button>
+                                        <div className="text-xs text-gray-500 mt-1">
+                                            {farmer.is_active === 1 ? '表示中' : '非表示'}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -459,6 +478,23 @@ export default function FarmerManagement() {
                                     onChange={(e) => setEditingFarmer({ ...editingFarmer, address: e.target.value })}
                                     className="w-full border border-gray-300 rounded-lg p-2"
                                 />
+                            </div>
+                            <div className="flex flex-col justify-end pb-2">
+                                <label className="flex items-center cursor-pointer">
+                                    <div className="relative">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only"
+                                            checked={editingFarmer.is_active === 1}
+                                            onChange={(e) => setEditingFarmer({ ...editingFarmer, is_active: e.target.checked ? 1 : 0 })}
+                                        />
+                                        <div className={`block w-14 h-8 rounded-full transition-colors ${editingFarmer.is_active === 1 ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
+                                        <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${editingFarmer.is_active === 1 ? 'transform translate-x-6' : ''}`}></div>
+                                    </div>
+                                    <div className="ml-3 text-gray-700 font-bold">
+                                        {editingFarmer.is_active === 1 ? '表示中' : '非表示'}
+                                    </div>
+                                </label>
                             </div>
                         </div>
 
