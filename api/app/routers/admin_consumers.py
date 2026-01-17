@@ -66,7 +66,7 @@ async def get_consumer_detail(
 @router.get("/consumers/{consumer_id}/messages")
 async def get_consumer_messages(
     consumer_id: int,
-    current_admin=Depends(get_current_admin_user),
+    current_admin=Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
