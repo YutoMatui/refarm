@@ -77,37 +77,38 @@ const LocalApp = () => {
 
                 setIdToken(token)
 
-                const response = await consumerApi.verify({ id_token: token })
-                const data = response.data
+                try {
+                    const response = await consumerApi.verify({ id_token: token })
+                    const data = response.data
 
-                setLineUserId(data.line_user_id)
-                setUserRole('consumer')
-                setRestaurant(null)
-                setFarmer(null)
+                    setLineUserId(data.line_user_id)
+                    setUserRole('consumer')
+                    setRestaurant(null)
+                    setFarmer(null)
 
-                if (data.is_registered && data.consumer) {
-                    setConsumer(data.consumer)
-                    setNeedsRegistration(false)
-                } else {
-                    // DBにユーザーが存在しない場合、登録フォームを表示
-                    console.log('初回ログイン: 登録フォームを表示します')
-                    setConsumer(null)
-                    clearCart()
+                    if (data.is_registered && data.consumer) {
+                        setConsumer(data.consumer)
+                        setNeedsRegistration(false)
+                    } else {
+                        // DBにユーザーが存在しない場合、登録フォームを表示
+                        console.log('初回ログイン: 登録フォームを表示します')
+                        setConsumer(null)
+                        clearCart()
+                        setNeedsRegistration(true)
+                    }
+
+                    setLoading(false)
+                } catch (verifyErr: any) {
+                    // 認証エラーまたは未登録の場合は登録フォームを表示
+                    console.log('認証確認エラー: 登録フォームを表示します', verifyErr?.response?.status)
                     setNeedsRegistration(true)
+                    setLoading(false)
                 }
-
-                setLoading(false)
             } catch (err: any) {
                 console.error('Local consumer initialization error', err)
-                // 認証エラーの場合は登録フォームを表示
-                if (err?.response?.status === 404 || err?.response?.status === 401) {
-                    console.log('ユーザーが未登録: 登録フォームを表示します')
-                    setNeedsRegistration(true)
-                    setLoading(false)
-                } else {
-                    setError('アプリの初期化に失敗しました。時間をおいて再度アクセスしてください。')
-                    setLoading(false)
-                }
+                // LINEログインや初期化全体のエラーの場合
+                setError('アプリの初期化に失敗しました。時間をおいて再度アクセスしてください。')
+                setLoading(false)
             }
         }
 

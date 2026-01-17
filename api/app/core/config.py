@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     LIFF_ID: str = "2008674356-P5YFllFd"
     FARMER_LIFF_ID: str = "2008689915-hECRflxu"
     RESTAURANT_LIFF_ID: str = "2008674356-P5YFllFd"
+    CONSUMER_LIFF_ID: str = "2008876692-njfa3HgM"  # 消費者向けLIFF ID
     LINE_CHANNEL_ID: str = ""
     LINE_CHANNEL_SECRET: str = ""
 

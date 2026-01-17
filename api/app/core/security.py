@@ -55,6 +55,14 @@ async def verify_line_id_token(id_token: str) -> dict:
         farmer_login_channel = settings.FARMER_LIFF_ID.split("-")[0]
         if farmer_login_channel not in channel_ids:
             channel_ids.append(farmer_login_channel)
+    
+    # Consumer LIFF ID (B2C)
+    consumer_liff_id = getattr(settings, 'CONSUMER_LIFF_ID', None)
+    if consumer_liff_id and "-" in consumer_liff_id:
+        consumer_login_channel = consumer_liff_id.split("-")[0]
+        if consumer_login_channel not in channel_ids:
+            channel_ids.append(consumer_login_channel)
+            logger.info(f"Added consumer channel ID: {consumer_login_channel}")
         
     # If no channel IDs configured, we can't verify (unless we skip client_id check, but verify endpoint requires it)
     if not channel_ids:
