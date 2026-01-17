@@ -81,14 +81,14 @@ class LineNotificationService:
                 print(f"Failed to send LINE message: {response.text}")
 
     def format_currency(self, amount) -> str:
-        return f"¥{int(amount):,}"
+        return f"¥{round(amount):,}"
 
     def format_currency_plain(self, amount) -> str:
         try:
             value = Decimal(amount)
         except Exception:
             value = Decimal(0)
-        return f"{int(value):,}円"
+        return f"{round(value):,}円"
 
     def format_date(self, date_obj) -> str:
         if not date_obj:
