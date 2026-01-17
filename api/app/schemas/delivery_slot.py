@@ -77,3 +77,5 @@ class DeliverySlotListResponse(BaseModel):
 
     items: list[DeliverySlotResponse]
     total: int
+    skip: int = 0
+    limit: int = 100
