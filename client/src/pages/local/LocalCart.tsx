@@ -65,16 +65,16 @@ const LocalCart = () => {
             const taxRate = item.product.tax_rate
 
             const itemSubtotal = price * quantity
-            const itemTax = Math.floor(itemSubtotal * (taxRate / 100))
+            const itemTax = Math.round(itemSubtotal * (taxRate / 100))
 
             subtotal += itemSubtotal
             taxAmount += itemTax
         })
 
         return {
-            subtotal: Math.floor(subtotal),
-            taxAmount: Math.floor(taxAmount),
-            productTotal: Math.floor(subtotal + taxAmount)
+            subtotal: Math.round(subtotal),
+            taxAmount: Math.round(taxAmount),
+            productTotal: Math.round(subtotal + taxAmount)
         }
     }, [cart])
 
@@ -316,8 +316,8 @@ const LocalCart = () => {
                         const price = parseFloat(String(item.product.price))
                         const quantity = Number(item.quantity)
                         const taxRate = item.product.tax_rate
-                        const itemSubtotal = Math.floor(price * quantity)
-                        const itemTax = Math.floor(itemSubtotal * (taxRate / 100))
+                        const itemSubtotal = Math.round(price * quantity)
+                        const itemTax = Math.round(itemSubtotal * (taxRate / 100))
                         const itemTotal = itemSubtotal + itemTax
 
                         return (
