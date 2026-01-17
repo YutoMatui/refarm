@@ -240,7 +240,7 @@ const ConsumerDeliverySlotManagement = () => {
             {selectedDate && (
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <h3 className="text-lg font-bold text-gray-900 mb-4">
-                        {selectedDate} の受取枠（{selectedType === DeliverySlotType.UNIV ? '兵庫県立大学' : '自宅配送'}）
+                        {selectedDate} の受取枠（{selectedType === DeliverySlotType.UNIVERSITY ? '兵庫県立大学' : '自宅配送'}）
                     </h3>
 
                     {selectedDateSlots.length > 0 ? (
