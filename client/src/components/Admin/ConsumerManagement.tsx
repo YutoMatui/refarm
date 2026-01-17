@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Search, Mail, Phone, MapPin, Calendar, MessageCircle, Edit2, Trash2, X, Save } from 'lucide-react'
+import { Search, Phone, MapPin, Calendar, MessageCircle, Edit2, Trash2, X, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { adminConsumerApi } from '@/services/api'
 import type { Consumer } from '@/types'
@@ -69,7 +69,7 @@ const ConsumerManagement = () => {
     const filteredConsumers = consumers.filter((consumer: Consumer) =>
         consumer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         consumer.phone_number.includes(searchQuery) ||
-        consumer.address.toLowerCase().includes(searchQuery.toLowerCase())
+        (consumer.address?.toLowerCase() || '').includes(searchQuery.toLowerCase())
     )
 
     const handleEdit = () => {
@@ -164,7 +164,7 @@ const ConsumerManagement = () => {
                                                 </p>
                                                 <p className="text-sm text-gray-600 flex items-center gap-1">
                                                     <MapPin size={14} />
-                                                    〒{consumer.postal_code}
+                                                    〒{consumer.postal_code || '---'}
                                                 </p>
                                             </div>
                                         </div>
@@ -318,11 +318,11 @@ const ConsumerManagement = () => {
                                         <div className="space-y-3">
                                             <div>
                                                 <p className="text-xs text-gray-500">郵便番号</p>
-                                                <p className="text-sm font-medium text-gray-900">〒{selectedConsumer.postal_code}</p>
+                                                <p className="text-sm font-medium text-gray-900">{selectedConsumer.postal_code ? `〒${selectedConsumer.postal_code}` : '未登録'}</p>
                                             </div>
                                             <div>
                                                 <p className="text-xs text-gray-500">住所</p>
-                                                <p className="text-sm font-medium text-gray-900">{selectedConsumer.address}</p>
+                                                <p className="text-sm font-medium text-gray-900">{selectedConsumer.address || '未登録'}</p>
                                             </div>
                                             {selectedConsumer.building && (
                                                 <div>
