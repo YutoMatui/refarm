@@ -8,6 +8,7 @@ import LocalHome from '@/pages/local/LocalHome'
 import LocalSearch from '@/pages/local/LocalSearch'
 import LocalFarmers from '@/pages/local/LocalFarmers'
 import LocalFarmerDetail from '@/pages/local/LocalFarmerDetail'
+import LocalProductDetail from '@/pages/local/LocalProductDetail'
 import LocalMyPage from '@/pages/local/LocalMyPage'
 import LocalCart from '@/pages/local/LocalCart'
 import LocalOrderComplete from '@/pages/local/LocalOrderComplete'
@@ -161,6 +162,7 @@ const LocalApp = () => {
                 <Routes>
                     <Route index element={<LocalHome />} />
                     <Route path="search" element={<LocalSearch />} />
+                    <Route path="products/:id" element={<LocalProductDetail />} />
                     <Route path="farmers" element={<LocalFarmers />} />
                     <Route path="farmers/:id" element={<LocalFarmerDetail />} />
                     <Route path="mypage" element={<LocalMyPage />} />

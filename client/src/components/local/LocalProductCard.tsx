@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Minus, Plus } from 'lucide-react'
 import type { Product } from '@/types'
 
@@ -23,12 +24,12 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
     if (compact) {
         return (
             <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden flex">
-                <div className="w-24 h-24 bg-gray-100 flex-shrink-0">
+                <Link to={`/local/products/${product.id}`} className="w-24 h-24 bg-gray-100 flex-shrink-0">
                     {product.image_url ? (
                         <img
                             src={product.image_url}
                             alt={product.name}
-                            className="h-full w-full object-cover"
+                            className="h-full w-full object-cover hover:opacity-90 transition-opacity"
                             loading="lazy"
                         />
                     ) : (
@@ -36,7 +37,7 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                             No Image
                         </div>
                     )}
-                </div>
+                </Link>
                 <div className="flex-1 p-3 flex flex-col justify-between">
                     <div>
                         {product.is_wakeari === 1 && (
@@ -46,7 +47,11 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                                 </span>
                             </div>
                         )}
-                        <h3 className="text-sm font-bold text-gray-900 line-clamp-1">{product.name}</h3>
+                        <Link to={`/local/products/${product.id}`}>
+                            <h3 className="text-sm font-bold text-gray-900 line-clamp-1 hover:text-emerald-600 transition-colors">
+                                {product.name}
+                            </h3>
+                        </Link>
                         <p className="text-lg font-bold text-emerald-600 mt-1">
                             ¥{Math.round(parseFloat(product.price_with_tax || product.price)).toLocaleString()}
                             <span className="text-xs text-gray-500 ml-1">/ {product.unit}</span>
@@ -88,20 +93,22 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
     // 通常表示（グリッド）
     return (
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-            <div className="h-40 bg-gray-100">
-                {product.image_url ? (
-                    <img
-                        src={product.image_url}
-                        alt={product.name}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                    />
-                ) : (
-                    <div className="h-full w-full flex items-center justify-center text-gray-400 text-sm">
-                        No Image
-                    </div>
-                )}
-            </div>
+            <Link to={`/local/products/${product.id}`} className="block">
+                <div className="h-40 bg-gray-100">
+                    {product.image_url ? (
+                        <img
+                            src={product.image_url}
+                            alt={product.name}
+                            className="h-full w-full object-cover hover:opacity-90 transition-opacity"
+                            loading="lazy"
+                        />
+                    ) : (
+                        <div className="h-full w-full flex items-center justify-center text-gray-400 text-sm">
+                            No Image
+                        </div>
+                    )}
+                </div>
+            </Link>
             <div className="p-4 space-y-2">
                 {product.is_wakeari === 1 && (
                     <div>
@@ -110,7 +117,11 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                         </span>
                     </div>
                 )}
-                <h3 className="text-lg font-semibold text-gray-900">{product.name}</h3>
+                <Link to={`/local/products/${product.id}`}>
+                    <h3 className="text-lg font-semibold text-gray-900 hover:text-emerald-600 transition-colors">
+                        {product.name}
+                    </h3>
+                </Link>
                 {product.description && (
                     <p className="text-sm text-gray-600 line-clamp-2">{product.description}</p>
                 )}
