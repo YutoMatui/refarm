@@ -244,8 +244,8 @@ No. {order.id}
             return
 
         token = await self.get_access_token(
-            settings.LINE_RESTAURANT_CHANNEL_ID,
-            settings.LINE_RESTAURANT_CHANNEL_SECRET
+            settings.LINE_CONSUMER_CHANNEL_ID,
+            ""
         )
 
         items_lines = ""
