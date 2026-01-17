@@ -18,8 +18,8 @@ import LocalFloatingCartButton from '@/components/local/LocalFloatingCartButton'
 import Loading from '@/components/Loading'
 import type { Consumer } from '@/types'
 
-// 一時的な開発モード設定（LINEログインをスキップ）
-const SKIP_LINE_LOGIN = true // 開発確認用: LINEログインを無効化
+// LINEログイン設定
+const SKIP_LINE_LOGIN = false // 本番環境: LINEログインを有効化
 
 const LocalApp = () => {
     const [loading, setLoading] = useState(true)
