@@ -28,7 +28,7 @@ class ProductInfoForOrder(BaseModel):
     id: int
     name: str
     unit: str
-    price: str
+    price: Decimal
     image_url: Optional[str] = None
     
     class Config:

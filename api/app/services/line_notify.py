@@ -26,6 +26,10 @@ class LineNotificationService:
             return self.restaurant_token
         if channel_id == settings.LINE_PRODUCER_CHANNEL_ID and self.producer_token:
             return self.producer_token
+        
+        # For consumer, we have a static long-lived token from settings
+        if channel_id == settings.LINE_CONSUMER_CHANNEL_ID:
+            return settings.LINE_CONSUMER_ACCESS_TOKEN
 
         async with httpx.AsyncClient() as client:
             payload = {
