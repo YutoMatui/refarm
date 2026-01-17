@@ -33,11 +33,13 @@ const LocalCart = () => {
         }
     }, [consumer, deliveryDestination])
 
-    // 全ての受取枠を取得（slot_typeのフィルタなし）
+    // 配送先に応じた受取枠を取得
+    // HOME = 自宅配送用の枠、UNIV = 大学受取用の枠
     const { data: slotData, isLoading: isSlotsLoading } = useQuery<DeliverySlot[]>({
-        queryKey: ['delivery-slots'],
+        queryKey: ['delivery-slots', deliveryDestination],
         queryFn: async () => {
-            const response = await deliverySlotApi.list({ limit: 100 })
+            const slotType = deliveryDestination === 'UNIV' ? DeliverySlotType.UNIVERSITY : DeliverySlotType.HOME
+            const response = await deliverySlotApi.list({ slot_type: slotType, limit: 100 })
             return response.data as DeliverySlot[]
         },
     })
