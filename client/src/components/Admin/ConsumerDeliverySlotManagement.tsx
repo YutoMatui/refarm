@@ -21,7 +21,7 @@ const ConsumerDeliverySlotManagement = () => {
     const { data: slotsData } = useQuery({
         queryKey: ['consumer-delivery-slots'],
         queryFn: async () => {
-            const response = await adminDeliverySlotApi.list({ limit: 500 })
+            const response = await adminDeliverySlotApi.list({ limit: 200 })
             return response.data
         }
     })
@@ -95,11 +95,11 @@ const ConsumerDeliverySlotManagement = () => {
             await createMutation.mutateAsync({
                 date: selectedDate,
                 slot_type: selectedType,
-                start_time: slot.startTime,
-                end_time: slot.endTime,
+                start_time: slot.startTime || null,
+                end_time: slot.endTime || null,
                 time_text: timeText,
                 is_active: true,
-                note: note || null
+                note: note.trim() || null
             })
         }
     }
@@ -145,8 +145,8 @@ const ConsumerDeliverySlotManagement = () => {
                             type="button"
                             onClick={() => setSelectedType(DeliverySlotType.UNIVERSITY)}
                             className={`flex-1 px-4 py-3 rounded-lg border-2 font-semibold transition-all ${selectedType === DeliverySlotType.UNIVERSITY
-                                ? 'bg-emerald-50 border-emerald-500 text-emerald-700'
-                                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                    ? 'bg-emerald-50 border-emerald-500 text-emerald-700'
+                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
                                 }`}
                         >
                             <MapPin size={18} className="inline mr-2" />
@@ -156,8 +156,8 @@ const ConsumerDeliverySlotManagement = () => {
                             type="button"
                             onClick={() => setSelectedType(DeliverySlotType.HOME)}
                             className={`flex-1 px-4 py-3 rounded-lg border-2 font-semibold transition-all ${selectedType === DeliverySlotType.HOME
-                                ? 'bg-blue-50 border-blue-500 text-blue-700'
-                                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                    ? 'bg-blue-50 border-blue-500 text-blue-700'
+                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
                                 }`}
                         >
                             🏠 自宅配送
