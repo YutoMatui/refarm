@@ -13,6 +13,9 @@ import LocalFloatingCartButton from '@/components/local/LocalFloatingCartButton'
 import Loading from '@/components/Loading'
 import type { Consumer } from '@/types'
 
+// 一時的な開発モード設定（LINEログインをスキップ）
+const SKIP_LINE_LOGIN = true // 開発確認用: LINEログインを無効化
+
 const LocalApp = () => {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -32,6 +35,21 @@ const LocalApp = () => {
     useEffect(() => {
         const init = async () => {
             try {
+                // 【開発用】LINEログインをスキップして直接登録フォームを表示
+                if (SKIP_LINE_LOGIN) {
+                    console.log('🔧 開発モード: LINEログインをスキップしています')
+                    setLineUserId('dev-user-id')
+                    setUserRole('consumer')
+                    setRestaurant(null)
+                    setFarmer(null)
+                    setConsumer(null)
+                    clearCart()
+                    setIdToken('dev-token')
+                    setNeedsRegistration(true)
+                    setLoading(false)
+                    return
+                }
+
                 await liffService.init()
 
                 if (!liffService.isLoggedIn()) {
@@ -66,16 +84,25 @@ const LocalApp = () => {
                     setConsumer(data.consumer)
                     setNeedsRegistration(false)
                 } else {
+                    // DBにユーザーが存在しない場合、登録フォームを表示
+                    console.log('初回ログイン: 登録フォームを表示します')
                     setConsumer(null)
                     clearCart()
                     setNeedsRegistration(true)
                 }
 
                 setLoading(false)
-            } catch (err) {
+            } catch (err: any) {
                 console.error('Local consumer initialization error', err)
-                setError('アプリの初期化に失敗しました。時間をおいて再度アクセスしてください。')
-                setLoading(false)
+                // 認証エラーの場合は登録フォームを表示
+                if (err?.response?.status === 404 || err?.response?.status === 401) {
+                    console.log('ユーザーが未登録: 登録フォームを表示します')
+                    setNeedsRegistration(true)
+                    setLoading(false)
+                } else {
+                    setError('アプリの初期化に失敗しました。時間をおいて再度アクセスしてください。')
+                    setLoading(false)
+                }
             }
         }
 
