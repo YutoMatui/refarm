@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { toast } from 'sonner'
+import { MapPin, AlertCircle } from 'lucide-react'
 import { consumerOrderApi, deliverySlotApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
 import { DeliverySlotType, type DeliverySlot, type ConsumerOrder, type ConsumerOrderCreateRequest } from '@/types'
@@ -19,18 +20,18 @@ const LocalCart = () => {
     const consumer = useStore(state => state.consumer)
     const clearCart = useStore(state => state.clearCart)
 
-    const [deliveryType, setDeliveryType] = useState<DeliverySlotType>(DeliverySlotType.HOME)
+    const [deliveryType, setDeliveryType] = useState<DeliverySlotType>(DeliverySlotType.UNIVERSITY)
     const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null)
     const [deliveryNotes, setDeliveryNotes] = useState('')
-    const [orderNotes, setOrderNotes] = useState('')
     const [overrideAddress, setOverrideAddress] = useState('')
+    const [univLocationDetail, setUnivLocationDetail] = useState('')
 
     useEffect(() => {
-        if (consumer) {
+        if (consumer && deliveryType === DeliverySlotType.HOME) {
             const baseAddress = `${consumer.address}${consumer.building ? ` ${consumer.building}` : ''}`
             setOverrideAddress(baseAddress.trim())
         }
-    }, [consumer])
+    }, [consumer, deliveryType])
 
     const { data: slotData, isLoading: isSlotsLoading } = useQuery<DeliverySlot[]>({
         queryKey: ['delivery-slots', deliveryType],
@@ -95,12 +96,17 @@ const LocalCart = () => {
             quantity: Number(item.quantity),
         }))
 
+        // 配送メモに受け取り場所詳細を含める
+        let finalDeliveryNotes = deliveryNotes
+        if (deliveryType === DeliverySlotType.UNIVERSITY && univLocationDetail.trim()) {
+            finalDeliveryNotes = univLocationDetail.trim() + (deliveryNotes ? `\n${deliveryNotes}` : '')
+        }
+
         mutation.mutate({
             consumer_id: consumer.id,
             delivery_slot_id: selectedSlotId,
             delivery_address: deliveryType === DeliverySlotType.HOME ? overrideAddress.trim() : undefined,
-            delivery_notes: deliveryNotes || undefined,
-            order_notes: orderNotes || undefined,
+            delivery_notes: finalDeliveryNotes || undefined,
             items,
         })
     }
@@ -133,123 +139,188 @@ const LocalCart = () => {
     }
 
     return (
-        <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        <div className="max-w-4xl mx-auto px-4 py-6 pb-24 space-y-6">
+            {/* 受取方法 */}
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-                <h2 className="text-lg font-semibold text-gray-900">受取方法</h2>
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <MapPin className="text-emerald-600" size={20} />
+                    受取方法
+                </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <button
                         type="button"
-                        onClick={() => setDeliveryType(DeliverySlotType.HOME)}
-                        className={`rounded-xl border p-4 text-left space-y-1 ${deliveryType === DeliverySlotType.HOME ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-emerald-200'}`}
+                        onClick={() => setDeliveryType(DeliverySlotType.UNIVERSITY)}
+                        className={`rounded-xl border-2 p-5 text-left space-y-2 transition-all ${deliveryType === DeliverySlotType.UNIVERSITY
+                            ? 'border-emerald-500 bg-emerald-50 shadow-md'
+                            : 'border-gray-200 hover:border-emerald-200'
+                            }`}
                     >
-                        <p className="font-semibold text-gray-900">自宅へ配送</p>
-                        <p className="text-sm text-gray-600">送料400円 / 指定時間帯にお届けします</p>
+                        <p className="font-bold text-gray-900">兵庫県立大学 受取</p>
+                        <p className="text-sm text-gray-600">送料無料 / 指定時刻にお受け取り</p>
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mt-2">
+                            <p className="text-xs text-blue-700 leading-relaxed">
+                                <span className="font-semibold">学校関係者:</span> 校内受け取り（教室等）<br />
+                                <span className="font-semibold">地域住民:</span> 正門前受け取り
+                            </p>
+                        </div>
                     </button>
                     <button
                         type="button"
-                        onClick={() => setDeliveryType(DeliverySlotType.UNIVERSITY)}
-                        className={`rounded-xl border p-4 text-left space-y-1 ${deliveryType === DeliverySlotType.UNIVERSITY ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-200'}`}
+                        onClick={() => setDeliveryType(DeliverySlotType.HOME)}
+                        className={`rounded-xl border-2 p-5 text-left space-y-2 transition-all ${deliveryType === DeliverySlotType.HOME
+                            ? 'border-blue-500 bg-blue-50 shadow-md'
+                            : 'border-gray-200 hover:border-blue-200'
+                            }`}
                     >
-                        <p className="font-semibold text-gray-900">兵庫県立大学 正門受取</p>
-                        <p className="text-sm text-gray-600">無料 / 指定時刻にお受け取りください</p>
+                        <p className="font-bold text-gray-900">自宅へ配送</p>
+                        <p className="text-sm text-gray-600">送料400円 / 指定時間帯にお届け</p>
                     </button>
                 </div>
             </section>
 
+            {/* 受取日時 */}
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-                <h2 className="text-lg font-semibold text-gray-900">受取日時</h2>
+                <h2 className="text-lg font-bold text-gray-900">受取日時</h2>
                 {isSlotsLoading && <p className="text-sm text-gray-600">受取枠を読み込み中です...</p>}
                 {!isSlotsLoading && slots.length === 0 && (
-                    <p className="text-sm text-red-600">現在選択可能な受取枠がありません。時間をおいて再度お試しください。</p>
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+                        <AlertCircle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
+                        <p className="text-sm text-red-700">
+                            現在選択可能な受取枠がありません。時間をおいて再度お試しください。
+                        </p>
+                    </div>
                 )}
                 <div className="space-y-3">
                     {slots.map((slot) => (
-                        <label key={slot.id} className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:border-emerald-300 cursor-pointer">
+                        <label
+                            key={slot.id}
+                            className={`flex items-start space-x-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedSlotId === slot.id
+                                ? 'border-emerald-500 bg-emerald-50'
+                                : 'border-gray-200 hover:border-emerald-300'
+                                }`}
+                        >
                             <input
                                 type="radio"
                                 name="delivery_slot"
                                 value={slot.id}
                                 checked={selectedSlotId === slot.id}
                                 onChange={() => setSelectedSlotId(slot.id)}
-                                className="h-4 w-4 text-emerald-600"
+                                className="mt-1 h-4 w-4 text-emerald-600"
                             />
-                            <div>
-                                <p className="font-semibold text-gray-900">{slot.slot_type === DeliverySlotType.HOME ? '自宅配送' : '大学受取'}</p>
-                                <p className="text-sm text-gray-600">{formatSlotLabel(slot)}</p>
+                            <div className="flex-1">
+                                <p className="font-bold text-gray-900">
+                                    {slot.slot_type === DeliverySlotType.HOME ? '🏠 自宅配送' : '🏫 大学受取'}
+                                </p>
+                                <p className="text-sm text-gray-600 mt-1">{formatSlotLabel(slot)}</p>
+                                {slot.note && (
+                                    <p className="text-xs text-gray-500 mt-2 bg-gray-50 px-2 py-1 rounded">
+                                        {slot.note}
+                                    </p>
+                                )}
                             </div>
                         </label>
                     ))}
                 </div>
             </section>
 
-            {deliveryType === DeliverySlotType.HOME && (
-                <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-3">
-                    <h2 className="text-lg font-semibold text-gray-900">配送先住所</h2>
-                    <p className="text-xs text-gray-500">建物名・部屋番号が無い場合は「なし」とご記入ください。必要に応じて住所を修正できます。</p>
+            {/* 兵庫県立大学受け取り - 詳細指定 */}
+            {deliveryType === DeliverySlotType.UNIVERSITY && (
+                <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+                    <h2 className="text-lg font-bold text-gray-900">受け取り場所の詳細（任意）</h2>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+                        <p className="text-sm text-blue-800 font-semibold flex items-center gap-2">
+                            <AlertCircle size={16} />
+                            学校関係者の方へ
+                        </p>
+                        <p className="text-xs text-blue-700 leading-relaxed">
+                            校内受け取りをご希望の場合は、建物名・階数・教室番号などを記入してください。<br />
+                            例: 社会情報科学棟4階資料準備室、本部棟1階事務室 など
+                        </p>
+                    </div>
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-2">
+                        <p className="text-sm text-emerald-800 font-semibold flex items-center gap-2">
+                            <MapPin size={16} />
+                            地域住民の方へ
+                        </p>
+                        <p className="text-xs text-emerald-700 leading-relaxed">
+                            正門前での受け取りをご希望の場合は、空欄のままで結構です。<br />
+                            または「正門前」とご記入ください。
+                        </p>
+                    </div>
                     <textarea
-                        value={overrideAddress}
-                        onChange={(e) => setOverrideAddress(e.target.value)}
-                        rows={3}
-                        className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        value={univLocationDetail}
+                        onChange={(e) => setUnivLocationDetail(e.target.value)}
+                        placeholder="例: 社会情報科学棟4階資料準備室"
+                        rows={2}
+                        className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                 </section>
             )}
 
-            <section className="bg-white border border-gray-200 rounded-xl p-6 grid gap-4 md:grid-cols-2">
-                <div className="space-y-3">
-                    <h2 className="text-lg font-semibold text-gray-900">ご要望など</h2>
+            {/* 自宅配送 - 配送先住所 */}
+            {deliveryType === DeliverySlotType.HOME && (
+                <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+                    <h2 className="text-lg font-bold text-gray-900">配送先住所</h2>
+                    <p className="text-xs text-gray-500">
+                        建物名・部屋番号が無い場合は「なし」とご記入ください。必要に応じて住所を修正できます。
+                    </p>
                     <textarea
-                        value={deliveryNotes}
-                        onChange={(e) => setDeliveryNotes(e.target.value)}
-                        placeholder="インターホンが鳴らない場合はお電話ください など"
+                        value={overrideAddress}
+                        onChange={(e) => setOverrideAddress(e.target.value)}
                         rows={3}
-                        className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
-                </div>
-                <div className="space-y-3">
-                    <h2 className="text-lg font-semibold text-gray-900">注文メモ</h2>
-                    <textarea
-                        value={orderNotes}
-                        onChange={(e) => setOrderNotes(e.target.value)}
-                        placeholder="のしが必要です など"
-                        rows={3}
-                        className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                </div>
+                </section>
+            )}
+
+            {/* ご要望など */}
+            <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+                <h2 className="text-lg font-bold text-gray-900">ご要望など（任意）</h2>
+                <textarea
+                    value={deliveryNotes}
+                    onChange={(e) => setDeliveryNotes(e.target.value)}
+                    placeholder="インターホンが鳴らない場合はお電話ください など"
+                    rows={3}
+                    className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                />
             </section>
 
+            {/* 注文内容の確認 */}
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-                <h2 className="text-lg font-semibold text-gray-900">注文内容の確認</h2>
+                <h2 className="text-lg font-bold text-gray-900">注文内容の確認</h2>
                 <div className="space-y-2">
                     {cart.map(item => (
-                        <div key={item.product.id} className="flex justify-between text-sm text-gray-700">
-                            <span>{item.product.name} × {item.quantity}{item.product.unit}</span>
-                            <span>¥{Math.round(parseFloat(String(item.product.price_with_tax ?? item.product.price)) * Number(item.quantity)).toLocaleString()}</span>
+                        <div key={item.product.id} className="flex justify-between text-sm text-gray-700 py-2 border-b border-gray-100">
+                            <span className="font-medium">{item.product.name} × {item.quantity}{item.product.unit}</span>
+                            <span className="font-semibold">¥{Math.round(parseFloat(String(item.product.price_with_tax ?? item.product.price)) * Number(item.quantity)).toLocaleString()}</span>
                         </div>
                     ))}
                 </div>
-                <div className="border-t border-gray-200 pt-4 space-y-2 text-sm text-gray-700">
+                <div className="border-t-2 border-gray-200 pt-4 space-y-2 text-sm text-gray-700">
                     <div className="flex justify-between">
                         <span>商品合計</span>
                         <span>¥{Math.round(productTotal).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
                         <span>送料</span>
-                        <span>{shippingFee === 0 ? '無料' : `¥${shippingFee.toLocaleString()}`}</span>
+                        <span className={shippingFee === 0 ? 'text-emerald-600 font-semibold' : ''}>
+                            {shippingFee === 0 ? '無料' : `¥${shippingFee.toLocaleString()}`}
+                        </span>
                     </div>
-                    <div className="flex justify-between font-semibold text-lg text-gray-900">
+                    <div className="flex justify-between font-bold text-xl text-gray-900 pt-2">
                         <span>お支払い合計</span>
-                        <span>¥{Math.round(grandTotal).toLocaleString()}</span>
+                        <span className="text-emerald-600">¥{Math.round(grandTotal).toLocaleString()}</span>
                     </div>
                 </div>
-                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm rounded-lg p-4">
+                <div className="bg-yellow-50 border-2 border-yellow-300 text-yellow-800 text-sm rounded-xl p-4">
+                    <p className="font-semibold mb-1">💰 お支払いについて</p>
                     <p>お支払いは受取時の現金のみです。お釣りが出ないよう小銭をご準備ください。</p>
                 </div>
                 <button
                     type="button"
                     onClick={handleSubmit}
                     disabled={mutation.isPending || !selectedSlotId || (deliveryType === DeliverySlotType.HOME && !overrideAddress.trim())}
-                    className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-md hover:bg-emerald-700 disabled:opacity-60"
+                    className="w-full py-4 bg-emerald-600 text-white font-bold text-lg rounded-xl hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
                 >
                     {mutation.isPending ? '注文処理中...' : '注文を確定する'}
                 </button>
