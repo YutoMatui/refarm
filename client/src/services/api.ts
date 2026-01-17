@@ -508,4 +508,14 @@ export const followApi = {
     apiClient.get<{ is_following: boolean; count: number }>(`/farmers/${farmerId}/follow`),
 }
 
+// Support Message API
+export const supportMessageApi = {
+  create: (data: { farmer_id: number; message: string; nickname?: string }) =>
+    apiClient.post('/support-messages/', data),
+  getFarmerMessages: (farmerId: number) =>
+    apiClient.get(`/support-messages/farmer/${farmerId}`),
+  getMyMessages: () =>
+    apiClient.get('/support-messages/me'),
+}
+
 export default apiClient

@@ -1,175 +1,306 @@
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ShoppingCart, Sparkles, Clock, TrendingUp } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import { toast } from 'sonner'
-import { productApi } from '@/services/api'
+import { productApi, farmerApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
-import LocalProductCard from '@/components/local/LocalProductCard'
-import type { Product, PaginatedResponse } from '@/types'
+import { Product } from '@/types'
+import { Leaf, Sparkles, Clock, User, AlertCircle } from 'lucide-react'
 
-const LocalHome = () => {
-    const addToCart = useStore(state => state.addToCart)
-    const consumer = useStore(state => state.consumer)
-    const cart = useStore(state => state.cart)
+export default function LocalHome() {
+    const { consumer } = useStore()
+    const navigate = useNavigate()
 
-    // 訳あり商品を取得
-    const { data: wakeariData } = useQuery<PaginatedResponse<Product>>({
-        queryKey: ['local-products-wakeari'],
+    // --- Data Fetching ---
+    // 訳あり・お買い得商品
+    const { data: wakeariData, isLoading: isWakeariLoading, error: wakeariError } = useQuery({
+        queryKey: ['local-wakeari-products'],
         queryFn: async () => {
-            const response = await productApi.list({ is_active: 1, is_wakeari: 1, limit: 10 })
-            return response.data as PaginatedResponse<Product>
+            const response = await productApi.list({ is_active: 1, is_wakeari: 1, limit: 6 })
+            return response.data
         },
+        retry: 2,
+        retryDelay: 1000,
     })
 
-    // 新着商品を取得（最新順）
-    const { data: newData } = useQuery<PaginatedResponse<Product>>({
-        queryKey: ['local-products-new'],
+    // 旬のおすすめ商品
+    const { data: featuredData, isLoading: isFeaturedLoading } = useQuery({
+        queryKey: ['local-featured-products'],
         queryFn: async () => {
-            const response = await productApi.list({ is_active: 1, limit: 10 })
-            return response.data as PaginatedResponse<Product>
+            const response = await productApi.list({ is_active: 1, is_featured: 1, limit: 6 })
+            return response.data
         },
+        retry: 2,
+        retryDelay: 1000,
     })
 
-    // おすすめ商品を取得
-    const { data: featuredData } = useQuery<PaginatedResponse<Product>>({
-        queryKey: ['local-products-featured'],
+    // 新着商品
+    const { data: newProductsData, isLoading: isNewProductsLoading } = useQuery({
+        queryKey: ['local-new-products'],
         queryFn: async () => {
-            const response = await productApi.list({ is_active: 1, is_featured: 1, limit: 10 })
-            return response.data as PaginatedResponse<Product>
+            const response = await productApi.list({ is_active: 1, limit: 6 })
+            return response.data
         },
+        retry: 2,
+        retryDelay: 1000,
     })
 
-    const wakeariProducts = wakeariData?.items ?? []
-    const newProducts = newData?.items ?? []
-    const featuredProducts = featuredData?.items ?? []
+    // 人気の生産者
+    const { data: farmersData, isLoading: isFarmersLoading } = useQuery({
+        queryKey: ['local-popular-farmers'],
+        queryFn: async () => {
+            const response = await farmerApi.list({ is_active: 1, limit: 6 })
+            return response.data
+        },
+        retry: 2,
+        retryDelay: 1000,
+    })
 
-    const handleAddToCart = (product: Product, quantity: number) => {
-        addToCart(product, quantity)
-        toast.success(`${product.name} をカートに追加しました`)
+    const isLoading = isFeaturedLoading || isFarmersLoading || isNewProductsLoading || isWakeariLoading
+
+
+    if (wakeariError) {
+        console.error('API Error:', wakeariError)
     }
 
-    const cartCount = cart.reduce((sum, item) => sum + Number(item.quantity), 0)
-
     return (
-        <div className="min-h-screen bg-gray-50">
-            {/* ヘッダー */}
-            <header className="bg-gradient-to-r from-emerald-600 to-emerald-500 text-white px-4 py-6 safe-area-pt">
-                <div className="max-w-5xl mx-auto space-y-2">
-                    <p className="text-xs uppercase tracking-wide opacity-90">Vegicobe Local</p>
-                    <h1 className="text-2xl font-bold">{consumer?.name ?? 'お客様'}さん、こんにちは</h1>
-                    <p className="text-sm opacity-90">旬の神戸野菜をLINEからかんたん注文</p>
+        <div className="bg-white min-h-screen pb-24 font-sans text-gray-800">
+            {/* --- Logo Header --- */}
+            <div className="flex justify-center pt-8 pb-6">
+                <div className="flex flex-col items-center">
+                    {/* Logo Circle */}
+                    <div className="w-24 h-24 rounded-full border border-gray-100 flex items-center justify-center bg-white shadow-[0_2px_10px_rgba(0,0,0,0.05)] mb-2 overflow-hidden">
+                        <img src="/logo.png" alt="ベジコベ ロゴ" className="w-full h-full object-cover" />
+                    </div>
+                    <p className="text-[10px] text-gray-400 font-medium tracking-wide">KOBE Veggie Ecosystem</p>
                 </div>
-            </header>
+            </div>
 
-            {/* メインコンテンツ */}
-            <div className="max-w-5xl mx-auto px-4 py-6 space-y-8">
-                {/* カートへのショートカット */}
-                {cartCount > 0 && (
-                    <Link
-                        to="/local/cart"
-                        className="block bg-emerald-50 border border-emerald-200 rounded-xl p-4 hover:bg-emerald-100 transition"
-                    >
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                                <div className="bg-emerald-600 text-white rounded-full p-2">
-                                    <ShoppingCart size={20} />
-                                </div>
-                                <div>
-                                    <p className="font-semibold text-gray-900">カート {cartCount} 点</p>
-                                    <p className="text-sm text-gray-600">タップして注文を確定</p>
-                                </div>
-                            </div>
-                            <div className="text-emerald-600 font-bold text-lg">›</div>
-                        </div>
-                    </Link>
-                )}
+            {/* --- Main Content --- */}
+            <div className="px-5 space-y-8">
 
-                {/* 訳あり・お買い得 */}
-                {wakeariProducts.length > 0 && (
-                    <section>
-                        <div className="flex items-center space-x-2 mb-4">
-                            <TrendingUp className="text-orange-500" size={24} />
-                            <h2 className="text-lg font-bold text-gray-900">今すぐ買える！訳あり・お買い得</h2>
+                {/* エラー表示 */}
+                {wakeariError && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-start gap-3">
+                        <AlertCircle className="text-orange-500 flex-shrink-0 mt-0.5" size={20} />
+                        <div className="flex-1">
+                            <p className="text-sm font-semibold text-orange-800 mb-1">データの読み込みに失敗しました</p>
+                            <p className="text-xs text-orange-700">
+                                ネットワーク接続を確認してください。しばらくしてから再度お試しください。
+                            </p>
                         </div>
-                        <div className="space-y-3">
-                            {wakeariProducts.map((product) => (
-                                <LocalProductCard
-                                    key={product.id}
-                                    product={product}
-                                    onAddToCart={handleAddToCart}
-                                    compact
-                                />
-                            ))}
-                        </div>
-                        <Link
-                            to="/local/search?category=wakeari"
-                            className="block mt-3 text-center text-sm text-emerald-600 font-semibold py-2"
-                        >
-                            訳あり商品をもっと見る ›
-                        </Link>
-                    </section>
-                )}
-
-                {/* おすすめ・特集 */}
-                {featuredProducts.length > 0 && (
-                    <section>
-                        <div className="flex items-center space-x-2 mb-4">
-                            <Sparkles className="text-yellow-500" size={24} />
-                            <h2 className="text-lg font-bold text-gray-900">今週のおすすめ</h2>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            {featuredProducts.slice(0, 4).map((product) => (
-                                <LocalProductCard
-                                    key={product.id}
-                                    product={product}
-                                    onAddToCart={handleAddToCart}
-                                />
-                            ))}
-                        </div>
-                        <Link
-                            to="/local/search?featured=1"
-                            className="block mt-3 text-center text-sm text-emerald-600 font-semibold py-2"
-                        >
-                            おすすめ商品をもっと見る ›
-                        </Link>
-                    </section>
-                )}
-
-                {/* 新着・旬の野菜 */}
-                {newProducts.length > 0 && (
-                    <section>
-                        <div className="flex items-center space-x-2 mb-4">
-                            <Clock className="text-blue-500" size={24} />
-                            <h2 className="text-lg font-bold text-gray-900">新着・旬の野菜</h2>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            {newProducts.slice(0, 6).map((product) => (
-                                <LocalProductCard
-                                    key={product.id}
-                                    product={product}
-                                    onAddToCart={handleAddToCart}
-                                />
-                            ))}
-                        </div>
-                        <Link
-                            to="/local/search"
-                            className="block mt-3 text-center text-sm text-emerald-600 font-semibold py-2"
-                        >
-                            すべての商品を見る ›
-                        </Link>
-                    </section>
-                )}
-
-                {/* 商品がない場合 */}
-                {wakeariProducts.length === 0 && newProducts.length === 0 && featuredProducts.length === 0 && (
-                    <div className="bg-white rounded-xl p-8 text-center text-gray-500 border border-gray-100">
-                        <p className="text-sm">現在ご注文いただける商品がありません。</p>
-                        <p className="text-xs mt-2">公開までしばらくお待ちください。</p>
                     </div>
                 )}
+
+                {/* 初回ユーザー向けウェルカムカード */}
+                <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl p-6 border border-emerald-100">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center">
+                            <User className="text-emerald-600" size={24} />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-900">
+                                {consumer?.name ? `${consumer.name}さん、` : 'ようこそ、'}
+                            </h3>
+                            <p className="text-sm text-gray-600">ベジコベへ</p>
+                        </div>
+                    </div>
+                    <p className="text-sm text-gray-700 mb-4">
+                        神戸の新鮮な野菜を生産者から直接お届け。旬の味をお楽しみください。
+                    </p>
+                    <button
+                        onClick={() => navigate('/local/search')}
+                        className="w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl shadow-md hover:bg-emerald-700 transition-colors"
+                    >
+                        野菜を探す
+                    </button>
+                </div>
+
+                {/* 1. 訳あり・お買い得（最優先表示） */}
+                {!isWakeariLoading && wakeariData?.items && wakeariData.items.length > 0 && (
+                    <section>
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+                                    <Sparkles className="text-orange-500" size={18} />
+                                </div>
+                                <h2 className="text-xl font-bold text-gray-900">訳あり・お買い得</h2>
+                            </div>
+                        </div>
+
+                        <div className="flex overflow-x-auto space-x-3 pb-4 -mx-5 px-5 scrollbar-hide">
+                            {wakeariData.items.map((product: Product) => (
+                                <div
+                                    key={product.id}
+                                    onClick={() => navigate(`/local/products/${product.id}`)}
+                                    className="flex-shrink-0 w-36 cursor-pointer active:scale-95 transition-transform"
+                                >
+                                    <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 shadow-sm">
+                                        {product.image_url ? (
+                                            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                                                <Leaf className="w-8 h-8 text-gray-300" />
+                                            </div>
+                                        )}
+                                        {/* 訳ありバッジ */}
+                                        <div className="absolute top-2 left-2">
+                                            <span className="bg-orange-500 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-md">
+                                                訳あり
+                                            </span>
+                                        </div>
+                                        {/* グラデーションオーバーレイ */}
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+
+                                        {/* テキスト情報 */}
+                                        <div className="absolute bottom-2 left-2 right-2 text-white">
+                                            <p className="font-bold text-sm truncate drop-shadow-md">{product.name}</p>
+                                            <p className="text-xs font-medium opacity-90">¥{Math.floor(Number(product.price)).toLocaleString()}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* 2. 旬のおすすめ食材（横スクロールカルーセル） */}
+                {!isFeaturedLoading && featuredData?.items && featuredData.items.length > 0 && (
+                    <section>
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                                    <Leaf className="text-green-600" size={18} />
+                                </div>
+                                <h2 className="text-xl font-bold text-gray-900">旬のおすすめ食材</h2>
+                            </div>
+                        </div>
+
+                        <div className="flex overflow-x-auto space-x-3 pb-4 -mx-5 px-5 scrollbar-hide">
+                            {featuredData.items.map((product: Product) => (
+                                <div
+                                    key={product.id}
+                                    onClick={() => navigate(`/local/products/${product.id}`)}
+                                    className="flex-shrink-0 w-36 cursor-pointer active:scale-95 transition-transform"
+                                >
+                                    <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 shadow-sm">
+                                        {product.image_url ? (
+                                            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                                                <Leaf className="w-8 h-8 text-gray-300" />
+                                            </div>
+                                        )}
+                                        {/* グラデーションオーバーレイ */}
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+
+                                        {/* テキスト情報 */}
+                                        <div className="absolute bottom-2 left-2 right-2 text-white">
+                                            <p className="font-bold text-sm truncate drop-shadow-md">{product.name}</p>
+                                            <p className="text-xs font-medium opacity-90">¥{Math.floor(Number(product.price)).toLocaleString()}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* 3. 新着アイテム（横スクロール・コンパクト） */}
+                {!isNewProductsLoading && newProductsData?.items && newProductsData.items.length > 0 && (
+                    <section>
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <Clock className="text-blue-600" size={18} />
+                                </div>
+                                <h2 className="text-xl font-bold text-gray-900">新着アイテム</h2>
+                            </div>
+                        </div>
+
+                        <div className="flex overflow-x-auto space-x-6 pb-2 -mx-5 px-5 scrollbar-hide">
+                            {newProductsData.items.slice(0, 6).map((product: Product) => (
+                                <div
+                                    key={product.id}
+                                    onClick={() => navigate(`/local/products/${product.id}`)}
+                                    className="flex-shrink-0 flex flex-col items-center space-y-2 cursor-pointer w-20 active:opacity-80 transition-opacity"
+                                >
+                                    <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 shadow-sm border border-gray-100">
+                                        {product.image_url ? (
+                                            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                                                <Leaf className="w-6 h-6 text-gray-300" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="text-center w-full">
+                                        <p className="font-bold text-sm text-gray-900 truncate w-full">{product.name}</p>
+                                        <p className="text-[10px] text-gray-500">今日の収穫</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* 4. 地域の生産者（横スクロール・コンパクト） */}
+                {!isFarmersLoading && farmersData?.items && farmersData.items.length > 0 && (
+                    <section className="pb-8">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-lg">
+                                    👨‍🌾
+                                </div>
+                                <h2 className="text-xl font-bold text-gray-900">地域の生産者</h2>
+                            </div>
+                        </div>
+
+                        <div className="flex overflow-x-auto space-x-6 pb-2 -mx-5 px-5 scrollbar-hide">
+                            {farmersData.items.map((farmer: any) => (
+                                <div
+                                    key={farmer.id}
+                                    onClick={() => navigate(`/local/farmers/${farmer.id}`)}
+                                    className="flex-shrink-0 flex flex-col items-center space-y-2 cursor-pointer w-20 active:opacity-80 transition-opacity"
+                                >
+                                    <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 shadow-sm border border-gray-100">
+                                        {farmer.profile_photo_url ? (
+                                            <img src={farmer.profile_photo_url} alt={farmer.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400 text-xl">
+                                                👨‍🌾
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="text-center w-full">
+                                        <p className="font-bold text-sm text-gray-900 truncate w-full">{farmer.name}</p>
+                                        <p className="text-[10px] text-gray-500 truncate w-full">{farmer.main_crop || '生産者'}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* ローディング状態 */}
+                {isLoading && (
+                    <div className="text-center py-12">
+                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-emerald-600 border-t-transparent"></div>
+                        <p className="text-sm text-gray-500 mt-3">読み込み中...</p>
+                    </div>
+                )}
+
+                {/* データがない場合 */}
+                {!isLoading &&
+                    !wakeariData?.items?.length &&
+                    !featuredData?.items?.length &&
+                    !newProductsData?.items?.length &&
+                    !farmersData?.items?.length && (
+                        <div className="bg-gray-50 rounded-2xl p-8 text-center border border-dashed border-gray-200">
+                            <Leaf className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                            <p className="text-sm text-gray-500 font-medium mb-1">商品情報を準備中です</p>
+                            <p className="text-xs text-gray-400">しばらくお待ちください</p>
+                        </div>
+                    )}
             </div>
         </div>
     )
 }
-
-export default LocalHome

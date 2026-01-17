@@ -1,13 +1,30 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Loader2, Leaf, PlayCircle, ExternalLink, MessageCircle } from 'lucide-react'
+import {
+    ArrowLeft,
+    Loader2,
+    Leaf,
+    PlayCircle,
+    ExternalLink,
+    MessageCircle,
+    Send,
+    Award,
+    MapPin,
+    Heart
+} from 'lucide-react'
 import { toast } from 'sonner'
-import { farmerApi, productApi } from '@/services/api'
+import { farmerApi, productApi, supportMessageApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
 import LocalProductCard from '@/components/local/LocalProductCard'
 import type { Farmer, Product, Commitment, Achievement } from '@/types'
-import axios from 'axios'
+
+interface SupportMessage {
+    id: number
+    consumer_name: string
+    message: string
+    created_at: string
+}
 
 const LocalFarmerDetail = () => {
     const { id } = useParams()
@@ -19,6 +36,7 @@ const LocalFarmerDetail = () => {
     const [isSubmitting, setIsSubmitting] = useState(false)
 
     const addToCart = useStore(state => state.addToCart)
+    const consumer = useStore(state => state.consumer)
     const queryClient = useQueryClient()
 
     useEffect(() => {
@@ -47,12 +65,12 @@ const LocalFarmerDetail = () => {
     })
 
     // 応援メッセージ一覧取得
-    const { data: supportMessages = [] } = useQuery({
+    const { data: supportMessages = [], isLoading: messagesLoading } = useQuery<SupportMessage[]>({
         queryKey: ['support-messages', id],
         queryFn: async () => {
             if (!id) return []
-            const response = await axios.get(`/api/support-messages/farmer/${id}`)
-            return response.data
+            const response = await supportMessageApi.getFarmerMessages(parseInt(id))
+            return response.data || []
         },
         enabled: !!id
     })
@@ -60,11 +78,10 @@ const LocalFarmerDetail = () => {
     // 応援メッセージ送信
     const sendMessageMutation = useMutation({
         mutationFn: async (data: { farmer_id: number; message: string; nickname?: string }) => {
-            const response = await axios.post('/api/support-messages/', data)
-            return response.data
+            return await supportMessageApi.create(data)
         },
         onSuccess: () => {
-            toast.success('応援メッセージを送信しました！')
+            toast.success('🎉 応援メッセージを送信しました！')
             setMessage('')
             setNickname('')
             setShowMessageForm(false)
@@ -82,7 +99,10 @@ const LocalFarmerDetail = () => {
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!id || !message.trim()) return
+        if (!id || !message.trim()) {
+            toast.error('メッセージを入力してください')
+            return
+        }
 
         setIsSubmitting(true)
         try {
@@ -98,16 +118,24 @@ const LocalFarmerDetail = () => {
 
     if (isLoading) {
         return (
-            <div className="flex justify-center items-center h-screen">
-                <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+            <div className="flex flex-col justify-center items-center h-screen bg-gradient-to-b from-emerald-50 to-white">
+                <Loader2 className="w-10 h-10 animate-spin text-emerald-600 mb-3" />
+                <p className="text-sm text-gray-500">生産者情報を読み込み中...</p>
             </div>
         )
     }
 
     if (!farmer) {
         return (
-            <div className="p-8 text-center text-gray-500">
-                生産者が見つかりません
+            <div className="flex flex-col justify-center items-center h-screen">
+                <Leaf className="w-16 h-16 text-gray-300 mb-4" />
+                <p className="text-gray-500 font-medium">生産者が見つかりません</p>
+                <button
+                    onClick={() => navigate('/local/farmers')}
+                    className="mt-4 text-sm text-emerald-600 hover:text-emerald-700 font-semibold"
+                >
+                    生産者一覧に戻る
+                </button>
             </div>
         )
     }
@@ -120,35 +148,50 @@ const LocalFarmerDetail = () => {
 
     return (
         <div className="bg-white min-h-screen pb-20">
-            {/* Header */}
-            <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-4 h-14 flex items-center justify-between">
-                <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-gray-600">
+            {/* Fixed Header */}
+            <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-4 h-14 flex items-center justify-between shadow-sm">
+                <button
+                    onClick={() => navigate(-1)}
+                    className="p-2 -ml-2 text-gray-600 hover:text-gray-900 transition-colors"
+                >
                     <ArrowLeft size={24} />
                 </button>
                 <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 rounded-full border border-emerald-600 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 border-2 border-emerald-600 flex items-center justify-center">
                         <Leaf className="w-4 h-4 text-emerald-600" />
                     </div>
-                    <span className="font-bold text-gray-900">{farmer.name}</span>
+                    <span className="font-bold text-gray-900 text-base">{farmer.name}</span>
                 </div>
                 <div className="w-10" />
             </div>
 
-            {/* Cover Image */}
-            <div className="relative h-56 w-full overflow-hidden">
-                {farmer.cover_photo_url ? (
-                    <img src={farmer.cover_photo_url} alt="cover" className="w-full h-full object-cover" />
-                ) : (
-                    <div className="w-full h-full bg-gradient-to-r from-emerald-100 to-emerald-50 flex items-center justify-center">
-                        <Leaf className="w-16 h-16 text-emerald-200" />
-                    </div>
-                )}
-                <div className="absolute bottom-4 left-4">
-                    <div className="w-20 h-20 rounded-full border-4 border-white bg-white shadow-lg overflow-hidden">
+            {/* Hero Section with Cover & Profile */}
+            <div className="relative">
+                <div className="relative h-56 w-full overflow-hidden">
+                    {farmer.cover_photo_url ? (
+                        <img
+                            src={farmer.cover_photo_url}
+                            alt="cover"
+                            className="w-full h-full object-cover"
+                        />
+                    ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-emerald-400 via-emerald-300 to-green-200 flex items-center justify-center">
+                            <Leaf className="w-20 h-20 text-white/30" />
+                        </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                </div>
+
+                <div className="px-4 -mt-12 relative z-10">
+                    <div className="w-24 h-24 rounded-full border-4 border-white bg-white shadow-xl overflow-hidden">
                         {farmer.profile_photo_url ? (
-                            <img src={farmer.profile_photo_url} alt={farmer.name} className="w-full h-full object-cover" />
+                            <img
+                                src={farmer.profile_photo_url}
+                                alt={farmer.name}
+                                className="w-full h-full object-cover"
+                            />
                         ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400 text-2xl">
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-100 to-emerald-50 text-4xl">
                                 👨‍🌾
                             </div>
                         )}
@@ -156,11 +199,26 @@ const LocalFarmerDetail = () => {
                 </div>
             </div>
 
-            {/* Farmer Info */}
-            <div className="px-4 pt-4 pb-4">
-                <h1 className="text-2xl font-bold text-gray-900 mb-1">{farmer.name}</h1>
+            {/* Farmer Profile Info */}
+            <div className="px-4 pt-4 pb-3">
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">{farmer.name}</h1>
+                {farmer.main_crop && (
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-semibold">
+                            {farmer.main_crop}
+                        </div>
+                    </div>
+                )}
+                {farmer.address && (
+                    <div className="flex items-center gap-1 text-sm text-gray-600 mb-2">
+                        <MapPin size={14} />
+                        <span>{farmer.address}</span>
+                    </div>
+                )}
                 {farmer.bio && (
-                    <p className="text-gray-600 text-sm leading-relaxed">{farmer.bio.split('\n')[0]}</p>
+                    <p className="text-gray-700 text-sm leading-relaxed line-clamp-3">
+                        {farmer.bio}
+                    </p>
                 )}
             </div>
 
@@ -168,18 +226,18 @@ const LocalFarmerDetail = () => {
             <div className="sticky top-14 z-30 bg-white border-b border-gray-200 flex">
                 <button
                     onClick={() => setActiveTab('products')}
-                    className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'products'
-                        ? 'border-emerald-600 text-emerald-700'
-                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    className={`flex-1 py-3 text-sm font-bold border-b-2 transition-all ${activeTab === 'products'
+                            ? 'border-emerald-600 text-emerald-700'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
                         }`}
                 >
-                    販売商品({products.length})
+                    販売商品 ({products.length})
                 </button>
                 <button
                     onClick={() => setActiveTab('story')}
-                    className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'story'
-                        ? 'border-emerald-600 text-emerald-700'
-                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    className={`flex-1 py-3 text-sm font-bold border-b-2 transition-all ${activeTab === 'story'
+                            ? 'border-emerald-600 text-emerald-700'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
                         }`}
                 >
                     こだわり・実績
@@ -187,40 +245,53 @@ const LocalFarmerDetail = () => {
             </div>
 
             {/* Main Content */}
-            <div className="px-4 py-4">
+            <div className="px-4 py-5">
                 {/* TAB 1: 販売商品 */}
                 {activeTab === 'products' && (
-                    <div className="space-y-4">
-                        <h2 className="text-lg font-bold text-gray-900">販売中の野菜</h2>
-
+                    <div className="space-y-6">
+                        {/* 商品グリッド */}
                         {products.length > 0 ? (
-                            <div className="grid grid-cols-2 gap-3">
-                                {products.map((product: Product) => (
-                                    <LocalProductCard
-                                        key={product.id}
-                                        product={product}
-                                        onAddToCart={handleAddToCart}
-                                    />
-                                ))}
+                            <div>
+                                <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                    <Leaf className="text-emerald-600" size={20} />
+                                    販売中の野菜
+                                </h2>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {products.map((product: Product) => (
+                                        <LocalProductCard
+                                            key={product.id}
+                                            product={product}
+                                            onAddToCart={handleAddToCart}
+                                        />
+                                    ))}
+                                </div>
                             </div>
                         ) : (
-                            <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                                <Leaf className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                                <p className="text-gray-500 font-medium">現在販売中の商品はありません</p>
-                                <p className="text-xs text-gray-400 mt-1">次回の収穫をお待ちください</p>
+                            <div className="text-center py-16 bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-dashed border-gray-200">
+                                <Leaf className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                                <p className="text-gray-600 font-semibold mb-1">現在販売中の商品はありません</p>
+                                <p className="text-xs text-gray-400">次回の収穫をお楽しみに！</p>
                             </div>
                         )}
 
                         {/* 応援メッセージセクション */}
-                        <div className="pt-6 border-t border-gray-100">
+                        <div className="pt-4 border-t border-gray-100">
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                                     <MessageCircle className="text-emerald-600" size={20} />
                                     みんなの応援メッセージ
+                                    {supportMessages.length > 0 && (
+                                        <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">
+                                            {supportMessages.length}
+                                        </span>
+                                    )}
                                 </h3>
                                 <button
                                     onClick={() => setShowMessageForm(!showMessageForm)}
-                                    className="text-sm font-semibold text-emerald-600 hover:text-emerald-700"
+                                    className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${showMessageForm
+                                            ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-md'
+                                        }`}
                                 >
                                     {showMessageForm ? 'キャンセル' : '応援する'}
                                 </button>
@@ -228,70 +299,108 @@ const LocalFarmerDetail = () => {
 
                             {/* 応援メッセージフォーム */}
                             {showMessageForm && (
-                                <form onSubmit={handleSendMessage} className="bg-emerald-50 rounded-xl p-4 mb-4 space-y-3">
+                                <form
+                                    onSubmit={handleSendMessage}
+                                    className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl p-5 mb-5 space-y-4 shadow-sm border border-emerald-100"
+                                >
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            応援メッセージ <span className="text-red-500">*</span>
+                                        <label className="block text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1">
+                                            <MessageCircle size={16} className="text-emerald-600" />
+                                            応援メッセージ
+                                            <span className="text-red-500 ml-1">*</span>
                                         </label>
                                         <textarea
                                             value={message}
                                             onChange={(e) => setMessage(e.target.value)}
-                                            placeholder="生産者さんへの応援メッセージを書いてください"
+                                            placeholder="生産者さんへの応援メッセージを書いてください&#10;&#10;例: いつも新鮮で美味しい野菜をありがとうございます！これからも応援しています！"
                                             required
                                             maxLength={1000}
-                                            rows={4}
-                                            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                            rows={5}
+                                            className="w-full rounded-xl border-2 border-emerald-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none text-sm"
                                         />
-                                        <p className="text-xs text-gray-500 mt-1">{message.length} / 1000 文字 </p>
+                                        <p className="text-xs text-gray-600 mt-2 flex items-center justify-between">
+                                            <span>{message.length} / 1000 文字</span>
+                                            {message.length > 900 && (
+                                                <span className="text-orange-600 font-semibold">残り{1000 - message.length}文字</span>
+                                            )}
+                                        </p>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <label className="block text-sm font-semibold text-gray-800 mb-2">
                                             ニックネーム（任意）
                                         </label>
                                         <input
                                             type="text"
                                             value={nickname}
                                             onChange={(e) => setNickname(e.target.value)}
-                                            placeholder="例: 野菜大好き"
+                                            placeholder="例: 野菜大好きさん"
                                             maxLength={100}
-                                            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                            className="w-full rounded-xl border-2 border-emerald-200 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
                                         />
-                                        <p className="text-xs text-gray-500 mt-1">
+                                        <p className="text-xs text-gray-500 mt-2">
                                             省略した場合は会員名で表示されます
                                         </p>
                                     </div>
                                     <button
                                         type="submit"
                                         disabled={isSubmitting || !message.trim()}
-                                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
                                     >
-                                        {isSubmitting ? '送信中...' : '応援メッセージを送る'}
+                                        {isSubmitting ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                送信中...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Send size={16} />
+                                                応援メッセージを送る
+                                            </>
+                                        )}
                                     </button>
                                 </form>
                             )}
 
                             {/* 応援メッセージ一覧 */}
-                            {supportMessages.length > 0 ? (
+                            {messagesLoading ? (
+                                <div className="text-center py-8">
+                                    <Loader2 className="w-6 h-6 animate-spin text-emerald-600 mx-auto" />
+                                </div>
+                            ) : supportMessages.length > 0 ? (
                                 <div className="space-y-3">
-                                    {supportMessages.map((msg: any) => (
-                                        <div key={msg.id} className="bg-gray-50 rounded-lg p-4">
+                                    {supportMessages.map((msg) => (
+                                        <div
+                                            key={msg.id}
+                                            className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow"
+                                        >
                                             <div className="flex items-center justify-between mb-2">
-                                                <span className="font-semibold text-gray-900 text-sm">
-                                                    {msg.consumer_name}
-                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-sm">
+                                                        👤
+                                                    </div>
+                                                    <span className="font-semibold text-gray-900 text-sm">
+                                                        {msg.consumer_name}
+                                                    </span>
+                                                </div>
                                                 <span className="text-xs text-gray-500">
-                                                    {new Date(msg.created_at).toLocaleDateString('ja-JP')}
+                                                    {new Date(msg.created_at).toLocaleDateString('ja-JP', {
+                                                        year: 'numeric',
+                                                        month: 'short',
+                                                        day: 'numeric'
+                                                    })}
                                                 </span>
                                             </div>
-                                            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                                            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap pl-10">
                                                 {msg.message}
                                             </p>
                                         </div>
                                     ))}
                                 </div>
                             ) : (
-                                <div className="text-center py-8 text-gray-500 text-sm">
-                                    まだ応援メッセージがありません。最初の応援者になりましょう！
+                                <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-dashed border-gray-200">
+                                    <Heart className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                                    <p className="text-gray-600 font-medium mb-1">まだ応援メッセージがありません</p>
+                                    <p className="text-xs text-gray-400">最初の応援者になりましょう！</p>
                                 </div>
                             )}
                         </div>
@@ -302,8 +411,11 @@ const LocalFarmerDetail = () => {
                 {activeTab === 'story' && (
                     <div className="space-y-6">
                         {/* こだわりセクション */}
-                        <div>
-                            <h2 className="text-lg font-bold text-gray-900 mb-3">こだわり</h2>
+                        <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl p-5 border border-emerald-100">
+                            <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                <Leaf className="text-emerald-600" size={20} />
+                                こだわり
+                            </h2>
                             {farmer.kodawari ? (
                                 <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
                                     {farmer.kodawari}
@@ -321,12 +433,19 @@ const LocalFarmerDetail = () => {
                         {commitments.length > 0 && (
                             <div className="space-y-4">
                                 {commitments.map((block, idx) => (
-                                    <div key={idx} className="bg-gray-50 rounded-xl overflow-hidden shadow-sm border border-gray-100">
+                                    <div
+                                        key={idx}
+                                        className="bg-white rounded-2xl overflow-hidden shadow-md border border-gray-100 hover:shadow-lg transition-shadow"
+                                    >
                                         {block.image_url && (
-                                            <img src={block.image_url} alt={block.title} className="w-full h-48 object-cover" />
+                                            <img
+                                                src={block.image_url}
+                                                alt={block.title}
+                                                className="w-full h-52 object-cover"
+                                            />
                                         )}
-                                        <div className="p-4">
-                                            <h3 className="font-bold text-gray-900 mb-2">{block.title}</h3>
+                                        <div className="p-5">
+                                            <h3 className="font-bold text-gray-900 mb-2 text-base">{block.title}</h3>
                                             <p className="text-sm text-gray-600 leading-relaxed">{block.body}</p>
                                         </div>
                                     </div>
@@ -341,9 +460,12 @@ const LocalFarmerDetail = () => {
                                     <PlayCircle size={20} className="text-red-500" />
                                     動画で見る
                                 </h2>
-                                <div className="space-y-3">
+                                <div className="space-y-4">
                                     {videoUrls.map((url, idx) => (
-                                        <div key={idx} className="rounded-xl overflow-hidden bg-gray-100">
+                                        <div
+                                            key={idx}
+                                            className="rounded-2xl overflow-hidden bg-gray-100 shadow-md"
+                                        >
                                             {url.includes('youtube.com') || url.includes('youtu.be') ? (
                                                 <iframe
                                                     src={convertToYouTubeEmbed(url)}
@@ -357,9 +479,9 @@ const LocalFarmerDetail = () => {
                                                     href={url}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="flex items-center justify-center py-8 text-red-600 hover:text-red-700"
+                                                    className="flex items-center justify-center py-12 text-red-600 hover:text-red-700 transition-colors"
                                                 >
-                                                    <PlayCircle size={48} />
+                                                    <PlayCircle size={56} />
                                                 </a>
                                             )}
                                         </div>
@@ -375,19 +497,19 @@ const LocalFarmerDetail = () => {
                                     <ExternalLink size={20} className="text-blue-500" />
                                     インタビュー記事
                                 </h2>
-                                <div className="space-y-2">
+                                <div className="space-y-3">
                                     {articleUrls.map((url, idx) => (
                                         <a
                                             key={idx}
                                             href={url}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="flex items-center justify-between p-4 bg-blue-50 rounded-xl border border-blue-100 hover:bg-blue-100 transition-colors"
+                                            className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100 hover:border-blue-300 hover:shadow-md transition-all"
                                         >
-                                            <span className="font-medium text-blue-700 text-sm">
-                                                記事を読む {articleUrls.length > 1 ? `(${idx + 1})` : ''}
+                                            <span className="font-semibold text-blue-700 text-sm">
+                                                📰 記事を読む {articleUrls.length > 1 ? `(${idx + 1})` : ''}
                                             </span>
-                                            <ExternalLink size={16} className="text-blue-500" />
+                                            <ExternalLink size={18} className="text-blue-500" />
                                         </a>
                                     ))}
                                 </div>
@@ -397,18 +519,30 @@ const LocalFarmerDetail = () => {
                         {/* 実績セクション */}
                         {achievements.length > 0 && (
                             <div>
-                                <h2 className="text-lg font-bold text-gray-900 mb-3">実績・受賞歴</h2>
+                                <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                    <Award className="text-yellow-500" size={20} />
+                                    実績・受賞歴
+                                </h2>
                                 <div className="space-y-3">
                                     {achievements.map((achievement, idx) => (
-                                        <div key={idx} className="flex gap-3 items-center bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                        <div
+                                            key={idx}
+                                            className="flex gap-4 items-center bg-gradient-to-r from-yellow-50 to-orange-50 p-4 rounded-xl border border-yellow-100 shadow-sm hover:shadow-md transition-shadow"
+                                        >
                                             {achievement.image_url ? (
-                                                <img src={achievement.image_url} alt="" className="w-12 h-12 rounded bg-white object-cover shadow-sm" />
+                                                <img
+                                                    src={achievement.image_url}
+                                                    alt=""
+                                                    className="w-14 h-14 rounded-lg bg-white object-cover shadow-sm"
+                                                />
                                             ) : (
-                                                <div className="w-12 h-12 rounded bg-yellow-50 flex items-center justify-center text-xl shadow-sm">
+                                                <div className="w-14 h-14 rounded-lg bg-yellow-100 flex items-center justify-center text-2xl shadow-sm">
                                                     🏆
                                                 </div>
                                             )}
-                                            <span className="text-sm text-gray-700 font-medium">{achievement.title}</span>
+                                            <span className="text-sm text-gray-800 font-semibold flex-1">
+                                                {achievement.title}
+                                            </span>
                                         </div>
                                     ))}
                                 </div>
@@ -417,16 +551,19 @@ const LocalFarmerDetail = () => {
 
                         {/* 栽培情報 */}
                         {(farmer.farming_method || farmer.certifications) && (
-                            <div className="bg-emerald-50 rounded-xl p-4">
-                                <h3 className="font-bold text-emerald-800 mb-2">栽培について</h3>
+                            <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl p-5 border border-emerald-100">
+                                <h3 className="font-bold text-emerald-800 mb-3 text-base flex items-center gap-2">
+                                    <Leaf className="text-emerald-600" size={18} />
+                                    栽培について
+                                </h3>
                                 {farmer.farming_method && (
-                                    <p className="text-sm text-emerald-700 mb-1">
-                                        <span className="font-medium">栽培方法: </span> {farmer.farming_method}
+                                    <p className="text-sm text-emerald-800 mb-2">
+                                        <span className="font-semibold">栽培方法:</span> {farmer.farming_method}
                                     </p>
                                 )}
                                 {farmer.certifications && (
-                                    <p className="text-sm text-emerald-700">
-                                        <span className="font-medium">認証: </span> {farmer.certifications}
+                                    <p className="text-sm text-emerald-800">
+                                        <span className="font-semibold">認証:</span> {farmer.certifications}
                                     </p>
                                 )}
                             </div>
