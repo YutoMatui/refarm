@@ -33,7 +33,7 @@ class GuestInteraction(Base, TimestampMixin):
     
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     visit_id = Column(Integer, ForeignKey("guest_visits.id"), nullable=False, index=True)
-    farmer_id = Column(Integer, ForeignKey("farmers.id"), nullable=False, index=True)
+    farmer_id = Column(Integer, ForeignKey("farmers.id"), nullable=True, index=True)
     
     interaction_type = Column(String(50), nullable=False, comment="アクションタイプ (STAMP, MESSAGE, INTEREST)")
     stamp_type = Column(String(50), nullable=True, comment="スタンプの種類 (DELICIOUS, SUPPORT, etc.)")

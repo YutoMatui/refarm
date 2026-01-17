@@ -1,7 +1,7 @@
 from typing import Optional, List
 from datetime import datetime, date, time
 from decimal import Decimal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
 from app.schemas.base import BaseSchema, TimestampSchema
 from app.models.enums import OrderStatus, DeliverySlotType
@@ -30,6 +30,13 @@ class ProductInfoForOrder(BaseModel):
     unit: str
     price: Decimal
     image_url: Optional[str] = None
+    
+    @field_serializer('price')
+    def serialize_price(self, value, _info):
+        """Decimal型のpriceをstrに変換"""
+        if isinstance(value, Decimal):
+            return str(value)
+        return value
     
     class Config:
         from_attributes = True

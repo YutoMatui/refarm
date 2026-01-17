@@ -15,21 +15,21 @@ class LineNotificationService:
         self.producer_token = None
         self.producer_token_expires = 0
         
-    async def get_access_token(self, channel_id: str, channel_secret: str) -> str:
+    async def get_access_token(self, channel_id: str, channel_secret: str, long_lived_token: str = None) -> str:
         """
-        Get Channel Access Token (v2.1)
-        Note: In a real app, this should be cached properly (Redis/DB)
-        For this sandbox, we'll fetch it if not cached in memory
+        Get Channel Access Token
+        If long_lived_token is provided, use it directly.
+        Otherwise, fetch a short-lived token using channel credentials.
         """
+        # Prioritize long-lived token if provided
+        if long_lived_token:
+            return long_lived_token
+        
         # Simple in-memory cache check (not perfect for multi-worker but ok for demo)
         if channel_id == settings.LINE_RESTAURANT_CHANNEL_ID and self.restaurant_token:
             return self.restaurant_token
         if channel_id == settings.LINE_PRODUCER_CHANNEL_ID and self.producer_token:
             return self.producer_token
-        
-        # For consumer, we have a static long-lived token from settings
-        if channel_id == settings.LINE_CONSUMER_CHANNEL_ID:
-            return settings.LINE_CONSUMER_ACCESS_TOKEN
 
         async with httpx.AsyncClient() as client:
             payload = {
@@ -127,7 +127,8 @@ class LineNotificationService:
 
         token = await self.get_access_token(
             settings.LINE_RESTAURANT_CHANNEL_ID,
-            settings.LINE_RESTAURANT_CHANNEL_SECRET
+            settings.LINE_RESTAURANT_CHANNEL_SECRET,
+            settings.LINE_RESTAURANT_CHANNEL_ACCESS_TOKEN
         )
 
         # Format items
@@ -171,7 +172,8 @@ No. {order.id}
         """Send notification to farmers"""
         token = await self.get_access_token(
             settings.LINE_PRODUCER_CHANNEL_ID,
-            settings.LINE_PRODUCER_CHANNEL_SECRET
+            settings.LINE_PRODUCER_CHANNEL_SECRET,
+            settings.LINE_PRODUCER_CHANNEL_ACCESS_TOKEN
         )
 
         # Group items by farmer
@@ -244,8 +246,9 @@ No. {order.id}
             return
 
         token = await self.get_access_token(
-            settings.LINE_CONSUMER_CHANNEL_ID,
-            ""
+            settings.LINE_RESTAURANT_CHANNEL_ID,
+            settings.LINE_RESTAURANT_CHANNEL_SECRET,
+            settings.LINE_RESTAURANT_CHANNEL_ACCESS_TOKEN
         )
 
         items_lines = ""
@@ -254,7 +257,12 @@ No. {order.id}
         if not items_lines:
             items_lines = "・商品情報が取得できませんでした\n"
 
+        # 金額の計算（税抜き小計、消費税、税込み合計）
         subtotal_text = self.format_currency_plain(order.subtotal)
+        tax_text = self.format_currency_plain(order.tax_amount)
+        product_total = order.subtotal + order.tax_amount
+        product_total_text = self.format_currency_plain(product_total)
+        
         shipping_label = order.delivery_label or "受取"
         shipping_text = self.format_currency_plain(order.shipping_fee)
         total_text = self.format_currency_plain(order.total_amount)
@@ -263,17 +271,27 @@ No. {order.id}
         time_label = order.delivery_time_label or (order.delivery_slot.time_text if order.delivery_slot else "")
 
         consumer_name = consumer.name if consumer else "お客様"
+        
+        # 学校受け取りの場合は住所表示を省略
+        location_info = ""
+        if order.delivery_type == DeliverySlotType.HOME and order.delivery_address:
+            location_info = f"住所：{order.delivery_address}\n"
+        
         message = f"""{consumer_name}様 ベジコベをご利用いただきありがとうございます。
 
 ■ご注文内容
-{items_lines}[商品合計] {subtotal_text}
+{items_lines}
+[小計（税抜）] {subtotal_text}
+[消費税] {tax_text}
+[商品合計（税込）] {product_total_text}
 [送料] {shipping_text}（{shipping_label}）
+━━━━━━━━━━━━━━
 [お支払い合計] {total_text}
 
 ■お受け取り
 日時：{time_label}
 場所：{pickup_place}
-
+{location_info}
 ※お支払いは【商品受取時に現金】でお願いいたします。
 ※お釣りが出ないようご協力をお願いいたします。"""
 
@@ -283,7 +301,8 @@ No. {order.id}
         """Notify farmers about consumer orders (same format as restaurant orders)."""
         token = await self.get_access_token(
             settings.LINE_PRODUCER_CHANNEL_ID,
-            settings.LINE_PRODUCER_CHANNEL_SECRET
+            settings.LINE_PRODUCER_CHANNEL_SECRET,
+            settings.LINE_PRODUCER_CHANNEL_ACCESS_TOKEN
         )
 
         farmers_items: Dict[int, Dict[str, Any]] = {}
@@ -356,7 +375,8 @@ No. {order.id}
 
         token = await self.get_access_token(
             settings.LINE_RESTAURANT_CHANNEL_ID,
-            settings.LINE_RESTAURANT_CHANNEL_SECRET
+            settings.LINE_RESTAURANT_CHANNEL_SECRET,
+            settings.LINE_RESTAURANT_CHANNEL_ACCESS_TOKEN
         )
 
         message = f"""【請求書送付のお知らせ】
@@ -385,7 +405,8 @@ No. {order.id} の請求書をお送りします。
 
         token = await self.get_access_token(
             settings.LINE_PRODUCER_CHANNEL_ID,
-            settings.LINE_PRODUCER_CHANNEL_SECRET
+            settings.LINE_PRODUCER_CHANNEL_SECRET,
+            settings.LINE_PRODUCER_CHANNEL_ACCESS_TOKEN
         )
 
         message = f"""【支払通知書送付のお知らせ】
@@ -412,7 +433,8 @@ No. {order.id} の請求書をお送りします。
 
         token = await self.get_access_token(
             settings.LINE_RESTAURANT_CHANNEL_ID,
-            settings.LINE_RESTAURANT_CHANNEL_SECRET
+            settings.LINE_RESTAURANT_CHANNEL_SECRET,
+            settings.LINE_RESTAURANT_CHANNEL_ACCESS_TOKEN
         )
 
         message = f"""【月次請求書送付のお知らせ】
