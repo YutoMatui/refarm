@@ -19,7 +19,7 @@ class LineNotificationService:
         """
         Get Channel Access Token
         If long_lived_token is provided, use it directly.
-        Otherwise, fetch a short-lived token using channel credentials.
+        Otherwise, issue a short-lived token using channel credentials.
         """
         # Prioritize long-lived token if provided
         if long_lived_token:
@@ -31,6 +31,7 @@ class LineNotificationService:
         if channel_id == settings.LINE_PRODUCER_CHANNEL_ID and self.producer_token:
             return self.producer_token
 
+        # LINE Messaging API uses /v2/oauth/issue endpoint, not accessToken
         async with httpx.AsyncClient() as client:
             payload = {
                 "grant_type": "client_credentials",
@@ -39,7 +40,7 @@ class LineNotificationService:
             }
             # The Content-Type must be correctly handled by passing `data` for x-www-form-urlencoded
             response = await client.post(
-                f"{self.BASE_URL}/v2/oauth/accessToken",
+                f"{self.BASE_URL}/oauth2/v3/token",
                 data=payload,
                 headers={"Content-Type": "application/x-www-form-urlencoded"}
             )
@@ -47,11 +48,15 @@ class LineNotificationService:
             # Additional check for better error messages
             if response.status_code != 200:
                 print(f"LINE Token Error: {response.status_code} - {response.text}")
-                response.raise_for_status()
+                # Don't raise, just log and return None to prevent order failure
+                return None
             
             data = response.json()
             
-            token = data["access_token"]
+            token = data.get("access_token")
+            if not token:
+                print(f"No access token in response: {data}")
+                return None
             
             if channel_id == settings.LINE_RESTAURANT_CHANNEL_ID:
                 self.restaurant_token = token
@@ -62,6 +67,10 @@ class LineNotificationService:
 
     async def send_push_message(self, token: str, to_user_id: str, text: str):
         """Send a push message"""
+        if not token:
+            print("No access token available, skipping LINE notification")
+            return
+            
         async with httpx.AsyncClient() as client:
             headers = {
                 "Authorization": f"Bearer {token}",
@@ -78,7 +87,7 @@ class LineNotificationService:
             )
             # Log error but don't raise to prevent order failure
             if response.status_code != 200:
-                print(f"Failed to send LINE message: {response.text}")
+                print(f"Failed to send LINE message: {response.status_code} - {response.text}")
 
     def format_currency(self, amount) -> str:
         return f"¥{int(amount):,}"

@@ -18,7 +18,7 @@ from app.schemas.support_message import (
     SupportMessageResponse
 )
 
-router = APIRouter(prefix="/support-messages", tags=["support-messages"])
+router = APIRouter(tags=["support-messages"])
 
 
 @router.post("/", response_model=SupportMessageResponse, status_code=status.HTTP_201_CREATED)
