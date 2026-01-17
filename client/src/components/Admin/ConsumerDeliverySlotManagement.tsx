@@ -134,6 +134,12 @@ const ConsumerDeliverySlotManagement = () => {
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                         受取場所タイプ
                     </label>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                        <p className="text-xs text-blue-700">
+                            <strong>兵庫県立大学:</strong> 大学での受取専用の時間枠<br />
+                            <strong>自宅配送:</strong> 自宅配送専用の時間枠（飲食店配送と同じ）
+                        </p>
+                    </div>
                     <div className="flex gap-3">
                         <button
                             type="button"
@@ -144,7 +150,7 @@ const ConsumerDeliverySlotManagement = () => {
                                 }`}
                         >
                             <MapPin size={18} className="inline mr-2" />
-                            兵庫県立大学
+                            🏫 兵庫県立大学
                         </button>
                         <button
                             type="button"
@@ -154,7 +160,7 @@ const ConsumerDeliverySlotManagement = () => {
                                 : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
                                 }`}
                         >
-                            自宅配送
+                            🏠 自宅配送
                         </button>
                     </div>
                 </div>

@@ -20,23 +20,26 @@ const LocalCart = () => {
     const consumer = useStore(state => state.consumer)
     const clearCart = useStore(state => state.clearCart)
 
-    const [deliveryType, setDeliveryType] = useState<DeliverySlotType>(DeliverySlotType.UNIVERSITY)
+    const [deliveryDestination, setDeliveryDestination] = useState<'UNIV' | 'HOME'>('UNIV')
     const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null)
     const [deliveryNotes, setDeliveryNotes] = useState('')
     const [overrideAddress, setOverrideAddress] = useState('')
     const [univLocationDetail, setUnivLocationDetail] = useState('')
 
     useEffect(() => {
-        if (consumer && deliveryType === DeliverySlotType.HOME) {
+        if (consumer && deliveryDestination === 'HOME') {
             const baseAddress = `${consumer.address}${consumer.building ? ` ${consumer.building}` : ''}`
             setOverrideAddress(baseAddress.trim())
         }
-    }, [consumer, deliveryType])
+    }, [consumer, deliveryDestination])
 
+    // 配送先に応じた受取枠を取得
+    // HOME = 自宅配送用の枠、UNIV = 大学受取用の枠
     const { data: slotData, isLoading: isSlotsLoading } = useQuery<DeliverySlot[]>({
-        queryKey: ['delivery-slots', deliveryType],
+        queryKey: ['delivery-slots', deliveryDestination],
         queryFn: async () => {
-            const response = await deliverySlotApi.list({ slot_type: deliveryType })
+            const slotType = deliveryDestination === 'UNIV' ? DeliverySlotType.UNIVERSITY : DeliverySlotType.HOME
+            const response = await deliverySlotApi.list({ slot_type: slotType })
             return response.data as DeliverySlot[]
         },
     })
@@ -55,7 +58,7 @@ const LocalCart = () => {
         return cart.reduce((sum, item) => sum + parseFloat(String(item.product.price_with_tax ?? item.product.price)) * Number(item.quantity), 0)
     }, [cart])
 
-    const shippingFee = deliveryType === DeliverySlotType.HOME ? 400 : 0
+    const shippingFee = deliveryDestination === 'HOME' ? 400 : 0
     const grandTotal = productTotal + shippingFee
 
     const mutation = useMutation<ConsumerOrder, unknown, ConsumerOrderCreateRequest>({
@@ -98,14 +101,14 @@ const LocalCart = () => {
 
         // 配送メモに受け取り場所詳細を含める
         let finalDeliveryNotes = deliveryNotes
-        if (deliveryType === DeliverySlotType.UNIVERSITY && univLocationDetail.trim()) {
+        if (deliveryDestination === 'UNIV' && univLocationDetail.trim()) {
             finalDeliveryNotes = univLocationDetail.trim() + (deliveryNotes ? `\n${deliveryNotes}` : '')
         }
 
         mutation.mutate({
             consumer_id: consumer.id,
             delivery_slot_id: selectedSlotId,
-            delivery_address: deliveryType === DeliverySlotType.HOME ? overrideAddress.trim() : undefined,
+            delivery_address: deliveryDestination === 'HOME' ? overrideAddress.trim() : undefined,
             delivery_notes: finalDeliveryNotes || undefined,
             items,
         })
@@ -144,18 +147,18 @@ const LocalCart = () => {
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                     <MapPin className="text-emerald-600" size={20} />
-                    受取方法
+                    受取場所を選択
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <button
                         type="button"
-                        onClick={() => setDeliveryType(DeliverySlotType.UNIVERSITY)}
-                        className={`rounded-xl border-2 p-5 text-left space-y-2 transition-all ${deliveryType === DeliverySlotType.UNIVERSITY
+                        onClick={() => setDeliveryDestination('UNIV')}
+                        className={`rounded-xl border-2 p-5 text-left space-y-2 transition-all ${deliveryDestination === 'UNIV'
                             ? 'border-emerald-500 bg-emerald-50 shadow-md'
                             : 'border-gray-200 hover:border-emerald-200'
                             }`}
                     >
-                        <p className="font-bold text-gray-900">兵庫県立大学 受取</p>
+                        <p className="font-bold text-gray-900">🏫 兵庫県立大学 受取</p>
                         <p className="text-sm text-gray-600">送料無料 / 指定時刻にお受け取り</p>
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mt-2">
                             <p className="text-xs text-blue-700 leading-relaxed">
@@ -166,13 +169,13 @@ const LocalCart = () => {
                     </button>
                     <button
                         type="button"
-                        onClick={() => setDeliveryType(DeliverySlotType.HOME)}
-                        className={`rounded-xl border-2 p-5 text-left space-y-2 transition-all ${deliveryType === DeliverySlotType.HOME
+                        onClick={() => setDeliveryDestination('HOME')}
+                        className={`rounded-xl border-2 p-5 text-left space-y-2 transition-all ${deliveryDestination === 'HOME'
                             ? 'border-blue-500 bg-blue-50 shadow-md'
                             : 'border-gray-200 hover:border-blue-200'
                             }`}
                     >
-                        <p className="font-bold text-gray-900">自宅へ配送</p>
+                        <p className="font-bold text-gray-900">🏠 自宅へ配送</p>
                         <p className="text-sm text-gray-600">送料400円 / 指定時間帯にお届け</p>
                     </button>
                 </div>
@@ -180,7 +183,10 @@ const LocalCart = () => {
 
             {/* 受取日時 */}
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-                <h2 className="text-lg font-bold text-gray-900">受取日時</h2>
+                <h2 className="text-lg font-bold text-gray-900">受取日時を選択</h2>
+                <p className="text-sm text-gray-600">
+                    選択した受取場所（{deliveryDestination === 'UNIV' ? '🏫 大学受取' : '🏠 自宅配送'}）でご利用いただけます
+                </p>
                 {isSlotsLoading && <p className="text-sm text-gray-600">受取枠を読み込み中です...</p>}
                 {!isSlotsLoading && slots.length === 0 && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
@@ -208,10 +214,7 @@ const LocalCart = () => {
                                 className="mt-1 h-4 w-4 text-emerald-600"
                             />
                             <div className="flex-1">
-                                <p className="font-bold text-gray-900">
-                                    {slot.slot_type === DeliverySlotType.HOME ? '🏠 自宅配送' : '🏫 大学受取'}
-                                </p>
-                                <p className="text-sm text-gray-600 mt-1">{formatSlotLabel(slot)}</p>
+                                <p className="font-bold text-gray-900">{formatSlotLabel(slot)}</p>
                                 {slot.note && (
                                     <p className="text-xs text-gray-500 mt-2 bg-gray-50 px-2 py-1 rounded">
                                         {slot.note}
@@ -224,7 +227,7 @@ const LocalCart = () => {
             </section>
 
             {/* 兵庫県立大学受け取り - 詳細指定 */}
-            {deliveryType === DeliverySlotType.UNIVERSITY && (
+            {deliveryDestination === 'UNIV' && (
                 <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
                     <h2 className="text-lg font-bold text-gray-900">受け取り場所の詳細（任意）</h2>
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
@@ -258,7 +261,7 @@ const LocalCart = () => {
             )}
 
             {/* 自宅配送 - 配送先住所 */}
-            {deliveryType === DeliverySlotType.HOME && (
+            {deliveryDestination === 'HOME' && (
                 <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
                     <h2 className="text-lg font-bold text-gray-900">配送先住所</h2>
                     <p className="text-xs text-gray-500">
@@ -319,7 +322,7 @@ const LocalCart = () => {
                 <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={mutation.isPending || !selectedSlotId || (deliveryType === DeliverySlotType.HOME && !overrideAddress.trim())}
+                    disabled={mutation.isPending || !selectedSlotId || (deliveryDestination === 'HOME' && !overrideAddress.trim())}
                     className="w-full py-4 bg-emerald-600 text-white font-bold text-lg rounded-xl hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
                 >
                     {mutation.isPending ? '注文処理中...' : '注文を確定する'}
