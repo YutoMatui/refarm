@@ -6,7 +6,7 @@ from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 
-from app.models.base import Base
+from app.core.database import Base
 
 
 class SupportMessage(Base):

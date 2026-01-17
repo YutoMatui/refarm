@@ -4,6 +4,7 @@ Base model with common fields and utilities.
 from datetime import datetime
 from sqlalchemy import Column, Integer, DateTime
 from sqlalchemy.sql import func
+from app.core.database import Base
 
 
 class TimestampMixin:
