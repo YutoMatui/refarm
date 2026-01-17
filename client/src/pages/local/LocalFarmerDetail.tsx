@@ -36,7 +36,6 @@ const LocalFarmerDetail = () => {
     const [isSubmitting, setIsSubmitting] = useState(false)
 
     const addToCart = useStore(state => state.addToCart)
-    const consumer = useStore(state => state.consumer)
     const queryClient = useQueryClient()
 
     useEffect(() => {
@@ -227,8 +226,8 @@ const LocalFarmerDetail = () => {
                 <button
                     onClick={() => setActiveTab('products')}
                     className={`flex-1 py-3 text-sm font-bold border-b-2 transition-all ${activeTab === 'products'
-                            ? 'border-emerald-600 text-emerald-700'
-                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                        ? 'border-emerald-600 text-emerald-700'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
                         }`}
                 >
                     販売商品 ({products.length})
@@ -236,8 +235,8 @@ const LocalFarmerDetail = () => {
                 <button
                     onClick={() => setActiveTab('story')}
                     className={`flex-1 py-3 text-sm font-bold border-b-2 transition-all ${activeTab === 'story'
-                            ? 'border-emerald-600 text-emerald-700'
-                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                        ? 'border-emerald-600 text-emerald-700'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
                         }`}
                 >
                     こだわり・実績
@@ -289,8 +288,8 @@ const LocalFarmerDetail = () => {
                                 <button
                                     onClick={() => setShowMessageForm(!showMessageForm)}
                                     className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${showMessageForm
-                                            ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                            : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-md'
+                                        ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-md'
                                         }`}
                                 >
                                     {showMessageForm ? 'キャンセル' : '応援する'}

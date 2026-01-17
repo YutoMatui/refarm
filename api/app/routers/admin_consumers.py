@@ -7,7 +7,7 @@ from sqlalchemy import select, desc
 from typing import List
 
 from app.core.database import get_db
-from app.core.admin_auth import get_current_admin_user
+from app.routers.admin_auth import get_current_admin
 from app.models import Consumer, SupportMessage, Farmer
 from app.schemas import PaginationParams
 
@@ -18,7 +18,7 @@ router = APIRouter()
 async def list_consumers(
     skip: int = 0,
     limit: int = 100,
-    current_admin=Depends(get_current_admin_user),
+    current_admin=Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -44,7 +44,7 @@ async def list_consumers(
 @router.get("/consumers/{consumer_id}")
 async def get_consumer_detail(
     consumer_id: int,
-    current_admin=Depends(get_current_admin_user),
+    current_admin=Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
