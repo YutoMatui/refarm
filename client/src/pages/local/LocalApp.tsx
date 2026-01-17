@@ -14,6 +14,7 @@ import LocalOrderComplete from '@/pages/local/LocalOrderComplete'
 import LocalProfile from '@/pages/local/LocalProfile'
 import ConsumerRegisterForm from '@/pages/local/ConsumerRegisterForm'
 import LocalBottomNav from '@/components/local/LocalBottomNav'
+import LocalFloatingCartButton from '@/components/local/LocalFloatingCartButton'
 import Loading from '@/components/Loading'
 import type { Consumer } from '@/types'
 
@@ -176,6 +177,9 @@ const LocalApp = () => {
                 </Routes>
             </main>
 
+            {/* カート画面以外でフローティングカートボタンを表示 */}
+            {location.pathname !== '/local/cart' && <LocalFloatingCartButton />}
+            
             <LocalBottomNav />
         </div>
     )
