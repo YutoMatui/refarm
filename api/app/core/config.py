@@ -68,10 +68,12 @@ class Settings(BaseSettings):
     # LINE Messaging API (Restaurant)
     LINE_RESTAURANT_CHANNEL_ID: str = "2008751355"
     LINE_RESTAURANT_CHANNEL_SECRET: str = "92d720cf8a7d037a58b4cf5bc5e25115"
+    LINE_RESTAURANT_CHANNEL_ACCESS_TOKEN: str = ""  # Optional: Long-lived access token
 
     # LINE Messaging API (Producer)
     LINE_PRODUCER_CHANNEL_ID: str = "2008751402"
     LINE_PRODUCER_CHANNEL_SECRET: str = "5928cc0acec4d1e51b21b3d5e8f46cd9"
+    LINE_PRODUCER_CHANNEL_ACCESS_TOKEN: str = ""  # Optional: Long-lived access token
 
     # LINE Messaging API (Consumer) - NEW
     LINE_CONSUMER_CHANNEL_ID: str = "2007987539"
