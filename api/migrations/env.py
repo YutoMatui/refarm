@@ -57,10 +57,10 @@ def run_migrations_offline() -> None:
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
         compare_server_default=True,
+        transaction_per_migration=True,
     )
 
-    with context.begin_transaction():
-        context.run_migrations()
+    context.run_migrations()
 
 
 def do_run_migrations(connection: Connection) -> None:
@@ -70,10 +70,10 @@ def do_run_migrations(connection: Connection) -> None:
         target_metadata=target_metadata,
         compare_type=True,
         compare_server_default=True,
+        transaction_per_migration=True,
     )
 
-    with context.begin_transaction():
-        context.run_migrations()
+    context.run_migrations()
 
 
 async def run_async_migrations() -> None:
