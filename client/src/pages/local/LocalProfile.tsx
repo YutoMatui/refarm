@@ -25,8 +25,8 @@ const LocalProfile = () => {
             setForm({
                 name: consumer.name,
                 phone_number: consumer.phone_number,
-                postal_code: consumer.postal_code,
-                address: consumer.address,
+                postal_code: consumer.postal_code ?? '',
+                address: consumer.address ?? '',
                 building: consumer.building ?? '',
             })
         }
@@ -89,8 +89,8 @@ const LocalProfile = () => {
         event.preventDefault()
         if (!consumer) return
 
-        if (!form.name || !form.phone_number || !form.postal_code || !form.address) {
-            toast.error('必須項目を入力してください')
+        if (!form.name || !form.phone_number) {
+            toast.error('名前と電話番号は必須です')
             return
         }
 
