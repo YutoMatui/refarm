@@ -39,7 +39,7 @@ const LocalCart = () => {
         queryKey: ['delivery-slots', deliveryDestination],
         queryFn: async () => {
             const slotType = deliveryDestination === 'UNIV' ? DeliverySlotType.UNIVERSITY : DeliverySlotType.HOME
-            const response = await deliverySlotApi.list({ slot_type: slotType, limit: 100 })
+            const response = await deliverySlotApi.list({ slot_type: slotType })
             return response.data as DeliverySlot[]
         },
     })
