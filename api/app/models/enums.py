@@ -40,7 +40,7 @@ class DeliveryTimeSlot(str, enum.Enum):
 class DeliverySlotType(str, enum.Enum):
     """B2C向け受取枠種別."""
     HOME = "HOME"  # 自宅配送
-    UNIVERSITY = "UNIV"  # 兵庫県立大学 正門受取
+    UNIVERSITY = "UNIVERSITY"  # 兵庫県立大学 正門受取
 
 
 class OrderStatus(str, enum.Enum):

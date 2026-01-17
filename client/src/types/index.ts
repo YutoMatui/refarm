@@ -22,7 +22,7 @@ export enum DeliveryTimeSlot {
 
 export enum DeliverySlotType {
   HOME = 'HOME',
-  UNIVERSITY = 'UNIV',
+  UNIVERSITY = 'UNIVERSITY',
 }
 
 export enum OrderStatus {
