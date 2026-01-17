@@ -68,17 +68,17 @@ class Settings(BaseSettings):
     # LINE Messaging API (Restaurant)
     LINE_RESTAURANT_CHANNEL_ID: str = "2008751355"
     LINE_RESTAURANT_CHANNEL_SECRET: str = "92d720cf8a7d037a58b4cf5bc5e25115"
+    LINE_RESTAURANT_CHANNEL_ACCESS_TOKEN: str = ""  # Long-lived token (optional)
 
     # LINE Messaging API (Producer)
     LINE_PRODUCER_CHANNEL_ID: str = "2008751402"
     LINE_PRODUCER_CHANNEL_SECRET: str = "5928cc0acec4d1e51b21b3d5e8f46cd9"
+    LINE_PRODUCER_CHANNEL_ACCESS_TOKEN: str = ""  # Long-lived token (optional)
 
-    # LINE Messaging API (Consumer) - NEW
-    LINE_CONSUMER_CHANNEL_ID: str = "2007987539"
-    LINE_CONSUMER_ACCESS_TOKEN: str = "Jf7za5jmyPzScJ/gyTnUzG/Oe/6HTt+BCS8l8c07w1+dxNlLaJoK24EfCSjEoIuVT2vGKFc99+02JOi64IpyYZVdiAoY5T55SH/c0XGXcYwwqp7dC5Pg//bmRrPmk+G4Dw4eNqZSj0j3VGLPgmcDfAdB04t89/1O/w1cDnyilFU="
-
-    # LINE Test User ID
+    # LINE Test User ID (消費者のLINE User ID for testing)
     LINE_TEST_USER_ID: str = "Uf84a1f7dfb47a12c704d6ac8b438f873"
+    # Consumer LINE User ID (provided by user)
+    LINE_CONSUMER_USER_ID: str = "Uf84a1f7dfb47a12c704d6ac8b438f873"
     
     # Cloudinary
     CLOUDINARY_CLOUD_NAME: str = ""
