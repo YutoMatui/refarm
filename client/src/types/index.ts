@@ -88,8 +88,8 @@ export interface Consumer extends TimestampFields {
   line_user_id: string
   name: string
   phone_number: string
-  postal_code: string
-  address: string
+  postal_code?: string
+  address?: string
   building?: string | null
 }
 

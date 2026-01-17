@@ -57,8 +57,8 @@ const ConsumerRegisterForm = ({ idToken, onSuccess, onRetry }: ConsumerRegisterF
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
 
-        if (!name || !phoneNumber || !postalCode || !address) {
-            toast.error('必須項目を入力してください')
+        if (!name || !phoneNumber) {
+            toast.error('名前と電話番号は必須です')
             return
         }
 
@@ -145,7 +145,7 @@ const ConsumerRegisterForm = ({ idToken, onSuccess, onRetry }: ConsumerRegisterF
                     </div>
 
                     <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">郵便番号</label>
+                        <label className="block text-sm font-medium text-gray-700">郵便番号（任意）</label>
                         <div className="flex space-x-2">
                             <input
                                 type="text"
@@ -153,7 +153,6 @@ const ConsumerRegisterForm = ({ idToken, onSuccess, onRetry }: ConsumerRegisterF
                                 onChange={(e) => setPostalCode(e.target.value)}
                                 placeholder="例）6500001"
                                 maxLength={8}
-                                required
                                 className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                             />
                             <button
@@ -165,19 +164,19 @@ const ConsumerRegisterForm = ({ idToken, onSuccess, onRetry }: ConsumerRegisterF
                                 {isLookupLoading ? '検索中...' : '住所検索'}
                             </button>
                         </div>
-                        <p className="text-xs text-gray-500">7桁の郵便番号を入力すると住所を自動で補完できます。</p>
+                        <p className="text-xs text-gray-500">ご自宅配送をご希望の場合は、7桁の郵便番号を入力すると住所を自動で補完できます。</p>
                     </div>
 
                     <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">住所（都道府県・市区町村・番地）</label>
+                        <label className="block text-sm font-medium text-gray-700">住所（任意：都道府県・市区町村・番地）</label>
                         <textarea
                             value={address}
                             onChange={(e) => setAddress(e.target.value)}
                             placeholder="例）兵庫県神戸市中央区加納町6-5-1"
-                            required
                             rows={3}
                             className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         />
+                        <p className="text-xs text-gray-500 italic">※ 大学受取のみをご利用の方は、住所の入力は不要です。</p>
                     </div>
 
                     <div className="space-y-2">

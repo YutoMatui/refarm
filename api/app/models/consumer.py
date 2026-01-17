@@ -42,13 +42,13 @@ class Consumer(Base, TimestampMixin):
 
     postal_code = Column(
         String(10),
-        nullable=False,
+        nullable=True,
         comment="郵便番号"
     )
 
     address = Column(
         String(500),
-        nullable=False,
+        nullable=True,
         comment="住所 (都道府県・市区町村・番地)"
     )
 

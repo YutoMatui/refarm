@@ -74,8 +74,8 @@ class ConsumerCompact(BaseModel):
     id: int
     name: str
     phone_number: str
-    postal_code: str
-    address: str
+    postal_code: Optional[str] = None
+    address: Optional[str] = None
     building: Optional[str] = None
     class Config:
         from_attributes = True

@@ -12,8 +12,8 @@ class ConsumerBase(BaseModel):
 
     name: str = Field(..., description="氏名", min_length=1, max_length=200)
     phone_number: str = Field(..., description="電話番号", min_length=10, max_length=20)
-    postal_code: str = Field(..., description="郵便番号", min_length=3, max_length=10)
-    address: str = Field(..., description="住所 (都道府県・市区町村・番地)", min_length=1, max_length=500)
+    postal_code: Optional[str] = Field(None, description="郵便番号", min_length=3, max_length=10)
+    address: Optional[str] = Field(None, description="住所 (都道府県・市区町村・番地)", min_length=1, max_length=500)
     building: Optional[str] = Field(None, description="建物名・部屋番号")
 
 

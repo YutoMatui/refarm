@@ -1,165 +1,214 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Minus, Plus } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { productApi } from '@/services/api'
 import type { Product } from '@/types'
+import { useStore } from '@/store/useStore'
+import { ArrowLeft, Minus, Plus, Loader2, Salad, User, MapPin, ChevronRight } from 'lucide-react'
+import { toast } from 'sonner'
 
-interface LocalProductCardProps {
-    product: Product
-    onAddToCart: (product: Product, quantity: number) => void
-    compact?: boolean
-}
-
-const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProductCardProps) => {
+const LocalProductDetail = () => {
+    const { id } = useParams()
+    const navigate = useNavigate()
+    const addToCart = useStore(state => state.addToCart)
+    const cart = useStore(state => state.cart)
+    const [product, setProduct] = useState<Product | null>(null)
+    const [loading, setLoading] = useState(true)
     const [quantity, setQuantity] = useState(1)
 
-    const increase = () => setQuantity(prev => Math.min(prev + 1, 99))
-    const decrease = () => setQuantity(prev => Math.max(prev - 1, 1))
+    useEffect(() => {
+        if (id) {
+            loadProduct(parseInt(id))
+        }
+    }, [id])
 
-    const handleAdd = () => {
-        onAddToCart(product, quantity)
-        setQuantity(1)
+    const loadProduct = async (productId: number) => {
+        try {
+            const res = await productApi.getById(productId)
+            setProduct(res.data)
+        } catch (e) {
+            console.error(e)
+            toast.error('商品情報の取得に失敗しました')
+            navigate(-1)
+        } finally {
+            setLoading(false)
+        }
     }
 
-    // コンパクト表示（横長リスト）
-    if (compact) {
+    const handleAddToCart = () => {
+        if (product) {
+            addToCart(product, quantity)
+            toast.success(`${product.name} をカートに追加しました`)
+            setQuantity(1)
+        }
+    }
+
+    const increase = () => setQuantity(prev => prev + 1)
+    const decrease = () => setQuantity(prev => Math.max(1, prev - 1))
+
+    if (loading) {
         return (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden flex">
-                <Link to={`/local/products/${product.id}`} className="w-24 h-24 bg-gray-100 flex-shrink-0">
-                    {product.image_url ? (
-                        <img
-                            src={product.image_url}
-                            alt={product.name}
-                            className="h-full w-full object-cover hover:opacity-90 transition-opacity"
-                            loading="lazy"
-                        />
-                    ) : (
-                        <div className="h-full w-full flex items-center justify-center text-gray-400 text-xs">
-                            No Image
-                        </div>
-                    )}
-                </Link>
-                <div className="flex-1 p-3 flex flex-col justify-between">
-                    <div>
-                        {product.is_wakeari === 1 && (
-                            <div className="mb-1">
-                                <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-xs font-semibold">
-                                    訳あり
-                                </span>
-                            </div>
-                        )}
-                        <Link to={`/local/products/${product.id}`}>
-                            <h3 className="text-sm font-bold text-gray-900 line-clamp-1 hover:text-emerald-600 transition-colors">
-                                {product.name}
-                            </h3>
-                        </Link>
-                        <p className="text-lg font-bold text-emerald-600 mt-1">
-                            ¥{Math.round(parseFloat(product.price_with_tax || product.price)).toLocaleString()}
-                            <span className="text-xs text-gray-500 ml-1">/ {product.unit}</span>
-                        </p>
-                    </div>
-                    <div className="flex items-center justify-between mt-2">
-                        <div className="flex items-center space-x-2">
-                            <button
-                                type="button"
-                                onClick={decrease}
-                                className="p-1.5 rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
-                                aria-label="数量を減らす"
-                            >
-                                <Minus size={16} />
-                            </button>
-                            <span className="w-8 text-center text-sm font-semibold">{quantity}</span>
-                            <button
-                                type="button"
-                                onClick={increase}
-                                className="p-1.5 rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
-                                aria-label="数量を増やす"
-                            >
-                                <Plus size={16} />
-                            </button>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={handleAdd}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-1.5 rounded-md transition-colors"
-                        >
-                            追加
-                        </button>
-                    </div>
-                </div>
+            <div className="flex justify-center items-center min-h-screen">
+                <Loader2 className="animate-spin text-emerald-600" size={40} />
             </div>
         )
     }
 
-    // 通常表示（グリッド）
+    if (!product) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center">
+                <p className="text-gray-600">商品が見つかりません</p>
+                <button
+                    onClick={() => navigate(-1)}
+                    className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg"
+                >
+                    戻る
+                </button>
+            </div>
+        )
+    }
+
+    const cartItem = cart.find(item => item.product.id === product.id)
+
     return (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-            <Link to={`/local/products/${product.id}`} className="block">
-                <div className="h-40 bg-gray-100">
-                    {product.image_url ? (
-                        <img
-                            src={product.image_url}
-                            alt={product.name}
-                            className="h-full w-full object-cover hover:opacity-90 transition-opacity"
-                            loading="lazy"
-                        />
-                    ) : (
-                        <div className="h-full w-full flex items-center justify-center text-gray-400 text-sm">
-                            No Image
-                        </div>
-                    )}
-                </div>
-            </Link>
-            <div className="p-4 space-y-2">
+        <div className="bg-white min-h-screen pb-24">
+            {/* Header Image */}
+            <div className="relative aspect-square w-full bg-gray-100">
+                {product.image_url ? (
+                    <img
+                        src={product.image_url}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                    />
+                ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                        <Salad size={48} className="mb-2 opacity-50" />
+                        <span>画像なし</span>
+                    </div>
+                )}
+                <button
+                    onClick={() => navigate(-1)}
+                    className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-md hover:bg-white transition-colors"
+                >
+                    <ArrowLeft size={24} className="text-gray-700" />
+                </button>
+
+                {/* 訳ありバッジ */}
                 {product.is_wakeari === 1 && (
-                    <div>
-                        <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-xs font-semibold">
+                    <div className="absolute top-4 right-4">
+                        <span className="bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-md">
                             訳あり
                         </span>
                     </div>
                 )}
-                <Link to={`/local/products/${product.id}`}>
-                    <h3 className="text-lg font-semibold text-gray-900 hover:text-emerald-600 transition-colors">
-                        {product.name}
-                    </h3>
-                </Link>
-                {product.description && (
-                    <p className="text-sm text-gray-600 line-clamp-2">{product.description}</p>
-                )}
+            </div>
+
+            <div className="p-5 space-y-6">
+                {/* Title & Price */}
                 <div>
-                    <p className="text-xl font-bold text-emerald-600">
-                        ¥{Math.round(parseFloat(product.price_with_tax || product.price)).toLocaleString()}
-                    </p>
-                    <p className="text-xs text-gray-500">税込 / {product.unit}</p>
+                    <h1 className="text-2xl font-bold text-gray-900 mb-2">{product.name}</h1>
+                    <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-bold text-emerald-600">
+                            ¥{Math.round(parseFloat(product.price_with_tax || product.price)).toLocaleString()}
+                        </span>
+                        <span className="text-sm text-gray-500">税込 / {product.unit}</span>
+                    </div>
                 </div>
-                <div className="flex items-center justify-center space-x-3 py-2">
+
+                {/* Description */}
+                {product.description && (
+                    <div className="prose prose-sm text-gray-600">
+                        <h3 className="text-sm font-bold text-gray-900 mb-2">商品説明</h3>
+                        <p className="whitespace-pre-wrap leading-relaxed text-gray-700">
+                            {product.description}
+                        </p>
+                    </div>
+                )}
+
+                {/* Farmer Info */}
+                {product.farmer && (
+                    <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
+                        <div className="flex items-center gap-2 mb-3">
+                            <User size={18} className="text-emerald-700" />
+                            <h3 className="font-bold text-emerald-900">生産者情報</h3>
+                        </div>
+                        <Link
+                            to={`/local/farmers/${product.farmer.id}`}
+                            className="flex items-center justify-between group cursor-pointer hover:bg-emerald-100 p-2 rounded-lg transition-colors -mx-2"
+                        >
+                            <div className="flex items-center gap-3">
+                                {product.farmer.profile_photo_url ? (
+                                    <img
+                                        src={product.farmer.profile_photo_url}
+                                        alt={product.farmer.name}
+                                        className="w-12 h-12 rounded-full object-cover border-2 border-emerald-200"
+                                    />
+                                ) : (
+                                    <div className="w-12 h-12 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700">
+                                        <User size={24} />
+                                    </div>
+                                )}
+                                <div>
+                                    <p className="font-bold text-gray-900 group-hover:text-emerald-800">
+                                        {product.farmer.name}
+                                    </p>
+                                    {product.farmer.address && (
+                                        <div className="flex items-center gap-1 text-emerald-700 text-xs mt-1">
+                                            <MapPin size={12} />
+                                            <span>{product.farmer.address}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <ChevronRight size={20} className="text-emerald-400 group-hover:text-emerald-600" />
+                        </Link>
+                    </div>
+                )}
+
+                {/* 在庫情報 */}
+                {product.stock_quantity !== undefined && product.stock_quantity !== null && (
+                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                        <p className="text-sm text-gray-600">
+                            在庫: <span className="font-bold text-gray-900">{product.stock_quantity}{product.unit}</span>
+                        </p>
+                    </div>
+                )}
+            </div>
+
+            {/* Bottom Action Bar */}
+            <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 shadow-lg z-50">
+                <div className="flex gap-4 max-w-md mx-auto">
+                    <div className="flex items-center justify-between bg-gray-100 rounded-lg p-1 min-w-[130px]">
+                        <button
+                            onClick={decrease}
+                            className="w-10 h-10 flex items-center justify-center bg-white rounded-md shadow-sm active:bg-gray-50 transition-colors"
+                        >
+                            <Minus size={18} />
+                        </button>
+                        <span className="font-bold text-lg w-10 text-center">{quantity}</span>
+                        <button
+                            onClick={increase}
+                            className="w-10 h-10 flex items-center justify-center bg-white rounded-md shadow-sm active:bg-gray-50 transition-colors"
+                        >
+                            <Plus size={18} />
+                        </button>
+                    </div>
                     <button
-                        type="button"
-                        onClick={decrease}
-                        className="p-2 rounded-full border-2 border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-emerald-500 transition-colors"
-                        aria-label="数量を減らす"
+                        onClick={handleAddToCart}
+                        className="flex-1 bg-emerald-600 text-white font-bold py-3 rounded-lg shadow-md active:bg-emerald-700 transition-colors"
                     >
-                        <Minus size={18} />
-                    </button>
-                    <span className="w-12 text-center text-lg font-semibold">{quantity}</span>
-                    <button
-                        type="button"
-                        onClick={increase}
-                        className="p-2 rounded-full border-2 border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-emerald-500 transition-colors"
-                        aria-label="数量を増やす"
-                    >
-                        <Plus size={18} />
+                        カートに追加
                     </button>
                 </div>
-                <button
-                    type="button"
-                    onClick={handleAdd}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-md transition-colors"
-                >
-                    カートに追加
-                </button>
+                {cartItem && (
+                    <div className="text-center mt-2">
+                        <span className="text-xs text-emerald-600 font-medium bg-emerald-50 px-3 py-1 rounded-full">
+                            カートに {cartItem.quantity}{product.unit} 入っています
+                        </span>
+                    </div>
+                )}
             </div>
         </div>
     )
 }
 
-export default LocalProductCard
+export default LocalProductDetail
