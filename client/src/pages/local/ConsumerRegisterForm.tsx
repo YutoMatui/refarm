@@ -56,11 +56,6 @@ const ConsumerRegisterForm = ({ idToken, onSuccess, onRetry }: ConsumerRegisterF
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
-        if (!idToken) {
-            toast.error('LINEの認証情報が取得できませんでした。再度LINEからアクセスしてください。')
-            onRetry?.()
-            return
-        }
 
         if (!name || !phoneNumber || !postalCode || !address) {
             toast.error('必須項目を入力してください')
@@ -69,6 +64,32 @@ const ConsumerRegisterForm = ({ idToken, onSuccess, onRetry }: ConsumerRegisterF
 
         setIsSubmitting(true)
         try {
+            // 【開発用】idTokenがdev-tokenの場合はダミーデータで成功させる
+            if (idToken === 'dev-token') {
+                console.log('🔧 開発モード: ダミー登録データで進めます')
+                const dummyConsumer: Consumer = {
+                    id: 9999,
+                    line_user_id: 'dev-user-id',
+                    name,
+                    phone_number: phoneNumber,
+                    postal_code: sanitizePostalCode(postalCode),
+                    address,
+                    building: building || null,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                }
+                await new Promise(resolve => setTimeout(resolve, 500)) // 少し待機
+                toast.success('会員登録が完了しました（開発モード）')
+                onSuccess(dummyConsumer)
+                return
+            }
+
+            if (!idToken) {
+                toast.error('LINEの認証情報が取得できませんでした。再度LINEからアクセスしてください。')
+                onRetry?.()
+                return
+            }
+
             const response = await consumerApi.register({
                 id_token: idToken,
                 name,
