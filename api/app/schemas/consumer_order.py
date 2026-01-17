@@ -46,7 +46,9 @@ class ConsumerOrderItemCreate(BaseModel):
 
 
 class ConsumerOrderCreate(BaseModel):
+    consumer_id: Optional[int] = None
     delivery_slot_id: int
+    delivery_address: Optional[str] = None
     delivery_notes: Optional[str] = None
     order_notes: Optional[str] = None
     items: List[ConsumerOrderItemCreate]

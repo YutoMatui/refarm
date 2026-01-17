@@ -55,7 +55,7 @@ async def create_consumer_order(
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new consumer order."""
-    if order_data.consumer_id != consumer.id:
+    if order_data.consumer_id and order_data.consumer_id != consumer.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="本人の注文のみ作成できます")
 
     # Fetch slot
