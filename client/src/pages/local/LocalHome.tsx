@@ -98,9 +98,11 @@ export default function LocalHome() {
                         </div>
                         <div>
                             <h3 className="text-lg font-bold text-gray-900">
-                                {consumer?.name ? `${consumer.name}さん、` : 'ようこそ、'}
+                                {consumer?.name ? `${consumer.name}さん` : 'ようこそベジコベへ！'}
                             </h3>
-                            <p className="text-sm text-gray-600">ベジコベへ</p>
+                            {consumer?.name && (
+                                <p className="text-sm text-gray-600">いらっしゃいませ</p>
+                            )}
                         </div>
                     </div>
                     <p className="text-sm text-gray-700 mb-4">

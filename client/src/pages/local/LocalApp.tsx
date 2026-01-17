@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import { AlertCircle } from 'lucide-react'
 import { liffService } from '@/services/liff'
 import { consumerApi } from '@/services/api'
@@ -14,6 +14,7 @@ import LocalOrderComplete from '@/pages/local/LocalOrderComplete'
 import LocalProfile from '@/pages/local/LocalProfile'
 import ConsumerRegisterForm from '@/pages/local/ConsumerRegisterForm'
 import LocalBottomNav from '@/components/local/LocalBottomNav'
+import LocalFloatingCartButton from '@/components/local/LocalFloatingCartButton'
 import Loading from '@/components/Loading'
 import type { Consumer } from '@/types'
 
@@ -34,6 +35,7 @@ const LocalApp = () => {
     const setFarmer = useStore(state => state.setFarmer)
     const clearCart = useStore(state => state.clearCart)
 
+    const location = useLocation()
 
     useEffect(() => {
         const init = async () => {
@@ -174,6 +176,9 @@ const LocalApp = () => {
                     />
                 </Routes>
             </main>
+
+            {/* カート画面以外でフローティングカートボタンを表示 */}
+            {location.pathname !== '/local/cart' && <LocalFloatingCartButton />}
 
             <LocalBottomNav />
         </div>
