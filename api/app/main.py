@@ -195,11 +195,13 @@ from app.routers import (
     guest,
     admin_guest,
     support_messages,
+    admin_consumers,
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(admin_auth.router, prefix="/api/admin/auth", tags=["Admin Authentication"])
 app.include_router(admin_guest.router, prefix="/api/admin/guest", tags=["Admin Guest Management"])
+app.include_router(admin_consumers.router, prefix="/api/admin", tags=["Admin Consumer Management"])
 app.include_router(admin_users.router, prefix="/api/admin/users", tags=["Admin Users"])
 app.include_router(admin_delivery_slots_router.router, prefix="/api/admin/delivery-slots", tags=["Admin Delivery Slots"])
 app.include_router(delivery_schedules.router, prefix="/api/delivery-schedules", tags=["Delivery Schedules"])

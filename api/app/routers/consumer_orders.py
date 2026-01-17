@@ -190,3 +190,40 @@ async def get_consumer_order_detail(
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
     return order
+
+
+@router.patch("/{order_id}/status", response_model=ConsumerOrderResponse)
+async def update_consumer_order_status(
+    order_id: int,
+    status_update: dict,
+    consumer: Consumer = Depends(get_current_consumer),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    消費者が注文ステータスを更新（受け取り完了など）
+    """
+    # 注文を取得
+    stmt = select(ConsumerOrder).options(
+        selectinload(ConsumerOrder.order_items)
+        .selectinload(ConsumerOrderItem.product)
+        .selectinload(Product.farmer),
+        selectinload(ConsumerOrder.consumer),
+        selectinload(ConsumerOrder.delivery_slot)
+    ).where(ConsumerOrder.id == order_id, ConsumerOrder.consumer_id == consumer.id)
+    
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
+    
+    # ステータス更新（consumersは'received'にのみ更新可能）
+    new_status = status_update.get('status')
+    if new_status == 'received':
+        order.status = OrderStatus.COMPLETED  # または新しいステータスを追加
+        await db.commit()
+        await db.refresh(order)
+        return order
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="このステータスには更新できません")
+

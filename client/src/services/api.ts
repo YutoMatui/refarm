@@ -284,6 +284,9 @@ export const consumerOrderApi = {
 
   getById: (id: number) =>
     apiClient.get<ConsumerOrder>(`/consumer-orders/${id}`),
+
+  updateStatus: (id: number, status: string) =>
+    apiClient.patch<ConsumerOrder>(`/consumer-orders/${id}/status`, { status }),
 }
 
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, ShoppingBag, Truck, ClipboardList, Store, Map, ShieldAlert, MessageCircle } from 'lucide-react'
+import { Users, ShoppingBag, Truck, ClipboardList, Store, Map, ShieldAlert, MessageCircle, UserCircle } from 'lucide-react'
 import FarmerManagement from '@/components/Admin/FarmerManagement'
 import ProductManagement from '@/components/Admin/ProductManagement'
 import DeliveryManagement from '@/components/Admin/DeliveryManagement'
@@ -9,10 +9,11 @@ import RoutePlanning from '@/components/Admin/RoutePlanning'
 import AdminUserManagement from '@/components/Admin/AdminUserManagement'
 import DeliveryScheduleManagement from '@/components/Admin/DeliveryScheduleManagement'
 import GuestManagement from '@/components/Admin/GuestManagement'
+import ConsumerManagement from '@/components/Admin/ConsumerManagement'
 import { adminApi } from '@/services/api'
 
 export default function Admin() {
-    const [activeTab, setActiveTab] = useState<'farmers' | 'products' | 'delivery' | 'procurement' | 'restaurants' | 'route' | 'admin_users' | 'delivery_schedule' | 'guest'>('farmers')
+    const [activeTab, setActiveTab] = useState<'farmers' | 'products' | 'delivery' | 'procurement' | 'restaurants' | 'route' | 'admin_users' | 'delivery_schedule' | 'guest' | 'consumers'>('farmers')
     const [userRole, setUserRole] = useState<string>('editor')
 
     useEffect(() => {
@@ -25,6 +26,7 @@ export default function Admin() {
     const tabs = [
         { id: 'farmers', label: '農家管理', icon: Users },
         { id: 'restaurants', label: '飲食店管理', icon: Store },
+        { id: 'consumers', label: '消費者管理', icon: UserCircle },
         { id: 'products', label: '商品・在庫管理', icon: ShoppingBag },
         { id: 'delivery', label: '注文・配送管理', icon: Truck },
         { id: 'delivery_schedule', label: '配送スケジュール', icon: Truck },
@@ -83,6 +85,7 @@ export default function Admin() {
                         {activeTab === 'delivery_schedule' && <DeliveryScheduleManagement />}
                         {activeTab === 'procurement' && <ProcurementManagement />}
                         {activeTab === 'restaurants' && <RestaurantManagement />}
+                        {activeTab === 'consumers' && <ConsumerManagement />}
                         {activeTab === 'route' && <RoutePlanning />}
                         {activeTab === 'admin_users' && <AdminUserManagement />}
                         {activeTab === 'guest' && <GuestManagement />}
