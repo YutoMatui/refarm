@@ -54,8 +54,28 @@ const LocalCart = () => {
         }
     }, [slots])
 
-    const productTotal = useMemo(() => {
-        return cart.reduce((sum, item) => sum + parseFloat(String(item.product.price_with_tax ?? item.product.price)) * Number(item.quantity), 0)
+    // 税抜き小計と消費税を計算
+    const { subtotal, taxAmount, productTotal } = useMemo(() => {
+        let subtotal = 0
+        let taxAmount = 0
+
+        cart.forEach(item => {
+            const price = parseFloat(String(item.product.price))
+            const quantity = Number(item.quantity)
+            const taxRate = item.product.tax_rate
+
+            const itemSubtotal = price * quantity
+            const itemTax = Math.floor(itemSubtotal * (taxRate / 100))
+
+            subtotal += itemSubtotal
+            taxAmount += itemTax
+        })
+
+        return {
+            subtotal: Math.floor(subtotal),
+            taxAmount: Math.floor(taxAmount),
+            productTotal: Math.floor(subtotal + taxAmount)
+        }
     }, [cart])
 
     const shippingFee = deliveryDestination === 'HOME' ? 400 : 0
@@ -154,8 +174,8 @@ const LocalCart = () => {
                         type="button"
                         onClick={() => setDeliveryDestination('UNIV')}
                         className={`rounded-xl border-2 p-5 text-left space-y-2 transition-all ${deliveryDestination === 'UNIV'
-                                ? 'border-emerald-500 bg-emerald-50 shadow-md'
-                                : 'border-gray-200 hover:border-emerald-200'
+                            ? 'border-emerald-500 bg-emerald-50 shadow-md'
+                            : 'border-gray-200 hover:border-emerald-200'
                             }`}
                     >
                         <p className="font-bold text-gray-900">🏫 兵庫県立大学 受取</p>
@@ -171,8 +191,8 @@ const LocalCart = () => {
                         type="button"
                         onClick={() => setDeliveryDestination('HOME')}
                         className={`rounded-xl border-2 p-5 text-left space-y-2 transition-all ${deliveryDestination === 'HOME'
-                                ? 'border-blue-500 bg-blue-50 shadow-md'
-                                : 'border-gray-200 hover:border-blue-200'
+                            ? 'border-blue-500 bg-blue-50 shadow-md'
+                            : 'border-gray-200 hover:border-blue-200'
                             }`}
                     >
                         <p className="font-bold text-gray-900">🏠 自宅へ配送</p>
@@ -201,8 +221,8 @@ const LocalCart = () => {
                         <label
                             key={slot.id}
                             className={`flex items-start space-x-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedSlotId === slot.id
-                                    ? 'border-emerald-500 bg-emerald-50'
-                                    : 'border-gray-200 hover:border-emerald-300'
+                                ? 'border-emerald-500 bg-emerald-50'
+                                : 'border-gray-200 hover:border-emerald-300'
                                 }`}
                         >
                             <input
@@ -292,17 +312,34 @@ const LocalCart = () => {
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
                 <h2 className="text-lg font-bold text-gray-900">注文内容の確認</h2>
                 <div className="space-y-2">
-                    {cart.map(item => (
-                        <div key={item.product.id} className="flex justify-between text-sm text-gray-700 py-2 border-b border-gray-100">
-                            <span className="font-medium">{item.product.name} × {item.quantity}{item.product.unit}</span>
-                            <span className="font-semibold">¥{Math.round(parseFloat(String(item.product.price_with_tax ?? item.product.price)) * Number(item.quantity)).toLocaleString()}</span>
-                        </div>
-                    ))}
+                    {cart.map(item => {
+                        const price = parseFloat(String(item.product.price))
+                        const quantity = Number(item.quantity)
+                        const taxRate = item.product.tax_rate
+                        const itemSubtotal = Math.floor(price * quantity)
+                        const itemTax = Math.floor(itemSubtotal * (taxRate / 100))
+                        const itemTotal = itemSubtotal + itemTax
+
+                        return (
+                            <div key={item.product.id} className="flex justify-between text-sm text-gray-700 py-2 border-b border-gray-100">
+                                <span className="font-medium">{item.product.name} × {item.quantity}{item.product.unit}</span>
+                                <span className="font-semibold">¥{itemTotal.toLocaleString()}</span>
+                            </div>
+                        )
+                    })}
                 </div>
                 <div className="border-t-2 border-gray-200 pt-4 space-y-2 text-sm text-gray-700">
                     <div className="flex justify-between">
-                        <span>商品合計</span>
-                        <span>¥{Math.round(productTotal).toLocaleString()}</span>
+                        <span>小計（税抜）</span>
+                        <span>¥{subtotal.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>消費税</span>
+                        <span>¥{taxAmount.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold pt-1 border-t border-gray-200">
+                        <span>商品合計（税込）</span>
+                        <span>¥{productTotal.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
                         <span>送料</span>
@@ -310,9 +347,9 @@ const LocalCart = () => {
                             {shippingFee === 0 ? '無料' : `¥${shippingFee.toLocaleString()}`}
                         </span>
                     </div>
-                    <div className="flex justify-between font-bold text-xl text-gray-900 pt-2">
+                    <div className="flex justify-between font-bold text-xl text-gray-900 pt-2 border-t-2 border-gray-300">
                         <span>お支払い合計</span>
-                        <span className="text-emerald-600">¥{Math.round(grandTotal).toLocaleString()}</span>
+                        <span className="text-emerald-600">¥{grandTotal.toLocaleString()}</span>
                     </div>
                 </div>
                 <div className="bg-yellow-50 border-2 border-yellow-300 text-yellow-800 text-sm rounded-xl p-4">

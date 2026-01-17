@@ -22,14 +22,14 @@ const LocalMyPage = () => {
 
     const orders = ordersData?.items || []
 
-    // 現在の注文（pending, confirmed, preparing）
+    // 現在の注文（PENDING, CONFIRMED, PREPARING, SHIPPED）
     const currentOrders = orders.filter((order: ConsumerOrder) =>
-        ['pending', 'confirmed', 'preparing', 'shipped'].includes(order.status)
+        ['PENDING', 'CONFIRMED', 'PREPARING', 'SHIPPED'].includes(order.status.toUpperCase())
     )
 
-    // 過去の注文（completed, cancelled, received）
+    // 過去の注文（DELIVERED, CANCELLED）
     const pastOrders = orders.filter((order: ConsumerOrder) =>
-        ['completed', 'cancelled', 'received'].includes(order.status)
+        ['DELIVERED', 'CANCELLED'].includes(order.status.toUpperCase())
     )
 
     // 受け取り完了処理
@@ -57,35 +57,37 @@ const LocalMyPage = () => {
 
     const getStatusText = (status: string) => {
         const statusMap: { [key: string]: string } = {
-            'pending': '注文確認中',
-            'confirmed': '確認済み',
-            'preparing': '準備中',
-            'shipped': '配送中',
-            'completed': '完了',
-            'cancelled': 'キャンセル',
-            'received': '受取完了'
+            'PENDING': '注文確認中',
+            'CONFIRMED': '確認済み',
+            'PREPARING': '準備中',
+            'SHIPPED': '配送中',
+            'DELIVERED': '完了',
+            'CANCELLED': 'キャンセル'
         }
-        return statusMap[status] || status
+        return statusMap[status.toUpperCase()] || status
     }
 
     const getStatusColor = (status: string) => {
+        const statusUpper = status.toUpperCase()
         const colorMap: { [key: string]: string } = {
-            'pending': 'bg-yellow-100 text-yellow-800',
-            'confirmed': 'bg-blue-100 text-blue-800',
-            'preparing': 'bg-purple-100 text-purple-800',
-            'shipped': 'bg-emerald-100 text-emerald-800',
-            'completed': 'bg-gray-100 text-gray-800',
-            'cancelled': 'bg-red-100 text-red-800',
-            'received': 'bg-green-100 text-green-800'
+            'PENDING': 'bg-yellow-100 text-yellow-800',
+            'CONFIRMED': 'bg-blue-100 text-blue-800',
+            'PREPARING': 'bg-purple-100 text-purple-800',
+            'SHIPPED': 'bg-emerald-100 text-emerald-800',
+            'DELIVERED': 'bg-green-100 text-green-800',
+            'CANCELLED': 'bg-red-100 text-red-800'
         }
-        return colorMap[status] || 'bg-gray-100 text-gray-800'
+        return colorMap[statusUpper] || 'bg-gray-100 text-gray-800'
     }
 
     const formatDeliveryInfo = (order: ConsumerOrder) => {
-        if (order.delivery_type === 'HOME') {
-            return `自宅配送 (${order.delivery_label} ${order.delivery_time_label})`
+        const deliveryType = order.delivery_type?.toUpperCase() || ''
+        if (deliveryType === 'HOME') {
+            return `自宅配送 (${order.delivery_time_label || ''})`
+        } else if (deliveryType === 'UNIVERSITY') {
+            return `大学受取 (${order.delivery_time_label || ''})`
         } else {
-            return `大学受取 (${order.delivery_label} ${order.delivery_time_label})`
+            return `${order.delivery_label || '受取'} (${order.delivery_time_label || ''})`
         }
     }
 
@@ -153,7 +155,7 @@ const LocalMyPage = () => {
                                         </div>
 
                                         {/* 受け取り完了ボタン */}
-                                        {order.status === 'shipped' && (
+                                        {order.status.toUpperCase() === 'SHIPPED' && (
                                             <button
                                                 onClick={() => handleCompleteReceipt(order.id)}
                                                 className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-md flex items-center justify-center gap-2"
