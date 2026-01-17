@@ -16,22 +16,23 @@ import { compressImage } from '@/utils/imageUtils';
 
 // Status styling helper
 const getStatusStyle = (status: string) => {
+    const statusUpper = status.toUpperCase();
     const styles: Record<string, string> = {
-        pending: 'bg-yellow-100 text-yellow-800',
-        confirmed: 'bg-blue-100 text-blue-800',
-        shipped: 'bg-purple-100 text-purple-800',
-        delivered: 'bg-green-100 text-green-800',
-        cancelled: 'bg-gray-100 text-gray-600',
+        PENDING: 'bg-yellow-100 text-yellow-800',
+        CONFIRMED: 'bg-blue-100 text-blue-800',
+        SHIPPED: 'bg-purple-100 text-purple-800',
+        DELIVERED: 'bg-green-100 text-green-800',
+        CANCELLED: 'bg-gray-100 text-gray-600',
     };
-    return styles[status] || 'bg-gray-100 text-gray-800';
+    return styles[statusUpper] || 'bg-gray-100 text-gray-800';
 };
 
 const STATUS_LABEL: Record<string, string> = {
-    pending: '確認中',
-    confirmed: '注文確定',
-    shipped: '配送中',
-    delivered: '配達完了',
-    cancelled: 'キャンセル',
+    PENDING: '確認中',
+    CONFIRMED: '注文確定',
+    SHIPPED: '配送中',
+    DELIVERED: '配達完了',
+    CANCELLED: 'キャンセル',
 };
 
 interface EditProfileForm {
@@ -480,7 +481,7 @@ export default function RestaurantMyPage() {
                                             {new Date(order.delivery_date).toLocaleDateString('ja-JP')} 配送
                                         </span>
                                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${getStatusStyle(order.status)}`}>
-                                            {STATUS_LABEL[order.status]}
+                                            {STATUS_LABEL[order.status.toUpperCase()]}
                                         </span>
                                     </div>
                                     <p className="text-xs text-gray-500">
@@ -527,7 +528,7 @@ export default function RestaurantMyPage() {
                                 <div className="flex justify-between">
                                     <span className="text-gray-500">ステータス</span>
                                     <span className={`px-2 rounded-full text-xs ${getStatusStyle(selectedOrder.status)}`}>
-                                        {STATUS_LABEL[selectedOrder.status]}
+                                        {STATUS_LABEL[selectedOrder.status.toUpperCase()]}
                                     </span>
                                 </div>
                             </div>

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Package, MapPin, User, MessageCircle, CheckCircle, Clock, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { useStore } from '@/store/useStore'
-import axios from 'axios'
+import { consumerOrderApi } from '@/services/api'
 import type { ConsumerOrder } from '@/types'
 
 const LocalMyPage = () => {
@@ -15,7 +15,7 @@ const LocalMyPage = () => {
     const { data: ordersData } = useQuery({
         queryKey: ['consumer-orders'],
         queryFn: async () => {
-            const response = await axios.get('/api/consumer-orders/')
+            const response = await consumerOrderApi.list()
             return response.data
         }
     })
@@ -35,9 +35,7 @@ const LocalMyPage = () => {
     // 受け取り完了処理
     const completeReceiptMutation = useMutation({
         mutationFn: async (orderId: number) => {
-            const response = await axios.patch(`/api/consumer-orders/${orderId}/status`, {
-                status: 'received'
-            })
+            const response = await consumerOrderApi.updateStatus(orderId, 'DELIVERED')
             return response.data
         },
         onSuccess: () => {
