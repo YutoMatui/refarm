@@ -21,7 +21,7 @@ const ConsumerDeliverySlotManagement = () => {
     const { data: slotsData } = useQuery({
         queryKey: ['consumer-delivery-slots'],
         queryFn: async () => {
-            const response = await adminDeliverySlotApi.list({ limit: 500 })
+            const response = await adminDeliverySlotApi.list({ limit: 200 })
             return response.data
         }
     })
@@ -95,11 +95,11 @@ const ConsumerDeliverySlotManagement = () => {
             await createMutation.mutateAsync({
                 date: selectedDate,
                 slot_type: selectedType,
-                start_time: slot.startTime,
-                end_time: slot.endTime,
+                start_time: slot.startTime || null,
+                end_time: slot.endTime || null,
                 time_text: timeText,
                 is_active: true,
-                note: note || null
+                note: note.trim() || null
             })
         }
     }
