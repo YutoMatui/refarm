@@ -518,4 +518,18 @@ export const supportMessageApi = {
     apiClient.get('/support-messages/me'),
 }
 
+// Admin Consumer API
+export const adminConsumerApi = {
+  list: (params?: { skip?: number; limit?: number }) =>
+    apiClient.get<PaginatedResponse<Consumer>>('/admin/consumers/', { params }),
+  getById: (id: number) =>
+    apiClient.get<Consumer>(`/admin/consumers/${id}`),
+  update: (id: number, data: Partial<Consumer>) =>
+    apiClient.put<Consumer>(`/admin/consumers/${id}`, data),
+  delete: (id: number) =>
+    apiClient.delete(`/admin/consumers/${id}`),
+  getMessages: (consumerId: number) =>
+    apiClient.get(`/admin/consumers/${consumerId}/messages`),
+}
+
 export default apiClient

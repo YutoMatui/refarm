@@ -1,19 +1,23 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Search, Phone, MapPin, Calendar, MessageCircle } from 'lucide-react'
-import axios from 'axios'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Search, Mail, Phone, MapPin, Calendar, MessageCircle, Edit2, Trash2, X, Save } from 'lucide-react'
+import { toast } from 'sonner'
+import { adminConsumerApi } from '@/services/api'
 import type { Consumer } from '@/types'
 
 const ConsumerManagement = () => {
+    const queryClient = useQueryClient()
     const [searchQuery, setSearchQuery] = useState('')
     const [selectedConsumer, setSelectedConsumer] = useState<Consumer | null>(null)
     const [showMessages, setShowMessages] = useState(false)
+    const [isEditing, setIsEditing] = useState(false)
+    const [editForm, setEditForm] = useState<Partial<Consumer>>({})
 
     // 消費者一覧取得
     const { data: consumersData, isLoading } = useQuery({
         queryKey: ['admin-consumers'],
         queryFn: async () => {
-            const response = await axios.get('/api/admin/consumers/')
+            const response = await adminConsumerApi.list({ limit: 200 })
             return response.data
         }
     })
@@ -23,10 +27,40 @@ const ConsumerManagement = () => {
         queryKey: ['admin-consumer-messages', selectedConsumer?.id],
         queryFn: async () => {
             if (!selectedConsumer) return []
-            const response = await axios.get(`/api/admin/consumers/${selectedConsumer.id}/messages`)
+            const response = await adminConsumerApi.getMessages(selectedConsumer.id)
             return response.data
         },
         enabled: !!selectedConsumer && showMessages
+    })
+
+    // 更新Mutation
+    const updateMutation = useMutation({
+        mutationFn: async (data: { id: number; payload: Partial<Consumer> }) => {
+            return await adminConsumerApi.update(data.id, data.payload)
+        },
+        onSuccess: () => {
+            toast.success('消費者情報を更新しました')
+            queryClient.invalidateQueries({ queryKey: ['admin-consumers'] })
+            setIsEditing(false)
+        },
+        onError: (error: any) => {
+            toast.error(error?.response?.data?.detail || '更新に失敗しました')
+        }
+    })
+
+    // 削除Mutation
+    const deleteMutation = useMutation({
+        mutationFn: async (id: number) => {
+            return await adminConsumerApi.delete(id)
+        },
+        onSuccess: () => {
+            toast.success('消費者を削除しました')
+            queryClient.invalidateQueries({ queryKey: ['admin-consumers'] })
+            setSelectedConsumer(null)
+        },
+        onError: (error: any) => {
+            toast.error(error?.response?.data?.detail || '削除に失敗しました')
+        }
     })
 
     const consumers = consumersData?.items || []
@@ -35,8 +69,41 @@ const ConsumerManagement = () => {
     const filteredConsumers = consumers.filter((consumer: Consumer) =>
         consumer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         consumer.phone_number.includes(searchQuery) ||
-        (consumer.address?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+        consumer.address.toLowerCase().includes(searchQuery.toLowerCase())
     )
+
+    const handleEdit = () => {
+        if (selectedConsumer) {
+            setEditForm({
+                name: selectedConsumer.name,
+                phone_number: selectedConsumer.phone_number,
+                postal_code: selectedConsumer.postal_code,
+                address: selectedConsumer.address,
+                building: selectedConsumer.building || ''
+            })
+            setIsEditing(true)
+        }
+    }
+
+    const handleSave = () => {
+        if (selectedConsumer) {
+            updateMutation.mutate({
+                id: selectedConsumer.id,
+                payload: editForm
+            })
+        }
+    }
+
+    const handleDelete = () => {
+        if (selectedConsumer && confirm(`${selectedConsumer.name} さんを削除してもよろしいですか？\n\nこの操作は取り消せません。`)) {
+            deleteMutation.mutate(selectedConsumer.id)
+        }
+    }
+
+    const handleCancel = () => {
+        setIsEditing(false)
+        setEditForm({})
+    }
 
     return (
         <div className="space-y-6">
@@ -82,6 +149,7 @@ const ConsumerManagement = () => {
                                     onClick={() => {
                                         setSelectedConsumer(consumer)
                                         setShowMessages(false)
+                                        setIsEditing(false)
                                     }}
                                     className={`p-4 hover:bg-gray-50 cursor-pointer transition ${selectedConsumer?.id === consumer.id ? 'bg-emerald-50 border-l-4 border-emerald-600' : ''
                                         }`}
@@ -96,7 +164,7 @@ const ConsumerManagement = () => {
                                                 </p>
                                                 <p className="text-sm text-gray-600 flex items-center gap-1">
                                                     <MapPin size={14} />
-                                                    〒{consumer.postal_code || '---'}
+                                                    〒{consumer.postal_code}
                                                 </p>
                                             </div>
                                         </div>
@@ -118,108 +186,211 @@ const ConsumerManagement = () => {
 
                 {/* 消費者詳細 */}
                 <div className="bg-white rounded-lg shadow">
-                    <div className="p-4 border-b border-gray-200">
+                    <div className="p-4 border-b border-gray-200 flex items-center justify-between">
                         <h3 className="font-semibold text-gray-900">詳細情報</h3>
+                        {selectedConsumer && !isEditing && (
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleEdit}
+                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                                    title="編集"
+                                >
+                                    <Edit2 size={18} />
+                                </button>
+                                <button
+                                    onClick={handleDelete}
+                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                                    title="削除"
+                                    disabled={deleteMutation.isPending}
+                                >
+                                    <Trash2 size={18} />
+                                </button>
+                            </div>
+                        )}
+                        {isEditing && (
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleSave}
+                                    disabled={updateMutation.isPending}
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
+                                >
+                                    <Save size={16} />
+                                    保存
+                                </button>
+                                <button
+                                    onClick={handleCancel}
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                                >
+                                    <X size={16} />
+                                    キャンセル
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {selectedConsumer ? (
                         <div className="p-6 space-y-6">
-                            {/* 基本情報 */}
-                            <div>
-                                <h4 className="text-sm font-semibold text-gray-700 mb-3">基本情報</h4>
-                                <div className="space-y-3">
+                            {isEditing ? (
+                                <>
+                                    {/* 編集フォーム */}
                                     <div>
-                                        <p className="text-xs text-gray-500">氏名</p>
-                                        <p className="text-sm font-medium text-gray-900">{selectedConsumer.name}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-500">電話番号</p>
-                                        <p className="text-sm font-medium text-gray-900">{selectedConsumer.phone_number}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-500">LINE User ID</p>
-                                        <p className="text-sm font-mono text-gray-900">{selectedConsumer.line_user_id}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* 配送先情報 */}
-                            <div>
-                                <h4 className="text-sm font-semibold text-gray-700 mb-3">配送先情報</h4>
-                                <div className="space-y-3">
-                                    <div>
-                                        <p className="text-xs text-gray-500">郵便番号</p>
-                                        <p className="text-sm font-medium text-gray-900">{selectedConsumer.postal_code ? `〒${selectedConsumer.postal_code}` : '未登録'}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-500">住所</p>
-                                        <p className="text-sm font-medium text-gray-900">{selectedConsumer.address || '未登録'}</p>
-                                    </div>
-                                    {selectedConsumer.building && (
-                                        <div>
-                                            <p className="text-xs text-gray-500">建物名・部屋番号</p>
-                                            <p className="text-sm font-medium text-gray-900">{selectedConsumer.building}</p>
+                                        <h4 className="text-sm font-semibold text-gray-700 mb-3">基本情報</h4>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <label className="block text-xs text-gray-500 mb-1">氏名</label>
+                                                <input
+                                                    type="text"
+                                                    value={editForm.name || ''}
+                                                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs text-gray-500 mb-1">電話番号</label>
+                                                <input
+                                                    type="tel"
+                                                    value={editForm.phone_number || ''}
+                                                    onChange={(e) => setEditForm({ ...editForm, phone_number: e.target.value })}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                                                />
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* 登録情報 */}
-                            <div>
-                                <h4 className="text-sm font-semibold text-gray-700 mb-3">登録情報</h4>
-                                <div className="space-y-3">
-                                    <div>
-                                        <p className="text-xs text-gray-500">登録日時</p>
-                                        <p className="text-sm font-medium text-gray-900 flex items-center gap-1">
-                                            <Calendar size={14} />
-                                            {new Date(selectedConsumer.created_at).toLocaleString('ja-JP')}
-                                        </p>
                                     </div>
+
                                     <div>
-                                        <p className="text-xs text-gray-500">最終更新</p>
-                                        <p className="text-sm font-medium text-gray-900">
-                                            {new Date(selectedConsumer.updated_at).toLocaleString('ja-JP')}
-                                        </p>
+                                        <h4 className="text-sm font-semibold text-gray-700 mb-3">配送先情報</h4>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <label className="block text-xs text-gray-500 mb-1">郵便番号</label>
+                                                <input
+                                                    type="text"
+                                                    value={editForm.postal_code || ''}
+                                                    onChange={(e) => setEditForm({ ...editForm, postal_code: e.target.value })}
+                                                    placeholder="1234567"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs text-gray-500 mb-1">住所</label>
+                                                <textarea
+                                                    value={editForm.address || ''}
+                                                    onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                                                    rows={2}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs text-gray-500 mb-1">建物名・部屋番号（任意）</label>
+                                                <input
+                                                    type="text"
+                                                    value={editForm.building || ''}
+                                                    onChange={(e) => setEditForm({ ...editForm, building: e.target.value })}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
+                                </>
+                            ) : (
+                                <>
+                                    {/* 基本情報 */}
+                                    <div>
+                                        <h4 className="text-sm font-semibold text-gray-700 mb-3">基本情報</h4>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <p className="text-xs text-gray-500">氏名</p>
+                                                <p className="text-sm font-medium text-gray-900">{selectedConsumer.name}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-500">電話番号</p>
+                                                <p className="text-sm font-medium text-gray-900">{selectedConsumer.phone_number}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-500">LINE User ID</p>
+                                                <p className="text-sm font-mono text-gray-900 break-all">{selectedConsumer.line_user_id}</p>
+                                            </div>
+                                        </div>
+                                    </div>
 
-                            {/* 応援メッセージ */}
-                            <div>
-                                <button
-                                    onClick={() => setShowMessages(!showMessages)}
-                                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition"
-                                >
-                                    <MessageCircle size={18} />
-                                    {showMessages ? '応援メッセージを隠す' : '応援メッセージを表示'}
-                                </button>
-
-                                {showMessages && (
-                                    <div className="mt-4 space-y-3 max-h-[300px] overflow-y-auto">
-                                        {messages.length > 0 ? (
-                                            messages.map((msg: any) => (
-                                                <div key={msg.id} className="bg-gray-50 rounded-lg p-3">
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <span className="text-xs font-semibold text-gray-700">
-                                                            → {msg.farmer_name}
-                                                        </span>
-                                                        <span className="text-xs text-gray-500">
-                                                            {new Date(msg.created_at).toLocaleDateString('ja-JP')}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                                                        {msg.message}
-                                                    </p>
+                                    {/* 配送先情報 */}
+                                    <div>
+                                        <h4 className="text-sm font-semibold text-gray-700 mb-3">配送先情報</h4>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <p className="text-xs text-gray-500">郵便番号</p>
+                                                <p className="text-sm font-medium text-gray-900">〒{selectedConsumer.postal_code}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-500">住所</p>
+                                                <p className="text-sm font-medium text-gray-900">{selectedConsumer.address}</p>
+                                            </div>
+                                            {selectedConsumer.building && (
+                                                <div>
+                                                    <p className="text-xs text-gray-500">建物名・部屋番号</p>
+                                                    <p className="text-sm font-medium text-gray-900">{selectedConsumer.building}</p>
                                                 </div>
-                                            ))
-                                        ) : (
-                                            <p className="text-center text-gray-500 text-sm py-4">
-                                                応援メッセージはありません
-                                            </p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* 登録情報 */}
+                                    <div>
+                                        <h4 className="text-sm font-semibold text-gray-700 mb-3">登録情報</h4>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <p className="text-xs text-gray-500">登録日時</p>
+                                                <p className="text-sm font-medium text-gray-900 flex items-center gap-1">
+                                                    <Calendar size={14} />
+                                                    {new Date(selectedConsumer.created_at).toLocaleString('ja-JP')}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-500">最終更新</p>
+                                                <p className="text-sm font-medium text-gray-900">
+                                                    {new Date(selectedConsumer.updated_at).toLocaleString('ja-JP')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 応援メッセージ */}
+                                    <div>
+                                        <button
+                                            onClick={() => setShowMessages(!showMessages)}
+                                            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition"
+                                        >
+                                            <MessageCircle size={18} />
+                                            {showMessages ? '応援メッセージを隠す' : '応援メッセージを表示'}
+                                        </button>
+
+                                        {showMessages && (
+                                            <div className="mt-4 space-y-3 max-h-[300px] overflow-y-auto">
+                                                {messages.length > 0 ? (
+                                                    messages.map((msg: any) => (
+                                                        <div key={msg.id} className="bg-gray-50 rounded-lg p-3">
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <span className="text-xs font-semibold text-gray-700">
+                                                                    → {msg.farmer_name || '生産者'}
+                                                                </span>
+                                                                <span className="text-xs text-gray-500">
+                                                                    {new Date(msg.created_at).toLocaleDateString('ja-JP')}
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                                                {msg.message}
+                                                            </p>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <p className="text-center text-gray-500 text-sm py-4">
+                                                        応援メッセージはありません
+                                                    </p>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
-                                )}
-                            </div>
+                                </>
+                            )}
                         </div>
                     ) : (
                         <div className="p-8 text-center text-gray-500">
