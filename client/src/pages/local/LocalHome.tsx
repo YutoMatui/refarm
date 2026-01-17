@@ -101,7 +101,7 @@ export default function LocalHome() {
                                 {consumer?.name ? `${consumer.name}さん` : 'ようこそベジコベへ！'}
                             </h3>
                             {consumer?.name && (
-                                <p className="text-sm text-gray-600">いらっしゃいませ</p>
+                                <p className="text-sm text-gray-600">ようこそベジコベへ！</p>
                             )}
                         </div>
                     </div>

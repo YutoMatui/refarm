@@ -154,8 +154,8 @@ const LocalCart = () => {
                         type="button"
                         onClick={() => setDeliveryDestination('UNIV')}
                         className={`rounded-xl border-2 p-5 text-left space-y-2 transition-all ${deliveryDestination === 'UNIV'
-                            ? 'border-emerald-500 bg-emerald-50 shadow-md'
-                            : 'border-gray-200 hover:border-emerald-200'
+                                ? 'border-emerald-500 bg-emerald-50 shadow-md'
+                                : 'border-gray-200 hover:border-emerald-200'
                             }`}
                     >
                         <p className="font-bold text-gray-900">🏫 兵庫県立大学 受取</p>
@@ -171,8 +171,8 @@ const LocalCart = () => {
                         type="button"
                         onClick={() => setDeliveryDestination('HOME')}
                         className={`rounded-xl border-2 p-5 text-left space-y-2 transition-all ${deliveryDestination === 'HOME'
-                            ? 'border-blue-500 bg-blue-50 shadow-md'
-                            : 'border-gray-200 hover:border-blue-200'
+                                ? 'border-blue-500 bg-blue-50 shadow-md'
+                                : 'border-gray-200 hover:border-blue-200'
                             }`}
                     >
                         <p className="font-bold text-gray-900">🏠 自宅へ配送</p>
@@ -201,8 +201,8 @@ const LocalCart = () => {
                         <label
                             key={slot.id}
                             className={`flex items-start space-x-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedSlotId === slot.id
-                                ? 'border-emerald-500 bg-emerald-50'
-                                : 'border-gray-200 hover:border-emerald-300'
+                                    ? 'border-emerald-500 bg-emerald-50'
+                                    : 'border-gray-200 hover:border-emerald-300'
                                 }`}
                         >
                             <input
