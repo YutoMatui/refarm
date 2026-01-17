@@ -1,7 +1,6 @@
-import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { ShoppingCart, Sparkles, Clock, TrendingUp } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { Leaf, MapPin } from 'lucide-react'
 import { toast } from 'sonner'
 import { productApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
@@ -10,116 +9,165 @@ import type { Product, PaginatedResponse } from '@/types'
 
 const LocalHome = () => {
     const addToCart = useStore(state => state.addToCart)
-    const cart = useStore(state => state.cart)
     const consumer = useStore(state => state.consumer)
+    const cart = useStore(state => state.cart)
 
-    const { data, isLoading, isError } = useQuery<PaginatedResponse<Product>>({
-        queryKey: ['local-products'],
+    // 訳あり商品を取得
+    const { data: wakeariData } = useQuery<PaginatedResponse<Product>>({
+        queryKey: ['local-products-wakeari'],
         queryFn: async () => {
-            const response = await productApi.list({ is_active: 1, limit: 100 })
+            const response = await productApi.list({ is_active: 1, is_wakeari: 1, limit: 10 })
             return response.data as PaginatedResponse<Product>
         },
     })
 
-    const products: Product[] = useMemo(() => data?.items ?? [], [data])
+    // 新着商品を取得（最新順）
+    const { data: newData } = useQuery<PaginatedResponse<Product>>({
+        queryKey: ['local-products-new'],
+        queryFn: async () => {
+            const response = await productApi.list({ is_active: 1, limit: 10 })
+            return response.data as PaginatedResponse<Product>
+        },
+    })
+
+    // おすすめ商品を取得
+    const { data: featuredData } = useQuery<PaginatedResponse<Product>>({
+        queryKey: ['local-products-featured'],
+        queryFn: async () => {
+            const response = await productApi.list({ is_active: 1, is_featured: 1, limit: 10 })
+            return response.data as PaginatedResponse<Product>
+        },
+    })
+
+    const wakeariProducts = wakeariData?.items ?? []
+    const newProducts = newData?.items ?? []
+    const featuredProducts = featuredData?.items ?? []
 
     const handleAddToCart = (product: Product, quantity: number) => {
         addToCart(product, quantity)
         toast.success(`${product.name} をカートに追加しました`)
     }
 
+    const cartCount = cart.reduce((sum, item) => sum + Number(item.quantity), 0)
+
     return (
-        <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-            <section className="bg-white border border-emerald-100 rounded-2xl p-6 shadow-sm">
-                <div className="flex items-start space-x-4">
-                    <div className="p-3 bg-emerald-50 rounded-full text-emerald-600">
-                        <Leaf size={24} />
-                    </div>
-                    <div className="space-y-2">
-                        <p className="text-sm text-emerald-600 font-medium">HYOGO VEGETABLES</p>
-                        <h2 className="text-2xl font-bold text-gray-900">{consumer?.name ?? 'お客様'}、ようこそベジコベへ</h2>
-                        <p className="text-sm text-gray-600">
-                            旬の神戸野菜や市場野菜をLINEからかんたん注文。カートに追加して「自宅配送」または「兵庫県立大学 正門受取」をお選びください。
-                        </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                            <div className="rounded-xl border border-gray-200 p-4 flex items-start space-x-3">
-                                <div className="text-emerald-600 font-semibold">1</div>
-                                <div>
-                                    <p className="font-semibold text-gray-900">商品を選ぶ</p>
-                                    <p className="text-sm text-gray-600">リストからお好きな野菜を選んでカートに追加します。</p>
-                                </div>
-                            </div>
-                            <div className="rounded-xl border border-gray-200 p-4 flex items-start space-x-3">
-                                <div className="text-emerald-600 font-semibold">2</div>
-                                <div>
-                                    <p className="font-semibold text-gray-900">受取方法を選ぶ</p>
-                                    <p className="text-sm text-gray-600">自宅配送（送料400円）または大学受取（無料）からお選びください。</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="flex flex-wrap gap-3 pt-3">
-                            <span className="inline-flex items-center space-x-2 rounded-full bg-emerald-50 text-emerald-700 px-3 py-1 text-sm">
-                                <span className="font-semibold">自宅配送</span>
-                                <span>送料400円 / 配送枠から選択</span>
-                            </span>
-                            <span className="inline-flex items-center space-x-2 rounded-full bg-blue-50 text-blue-700 px-3 py-1 text-sm">
-                                <span className="font-semibold">大学受取</span>
-                                <span>無料 / 正門で受け渡し</span>
-                            </span>
-                        </div>
-                    </div>
+        <div className="min-h-screen bg-gray-50">
+            {/* ヘッダー */}
+            <header className="bg-gradient-to-r from-emerald-600 to-emerald-500 text-white px-4 py-6 safe-area-pt">
+                <div className="max-w-5xl mx-auto space-y-2">
+                    <p className="text-xs uppercase tracking-wide opacity-90">Vegicobe Local</p>
+                    <h1 className="text-2xl font-bold">{consumer?.name ?? 'お客様'}さん、こんにちは</h1>
+                    <p className="text-sm opacity-90">旬の神戸野菜をLINEからかんたん注文</p>
                 </div>
-            </section>
+            </header>
 
-            <section className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-start space-x-3">
-                <div className="mt-1 text-emerald-600">
-                    <MapPin size={20} />
-                </div>
-                <div className="text-sm text-emerald-900">
-                    <p className="font-semibold">お受取枠について</p>
-                    <p>
-                        管理者が公開している日時枠のみ選択できます。自宅配送は時間帯（例: 14:00〜16:00）、大学受取は指定時刻（例: 12:15）をご用意しています。
-                    </p>
-                </div>
-            </section>
-
-            {isLoading && (
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 text-center text-gray-500">
-                    商品を読み込み中です...
-                </div>
-            )}
-
-            {isError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-6">
-                    商品情報の取得に失敗しました。時間をおいて再度お試しください。
-                </div>
-            )}
-
-            {!isLoading && !isError && products.length === 0 && (
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 text-center text-gray-500">
-                    現在ご注文いただける商品がありません。公開までしばらくお待ちください。
-                </div>
-            )}
-
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {products.map((product) => (
-                    <LocalProductCard key={product.id} product={product} onAddToCart={handleAddToCart} />
-                ))}
-            </div>
-
-            {cart.length > 0 && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                        <p className="text-sm text-gray-600">カートに {cart.reduce((sum, item) => sum + Number(item.quantity), 0)} 点入っています。</p>
-                    </div>
+            {/* メインコンテンツ */}
+            <div className="max-w-5xl mx-auto px-4 py-6 space-y-8">
+                {/* カートへのショートカット */}
+                {cartCount > 0 && (
                     <Link
                         to="/local/cart"
-                        className="inline-flex items-center justify-center px-5 py-2 bg-emerald-600 text-white font-semibold rounded-md hover:bg-emerald-700"
+                        className="block bg-emerald-50 border border-emerald-200 rounded-xl p-4 hover:bg-emerald-100 transition"
                     >
-                        カートを確認する
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                                <div className="bg-emerald-600 text-white rounded-full p-2">
+                                    <ShoppingCart size={20} />
+                                </div>
+                                <div>
+                                    <p className="font-semibold text-gray-900">カート {cartCount} 点</p>
+                                    <p className="text-sm text-gray-600">タップして注文を確定</p>
+                                </div>
+                            </div>
+                            <div className="text-emerald-600 font-bold text-lg">›</div>
+                        </div>
                     </Link>
-                </div>
-            )}
+                )}
+
+                {/* 訳あり・お買い得 */}
+                {wakeariProducts.length > 0 && (
+                    <section>
+                        <div className="flex items-center space-x-2 mb-4">
+                            <TrendingUp className="text-orange-500" size={24} />
+                            <h2 className="text-lg font-bold text-gray-900">今すぐ買える！訳あり・お買い得</h2>
+                        </div>
+                        <div className="space-y-3">
+                            {wakeariProducts.map((product) => (
+                                <LocalProductCard
+                                    key={product.id}
+                                    product={product}
+                                    onAddToCart={handleAddToCart}
+                                    compact
+                                />
+                            ))}
+                        </div>
+                        <Link
+                            to="/local/search?category=wakeari"
+                            className="block mt-3 text-center text-sm text-emerald-600 font-semibold py-2"
+                        >
+                            訳あり商品をもっと見る ›
+                        </Link>
+                    </section>
+                )}
+
+                {/* おすすめ・特集 */}
+                {featuredProducts.length > 0 && (
+                    <section>
+                        <div className="flex items-center space-x-2 mb-4">
+                            <Sparkles className="text-yellow-500" size={24} />
+                            <h2 className="text-lg font-bold text-gray-900">今週のおすすめ</h2>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            {featuredProducts.slice(0, 4).map((product) => (
+                                <LocalProductCard
+                                    key={product.id}
+                                    product={product}
+                                    onAddToCart={handleAddToCart}
+                                />
+                            ))}
+                        </div>
+                        <Link
+                            to="/local/search?featured=1"
+                            className="block mt-3 text-center text-sm text-emerald-600 font-semibold py-2"
+                        >
+                            おすすめ商品をもっと見る ›
+                        </Link>
+                    </section>
+                )}
+
+                {/* 新着・旬の野菜 */}
+                {newProducts.length > 0 && (
+                    <section>
+                        <div className="flex items-center space-x-2 mb-4">
+                            <Clock className="text-blue-500" size={24} />
+                            <h2 className="text-lg font-bold text-gray-900">新着・旬の野菜</h2>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            {newProducts.slice(0, 6).map((product) => (
+                                <LocalProductCard
+                                    key={product.id}
+                                    product={product}
+                                    onAddToCart={handleAddToCart}
+                                />
+                            ))}
+                        </div>
+                        <Link
+                            to="/local/search"
+                            className="block mt-3 text-center text-sm text-emerald-600 font-semibold py-2"
+                        >
+                            すべての商品を見る ›
+                        </Link>
+                    </section>
+                )}
+
+                {/* 商品がない場合 */}
+                {wakeariProducts.length === 0 && newProducts.length === 0 && featuredProducts.length === 0 && (
+                    <div className="bg-white rounded-xl p-8 text-center text-gray-500 border border-gray-100">
+                        <p className="text-sm">現在ご注文いただける商品がありません。</p>
+                        <p className="text-xs mt-2">公開までしばらくお待ちください。</p>
+                    </div>
+                )}
+            </div>
         </div>
     )
 }

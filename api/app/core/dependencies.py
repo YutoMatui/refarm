@@ -120,3 +120,10 @@ async def get_current_consumer(
         )
 
     return consumer
+
+
+async def get_current_consumer_id(
+    consumer: Consumer = Depends(get_current_consumer)
+) -> int:
+    """Get current consumer ID from consumer object."""
+    return consumer.id

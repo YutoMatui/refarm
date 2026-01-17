@@ -64,6 +64,12 @@ class Consumer(Base, TimestampMixin):
         cascade="all, delete-orphan"
     )
 
+    support_messages = relationship(
+        "SupportMessage",
+        back_populates="consumer",
+        cascade="all, delete-orphan"
+    )
+
     __table_args__ = (
         Index("ix_consumers_line_user_id", "line_user_id", unique=True),
         {'comment': '一般消費者テーブル'}

@@ -1,15 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, Routes, Route, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Routes, Route } from 'react-router-dom'
 import { AlertCircle } from 'lucide-react'
 import { liffService } from '@/services/liff'
 import { consumerApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
 import LocalHome from '@/pages/local/LocalHome'
+import LocalSearch from '@/pages/local/LocalSearch'
+import LocalFarmers from '@/pages/local/LocalFarmers'
+import LocalFarmerDetail from '@/pages/local/LocalFarmerDetail'
+import LocalMyPage from '@/pages/local/LocalMyPage'
 import LocalCart from '@/pages/local/LocalCart'
 import LocalOrderComplete from '@/pages/local/LocalOrderComplete'
 import LocalProfile from '@/pages/local/LocalProfile'
 import ConsumerRegisterForm from '@/pages/local/ConsumerRegisterForm'
-import LocalFloatingCartButton from '@/components/local/LocalFloatingCartButton'
+import LocalBottomNav from '@/components/local/LocalBottomNav'
 import Loading from '@/components/Loading'
 import type { Consumer } from '@/types'
 
@@ -30,7 +34,6 @@ const LocalApp = () => {
     const setFarmer = useStore(state => state.setFarmer)
     const clearCart = useStore(state => state.clearCart)
 
-    const location = useLocation()
 
     useEffect(() => {
         const init = async () => {
@@ -118,10 +121,6 @@ const LocalApp = () => {
         window.location.reload()
     }
 
-    const showCartButton = useMemo(() => {
-        return location.pathname === '/local' || location.pathname === '/local/'
-    }, [location.pathname])
-
     if (loading) {
         return <Loading message="ベジコベを読み込んでいます..." />
     }
@@ -154,40 +153,14 @@ const LocalApp = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <header className="sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm">
-                <div className="max-w-5xl mx-auto px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                        <p className="text-xs uppercase tracking-wide text-emerald-600 font-semibold">Vegicobe Local</p>
-                        <h1 className="text-xl font-bold text-gray-900">{consumer.name} 様</h1>
-                        <p className="text-xs text-gray-500">ご登録住所: {consumer.address}{(consumer.building && consumer.building !== 'なし') ? ` ${consumer.building}` : ''}</p>
-                    </div>
-                    <nav className="flex items-center gap-2">
-                        <Link
-                            to="/local"
-                            className={`px-3 py-2 text-sm font-semibold rounded-md ${location.pathname === '/local' ? 'bg-emerald-600 text-white' : 'text-gray-700 hover:bg-emerald-50'}`}
-                        >
-                            商品一覧
-                        </Link>
-                        <Link
-                            to="/local/cart"
-                            className={`px-3 py-2 text-sm font-semibold rounded-md ${location.pathname.startsWith('/local/cart') ? 'bg-emerald-600 text-white' : 'text-gray-700 hover:bg-emerald-50'}`}
-                        >
-                            カート
-                        </Link>
-                        <Link
-                            to="/local/profile"
-                            className={`px-3 py-2 text-sm font-semibold rounded-md ${location.pathname.startsWith('/local/profile') ? 'bg-emerald-600 text-white' : 'text-gray-700 hover:bg-emerald-50'}`}
-                        >
-                            登録情報
-                        </Link>
-                    </nav>
-                </div>
-            </header>
-
-            <main className="pb-24">
+        <div className="min-h-screen bg-gray-50 pb-16">
+            <main className="pb-4">
                 <Routes>
                     <Route index element={<LocalHome />} />
+                    <Route path="search" element={<LocalSearch />} />
+                    <Route path="farmers" element={<LocalFarmers />} />
+                    <Route path="farmers/:id" element={<LocalFarmerDetail />} />
+                    <Route path="mypage" element={<LocalMyPage />} />
                     <Route path="cart" element={<LocalCart />} />
                     <Route path="order-complete/:orderId" element={<LocalOrderComplete />} />
                     <Route path="profile" element={<LocalProfile />} />
@@ -202,7 +175,7 @@ const LocalApp = () => {
                 </Routes>
             </main>
 
-            {showCartButton && <LocalFloatingCartButton />}
+            <LocalBottomNav />
         </div>
     )
 }

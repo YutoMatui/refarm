@@ -207,6 +207,12 @@ class Farmer(Base, TimestampMixin, SoftDeleteMixin):
         back_populates="farmer",
         cascade="all, delete-orphan"
     )
+
+    support_messages = relationship(
+        "SupportMessage",
+        back_populates="farmer",
+        cascade="all, delete-orphan"
+    )
     
     __table_args__ = (
         {'comment': '生産者テーブル'}
