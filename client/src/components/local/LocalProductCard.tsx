@@ -39,14 +39,13 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                 </div>
                 <div className="flex-1 p-3 flex flex-col justify-between">
                     <div>
-                        <div className="flex items-center space-x-2 text-xs text-gray-500 mb-1">
-                            <span>{product.stock_type === 'KOBE' ? '🌿 神戸野菜' : '🥬 その他'}</span>
-                            {product.is_wakeari === 1 && (
+                        {product.is_wakeari === 1 && (
+                            <div className="mb-1">
                                 <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-xs font-semibold">
                                     訳あり
                                 </span>
-                            )}
-                        </div>
+                            </div>
+                        )}
                         <h3 className="text-sm font-bold text-gray-900 line-clamp-1">{product.name}</h3>
                         <p className="text-lg font-bold text-emerald-600 mt-1">
                             ¥{Math.round(parseFloat(product.price_with_tax || product.price)).toLocaleString()}
@@ -54,23 +53,23 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                         </p>
                     </div>
                     <div className="flex items-center justify-between mt-2">
-                        <div className="flex items-center space-x-1">
+                        <div className="flex items-center space-x-2">
                             <button
                                 type="button"
                                 onClick={decrease}
-                                className="p-1 rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
+                                className="p-1.5 rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
                                 aria-label="数量を減らす"
                             >
-                                <Minus size={14} />
+                                <Minus size={16} />
                             </button>
-                            <span className="w-6 text-center text-sm font-semibold">{quantity}</span>
+                            <span className="w-8 text-center text-sm font-semibold">{quantity}</span>
                             <button
                                 type="button"
                                 onClick={increase}
-                                className="p-1 rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
+                                className="p-1.5 rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
                                 aria-label="数量を増やす"
                             >
-                                <Plus size={14} />
+                                <Plus size={16} />
                             </button>
                         </div>
                         <button
@@ -104,40 +103,41 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                 )}
             </div>
             <div className="p-4 space-y-2">
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>{product.stock_type === 'KOBE' ? '神戸野菜' : 'その他の野菜'}</span>
-                    {product.farmer?.name && <span>生産者: {product.farmer.name}</span>}
-                </div>
+                {product.is_wakeari === 1 && (
+                    <div>
+                        <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-xs font-semibold">
+                            訳あり
+                        </span>
+                    </div>
+                )}
                 <h3 className="text-lg font-semibold text-gray-900">{product.name}</h3>
                 {product.description && (
                     <p className="text-sm text-gray-600 line-clamp-2">{product.description}</p>
                 )}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <p className="text-xl font-bold text-emerald-600">
-                            ¥{Math.round(parseFloat(product.price_with_tax || product.price)).toLocaleString()}
-                        </p>
-                        <p className="text-xs text-gray-500">税込 / {product.unit}</p>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <button
-                            type="button"
-                            onClick={decrease}
-                            className="p-2 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50"
-                            aria-label="数量を減らす"
-                        >
-                            <Minus size={16} />
-                        </button>
-                        <span className="w-8 text-center font-semibold">{quantity}</span>
-                        <button
-                            type="button"
-                            onClick={increase}
-                            className="p-2 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50"
-                            aria-label="数量を増やす"
-                        >
-                            <Plus size={16} />
-                        </button>
-                    </div>
+                <div>
+                    <p className="text-xl font-bold text-emerald-600">
+                        ¥{Math.round(parseFloat(product.price_with_tax || product.price)).toLocaleString()}
+                    </p>
+                    <p className="text-xs text-gray-500">税込 / {product.unit}</p>
+                </div>
+                <div className="flex items-center justify-center space-x-3 py-2">
+                    <button
+                        type="button"
+                        onClick={decrease}
+                        className="p-2 rounded-full border-2 border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-emerald-500 transition-colors"
+                        aria-label="数量を減らす"
+                    >
+                        <Minus size={18} />
+                    </button>
+                    <span className="w-12 text-center text-lg font-semibold">{quantity}</span>
+                    <button
+                        type="button"
+                        onClick={increase}
+                        className="p-2 rounded-full border-2 border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-emerald-500 transition-colors"
+                        aria-label="数量を増やす"
+                    >
+                        <Plus size={18} />
+                    </button>
                 </div>
                 <button
                     type="button"
