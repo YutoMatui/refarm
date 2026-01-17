@@ -20,6 +20,7 @@ from app.models.favorite import Favorite
 from app.models.admin import Admin
 from app.models.delivery_schedule import DeliverySchedule
 from app.models.delivery_slot import DeliverySlot
+from app.models.support_message import SupportMessage
 
 __all__ = [
     # Enums
@@ -42,4 +43,5 @@ __all__ = [
     "Admin",
     "DeliverySchedule",
     "DeliverySlot",
+    "SupportMessage",
 ]

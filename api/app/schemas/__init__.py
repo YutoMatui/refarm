@@ -65,6 +65,11 @@ from app.schemas.consumer_order import (
     ConsumerOrderListResponse,
     ConsumerOrderItemResponse,
 )
+from app.schemas.support_message import (
+    SupportMessageCreate,
+    SupportMessage,
+    SupportMessageResponse,
+)
 
 # Forward reference resolution for circular dependencies
 FavoriteWithProductResponse.model_rebuild()
@@ -125,4 +130,8 @@ __all__ = [
     "ConsumerOrderResponse",
     "ConsumerOrderListResponse",
     "ConsumerOrderItemResponse",
+    # Support Messages
+    "SupportMessageCreate",
+    "SupportMessage",
+    "SupportMessageResponse",
 ]

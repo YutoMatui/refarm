@@ -194,6 +194,7 @@ from app.routers import (
     consumer_orders as consumer_orders_router,
     guest,
     admin_guest,
+    support_messages,
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -214,6 +215,7 @@ app.include_router(consumers_router.router, prefix="/api/consumers", tags=["Cons
 app.include_router(favorites.router, prefix="/api/favorites", tags=["Favorites"])
 app.include_router(upload.router, prefix="/api/upload", tags=["Upload"])
 app.include_router(settings_router.router, prefix="/api/settings", tags=["Settings"])
+app.include_router(support_messages.router, prefix="/api/support-messages", tags=["Support Messages"])
 app.include_router(guest.router, prefix="/api") # guest router has /guest prefix already
 
 
