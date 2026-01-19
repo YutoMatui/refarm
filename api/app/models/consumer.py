@@ -58,6 +58,12 @@ class Consumer(Base, TimestampMixin):
         comment="建物名・部屋番号"
     )
 
+    profile_image_url = Column(
+        String(500),
+        nullable=True,
+        comment="プロフィール画像URL"
+    )
+
     orders = relationship(
         "ConsumerOrder",
         back_populates="consumer",

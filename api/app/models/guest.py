@@ -39,6 +39,7 @@ class GuestInteraction(Base, TimestampMixin):
     stamp_type = Column(String(50), nullable=True, comment="スタンプの種類 (DELICIOUS, SUPPORT, etc.)")
     comment = Column(Text, nullable=True, comment="応援メッセージ本文")
     nickname = Column(String(100), nullable=True, comment="ニックネーム")
+    user_image_url = Column(String(500), nullable=True, comment="ユーザーのプロフィール画像URL")
     
     # Relationships
     visit = relationship("GuestVisit", back_populates="interactions")

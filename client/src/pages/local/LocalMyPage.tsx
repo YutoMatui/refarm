@@ -1,15 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Package, MapPin, User, CheckCircle } from 'lucide-react'
+import { Package, MapPin, User, CheckCircle, Camera } from 'lucide-react'
 import { toast } from 'sonner'
 import { useStore } from '@/store/useStore'
-import { consumerOrderApi } from '@/services/api'
+import { consumerOrderApi, consumerApi } from '@/services/api'
 import type { ConsumerOrder } from '@/types'
+import { useState } from 'react'
 
 const LocalMyPage = () => {
     const navigate = useNavigate()
     const consumer = useStore(state => state.consumer)
+    const setConsumer = useStore(state => state.setConsumer)
     const queryClient = useQueryClient()
+    const [uploadingImage, setUploadingImage] = useState(false)
 
     // 注文一覧を取得
     const { data: ordersData } = useQuery({
@@ -40,6 +43,48 @@ const LocalMyPage = () => {
     const handleCompleteReceipt = async (orderId: number) => {
         if (window.confirm('受け取りを完了しますか？')) {
             await completeReceiptMutation.mutateAsync(orderId)
+        }
+    }
+
+    const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0]
+        if (!file) return
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            toast.error('画像ファイルを選択してください')
+            return
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('画像サイズは5MB以下にしてください')
+            return
+        }
+
+        setUploadingImage(true)
+        try {
+            // Convert to base64 for simple storage (in production, use a file upload service)
+            const reader = new FileReader()
+            reader.onloadend = async () => {
+                const base64String = reader.result as string
+                
+                // Update profile
+                await consumerApi.updateProfile({ profile_image_url: base64String })
+                
+                // Update local state
+                if (consumer) {
+                    setConsumer({ ...consumer, profile_image_url: base64String })
+                }
+                
+                toast.success('プロフィール画像を更新しました')
+            }
+            reader.readAsDataURL(file)
+        } catch (error) {
+            console.error('Image upload error:', error)
+            toast.error('画像のアップロードに失敗しました')
+        } finally {
+            setUploadingImage(false)
         }
     }
 
@@ -97,6 +142,44 @@ const LocalMyPage = () => {
                     </h2>
 
                     <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
+                        {/* Profile Image Section */}
+                        <div className="flex flex-col items-center py-4 border-b border-gray-100">
+                            <div className="relative mb-3">
+                                <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200">
+                                    {consumer?.profile_image_url ? (
+                                        <img 
+                                            src={consumer.profile_image_url} 
+                                            alt="プロフィール" 
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center">
+                                            <User size={40} className="text-gray-400" />
+                                        </div>
+                                    )}
+                                </div>
+                                <label 
+                                    htmlFor="profile-image-upload" 
+                                    className="absolute bottom-0 right-0 bg-emerald-600 text-white p-2 rounded-full cursor-pointer hover:bg-emerald-700 transition-colors shadow-lg"
+                                >
+                                    {uploadingImage ? (
+                                        <div className="animate-spin">⏳</div>
+                                    ) : (
+                                        <Camera size={16} />
+                                    )}
+                                </label>
+                                <input
+                                    id="profile-image-upload"
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImageUpload}
+                                    className="hidden"
+                                    disabled={uploadingImage}
+                                />
+                            </div>
+                            <p className="text-xs text-gray-500">クリックして画像を変更</p>
+                        </div>
+
                         <div>
                             <p className="text-xs text-gray-500 mb-1">お名前</p>
                             <p className="text-sm font-medium text-gray-900">{consumer?.name}</p>

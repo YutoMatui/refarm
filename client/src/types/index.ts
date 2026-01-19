@@ -91,6 +91,7 @@ export interface Consumer extends TimestampFields {
   postal_code?: string
   address?: string
   building?: string | null
+  profile_image_url?: string | null
 }
 
 // Chef Comment
@@ -379,6 +380,7 @@ export interface ConsumerUpdateRequest {
   postal_code?: string
   address?: string
   building?: string | null
+  profile_image_url?: string | null
 }
 
 export interface ConsumerAuthResponse {

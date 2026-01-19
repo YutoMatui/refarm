@@ -35,6 +35,7 @@ class InteractionLog(BaseModel):
     stamp_type: Optional[str] = None
     comment: Optional[str] = None
     nickname: Optional[str] = None
+    user_image_url: Optional[str] = None
     farmer_name: Optional[str] = None
     restaurant_name: Optional[str] = None
 
@@ -135,6 +136,7 @@ async def _fetch_comment_logs(limit: int, db: AsyncSession) -> List[InteractionL
                 stamp_type=interaction.stamp_type,
                 comment=interaction.comment,
                 nickname=interaction.nickname,
+                user_image_url=interaction.user_image_url,
                 farmer_name=f_name,
                 restaurant_name=r_name,
             )
@@ -352,3 +354,66 @@ async def export_guest_data_csv(db: AsyncSession = Depends(get_db)):
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=guest_analytics.csv"}
     )
+
+
+@router.delete("/visits/{visit_id}")
+async def delete_guest_visit(visit_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    ゲスト訪問ログを削除（テストデータの削除用）
+    関連するインタラクションも自動的に削除される（cascade設定済み）
+    """
+    visit = await db.get(GuestVisit, visit_id)
+    if not visit:
+        raise HTTPException(status_code=404, detail="Visit not found")
+    
+    await db.delete(visit)
+    await db.commit()
+    return {"status": "ok", "message": f"Visit {visit_id} deleted"}
+
+
+@router.delete("/interactions/{interaction_id}")
+async def delete_guest_interaction(interaction_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    ゲストインタラクション（コメント・スタンプ等）を削除
+    """
+    interaction = await db.get(GuestInteraction, interaction_id)
+    if not interaction:
+        raise HTTPException(status_code=404, detail="Interaction not found")
+    
+    await db.delete(interaction)
+    await db.commit()
+    return {"status": "ok", "message": f"Interaction {interaction_id} deleted"}
+
+
+@router.post("/visits/bulk-delete")
+async def bulk_delete_visits(
+    visitor_ids: List[str] = None,
+    before_date: datetime = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    複数のゲスト訪問ログを一括削除
+    - visitor_ids: 特定の訪問者IDのログを削除
+    - before_date: 指定日時より前のログを削除
+    """
+    from sqlalchemy import and_
+    
+    conditions = []
+    if visitor_ids:
+        conditions.append(GuestVisit.visitor_id.in_(visitor_ids))
+    if before_date:
+        conditions.append(GuestVisit.created_at < before_date)
+    
+    if not conditions:
+        raise HTTPException(status_code=400, detail="No deletion criteria specified")
+    
+    query = select(GuestVisit).where(and_(*conditions))
+    result = await db.execute(query)
+    visits_to_delete = result.scalars().all()
+    
+    count = len(visits_to_delete)
+    for visit in visits_to_delete:
+        await db.delete(visit)
+    
+    await db.commit()
+    return {"status": "ok", "deleted_count": count}
