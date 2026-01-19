@@ -124,6 +124,15 @@ const LocalProductDetail = () => {
                     </div>
                 )}
 
+                {/* Weight Info */}
+                {product.weight && (
+                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                        <p className="text-sm text-gray-600">
+                            重量: <span className="font-bold text-gray-900">{product.weight}g</span>
+                        </p>
+                    </div>
+                )}
+
                 {/* Farmer Info */}
                 {product.farmer && (
                     <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
@@ -161,15 +170,6 @@ const LocalProductDetail = () => {
                             </div>
                             <ChevronRight size={20} className="text-emerald-400 group-hover:text-emerald-600" />
                         </Link>
-                    </div>
-                )}
-
-                {/* 在庫情報 */}
-                {product.stock_quantity !== undefined && product.stock_quantity !== null && (
-                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                        <p className="text-sm text-gray-600">
-                            在庫: <span className="font-bold text-gray-900">{product.stock_quantity}{product.unit}</span>
-                        </p>
                     </div>
                 )}
             </div>

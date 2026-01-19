@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Search, Phone, MapPin, Calendar, MessageCircle, Edit2, Trash2, X, Save } from 'lucide-react'
+import { Search, Phone, MapPin, Calendar, MessageCircle, Edit2, Trash2, X, Save, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { adminConsumerApi } from '@/services/api'
 import type { Consumer } from '@/types'
@@ -79,7 +79,8 @@ const ConsumerManagement = () => {
                 phone_number: selectedConsumer.phone_number,
                 postal_code: selectedConsumer.postal_code,
                 address: selectedConsumer.address,
-                building: selectedConsumer.building || ''
+                building: selectedConsumer.building || '',
+                profile_image_url: selectedConsumer.profile_image_url || ''
             })
             setIsEditing(true)
         }
@@ -155,17 +156,33 @@ const ConsumerManagement = () => {
                                         }`}
                                 >
                                     <div className="flex items-start justify-between">
-                                        <div className="flex-1">
-                                            <h4 className="font-semibold text-gray-900">{consumer.name}</h4>
-                                            <div className="mt-2 space-y-1">
-                                                <p className="text-sm text-gray-600 flex items-center gap-1">
-                                                    <Phone size={14} />
-                                                    {consumer.phone_number}
-                                                </p>
-                                                <p className="text-sm text-gray-600 flex items-center gap-1">
-                                                    <MapPin size={14} />
-                                                    〒{consumer.postal_code || '---'}
-                                                </p>
+                                        <div className="flex items-center gap-3 flex-1">
+                                            {/* Avatar */}
+                                            <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
+                                                {consumer.profile_image_url ? (
+                                                    <img
+                                                        src={consumer.profile_image_url}
+                                                        alt={consumer.name}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center">
+                                                        <User size={20} className="text-gray-400" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex-1">
+                                                <h4 className="font-semibold text-gray-900">{consumer.name}</h4>
+                                                <div className="mt-1 space-y-1">
+                                                    <p className="text-sm text-gray-600 flex items-center gap-1">
+                                                        <Phone size={14} />
+                                                        {consumer.phone_number}
+                                                    </p>
+                                                    <p className="text-sm text-gray-600 flex items-center gap-1">
+                                                        <MapPin size={14} />
+                                                        〒{consumer.postal_code || '---'}
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="text-right">
@@ -235,6 +252,32 @@ const ConsumerManagement = () => {
                                     {/* 編集フォーム */}
                                     <div>
                                         <h4 className="text-sm font-semibold text-gray-700 mb-3">基本情報</h4>
+                                        <div className="flex items-center gap-4 mb-4">
+                                            {/* Avatar Edit Preview */}
+                                            <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
+                                                {editForm.profile_image_url ? (
+                                                    <img
+                                                        src={editForm.profile_image_url}
+                                                        alt="preview"
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center">
+                                                        <User size={32} className="text-gray-400" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex-1">
+                                                <label className="block text-xs text-gray-500 mb-1">プロフィール画像URL</label>
+                                                <input
+                                                    type="text"
+                                                    value={editForm.profile_image_url || ''}
+                                                    onChange={(e) => setEditForm({ ...editForm, profile_image_url: e.target.value })}
+                                                    placeholder="https://..."
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
+                                                />
+                                            </div>
+                                        </div>
                                         <div className="space-y-3">
                                             <div>
                                                 <label className="block text-xs text-gray-500 mb-1">氏名</label>
@@ -296,11 +339,27 @@ const ConsumerManagement = () => {
                                     {/* 基本情報 */}
                                     <div>
                                         <h4 className="text-sm font-semibold text-gray-700 mb-3">基本情報</h4>
-                                        <div className="space-y-3">
+                                        <div className="flex items-center gap-4 mb-6">
+                                            <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-100 border-2 border-emerald-100 flex-shrink-0 shadow-sm">
+                                                {selectedConsumer.profile_image_url ? (
+                                                    <img
+                                                        src={selectedConsumer.profile_image_url}
+                                                        alt={selectedConsumer.name}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center">
+                                                        <User size={40} className="text-gray-300" />
+                                                    </div>
+                                                )}
+                                            </div>
                                             <div>
                                                 <p className="text-xs text-gray-500">氏名</p>
-                                                <p className="text-sm font-medium text-gray-900">{selectedConsumer.name}</p>
+                                                <p className="text-xl font-bold text-gray-900">{selectedConsumer.name}</p>
+                                                <p className="text-xs text-gray-400 mt-1">ID: {selectedConsumer.id}</p>
                                             </div>
+                                        </div>
+                                        <div className="space-y-3">
                                             <div>
                                                 <p className="text-xs text-gray-500">電話番号</p>
                                                 <p className="text-sm font-medium text-gray-900">{selectedConsumer.phone_number}</p>

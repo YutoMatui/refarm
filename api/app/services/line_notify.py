@@ -254,11 +254,25 @@ No. {order.id}
             print("No target user ID for consumer notification")
             return
 
+        # 消費者向けチャンネルを使用
+        consumer_channel_id = getattr(settings, 'LINE_CONSUMER_CHANNEL_ID', None)
+        consumer_access_token = getattr(settings, 'LINE_CONSUMER_ACCESS_TOKEN', None)
+        
+        # 消費者チャンネルが設定されていない場合は飲食店チャンネルをフォールバック
+        if not consumer_channel_id or not consumer_access_token:
+            print("Consumer channel not configured, using restaurant channel as fallback")
+            consumer_channel_id = settings.LINE_RESTAURANT_CHANNEL_ID
+            consumer_access_token = settings.LINE_RESTAURANT_CHANNEL_ACCESS_TOKEN
+        
         token = await self.get_access_token(
-            settings.LINE_RESTAURANT_CHANNEL_ID,
-            settings.LINE_RESTAURANT_CHANNEL_SECRET,
-            settings.LINE_RESTAURANT_CHANNEL_ACCESS_TOKEN
+            consumer_channel_id,
+            "",  # Channel secretは不要（long-lived tokenを使用）
+            consumer_access_token
         )
+        
+        if not token:
+            print("Failed to get consumer channel access token")
+            return
 
         items_lines = ""
         for item in order.order_items:

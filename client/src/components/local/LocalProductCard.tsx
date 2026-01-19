@@ -56,6 +56,9 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                             ¥{Math.round(parseFloat(product.price_with_tax || product.price)).toLocaleString()}
                             <span className="text-xs text-gray-500 ml-1">/ {product.unit}</span>
                         </p>
+                        {product.weight && (
+                            <p className="text-xs text-gray-500 mt-0.5">重量: {product.weight}g</p>
+                        )}
                     </div>
                     <div className="flex items-center justify-between mt-2">
                         <div className="flex items-center space-x-2">
@@ -130,6 +133,9 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                         ¥{Math.round(parseFloat(product.price_with_tax || product.price)).toLocaleString()}
                     </p>
                     <p className="text-xs text-gray-500">税込 / {product.unit}</p>
+                    {product.weight && (
+                        <p className="text-xs text-gray-500 mt-1">重量: {product.weight}g</p>
+                    )}
                 </div>
                 <div className="flex items-center justify-center space-x-3 py-2">
                     <button

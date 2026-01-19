@@ -98,18 +98,34 @@ export default function GuestLanding() {
         };
         window.addEventListener('scroll', handleScroll);
 
-        return () => {
-            window.removeEventListener('scroll', handleScroll);
-            // Send log on unmount (best effort)
+        // Periodic log update (every 10 seconds)
+        const intervalId = setInterval(() => {
             if (visitId) {
                 const stayTime = Math.round((Date.now() - startTimeRef.current) / 1000);
-                // Note: sendBeacon is better for unmount, but using axios for simplicity here
-                // We might not await this
                 guestApi.log({
                     visit_id: visitId,
                     stay_time: stayTime,
                     scroll_depth: scrollDepthRef.current
                 }).catch(console.error);
+            }
+        }, 10000); // Update every 10 seconds
+
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+            clearInterval(intervalId);
+
+            // Send final log on unmount using sendBeacon for reliability
+            if (visitId) {
+                const stayTime = Math.round((Date.now() - startTimeRef.current) / 1000);
+                const data = JSON.stringify({
+                    visit_id: visitId,
+                    stay_time: stayTime,
+                    scroll_depth: scrollDepthRef.current
+                });
+
+                // Use sendBeacon for reliable delivery on page unload
+                const apiUrl = import.meta.env.VITE_API_BASE_URL || '/api';
+                navigator.sendBeacon(`${apiUrl}/guest/log`, new Blob([data], { type: 'application/json' }));
             }
         };
     }, [visitId]);
@@ -133,44 +149,24 @@ export default function GuestLanding() {
         return () => clearInterval(interval);
     }, [farmers, selectedFarmer]);
 
-    // Intersection Observer for Interest (3s+)
-    useEffect(() => {
-        if (!visitId || farmers.length === 0) return;
+    // Handle farmer card click for INTEREST tracking
+    const handleFarmerClick = async (farmer: Farmer) => {
+        setSelectedFarmer(farmer);
 
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    const farmerId = parseInt(entry.target.getAttribute('data-id') || '0');
-                    if (farmerId && !observedFarmersRef.current.has(farmerId)) {
-                        // Start timer
-                        const timerId = setTimeout(() => {
-                            // If still observing after 3s, log interest
-                            guestApi.interaction({
-                                visit_id: visitId,
-                                farmer_id: farmerId,
-                                interaction_type: 'INTEREST'
-                            }).catch(console.error);
-                            observedFarmersRef.current.add(farmerId);
-                        }, 3000);
-
-                        // Store timer ID on element to clear if needed (simplified here)
-                        // In a real app, we'd manage a map of timers.
-                        (entry.target as any).__interestTimer = timerId;
-                    }
-                } else {
-                    // Clear timer if scrolled away
-                    if ((entry.target as any).__interestTimer) {
-                        clearTimeout((entry.target as any).__interestTimer);
-                    }
-                }
-            });
-        }, { threshold: 0.7 }); // 70% visible
-
-        const elements = document.querySelectorAll('.farmer-card');
-        elements.forEach(el => observer.observe(el));
-
-        return () => observer.disconnect();
-    }, [farmers, visitId]);
+        // Log INTEREST only when user actually clicks on the card
+        if (visitId && !observedFarmersRef.current.has(farmer.id)) {
+            try {
+                await guestApi.interaction({
+                    visit_id: visitId,
+                    farmer_id: farmer.id,
+                    interaction_type: 'INTEREST'
+                });
+                observedFarmersRef.current.add(farmer.id);
+            } catch (error) {
+                console.error('Failed to log interest:', error);
+            }
+        }
+    };
 
 
     const handleStamp = async (stampId: string) => {
@@ -326,7 +322,7 @@ export default function GuestLanding() {
                             key={farmer.id}
                             data-id={farmer.id}
                             whileTap={{ scale: 0.98 }}
-                            onClick={() => setSelectedFarmer(farmer)}
+                            onClick={() => handleFarmerClick(farmer)}
                             className="farmer-card snap-center shrink-0 w-[280px] bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden relative group cursor-pointer border border-stone-100"
                         >
                             <div className="aspect-[3/4] relative">

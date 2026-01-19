@@ -121,6 +121,9 @@ export const consumerApi = {
 
   updateMe: (data: ConsumerUpdateRequest) =>
     apiClient.put<Consumer>('/consumers/me', data),
+
+  updateProfile: (data: ConsumerUpdateRequest) =>
+    apiClient.put<Consumer>('/consumers/me', data),
 }
 
 // Restaurant API
@@ -479,7 +482,17 @@ export const adminApi = {
   downloadGuestCsv: async () => {
     const response = await apiClient.get('/admin/guest/analysis/csv', { responseType: 'blob' })
     return response.data
-  }
+  },
+
+  // Delete operations
+  deleteGuestVisit: (visitId: number) =>
+    apiClient.delete(`/admin/guest/visits/${visitId}`),
+
+  deleteGuestInteraction: (interactionId: number) =>
+    apiClient.delete(`/admin/guest/interactions/${interactionId}`),
+
+  bulkDeleteVisits: (visitorIds?: string[], beforeDate?: string) =>
+    apiClient.post('/admin/guest/visits/bulk-delete', { visitor_ids: visitorIds, before_date: beforeDate })
 }
 
 // Guest API
@@ -493,7 +506,7 @@ export const guestApi = {
   visit: (restaurantId: number, visitorId?: string) =>
     apiClient.post<{ visit_id: number }>('/guest/visit', { restaurant_id: restaurantId, visitor_id: visitorId }),
 
-  interaction: (data: { visit_id: number; farmer_id: number; interaction_type: string; stamp_type?: string; comment?: string; nickname?: string }) =>
+  interaction: (data: { visit_id: number; farmer_id: number; interaction_type: string; stamp_type?: string; comment?: string; nickname?: string; user_image_url?: string }) =>
     apiClient.post('/guest/interaction', data),
 
   log: (data: { visit_id: number; stay_time: number; scroll_depth?: number }) =>

@@ -15,6 +15,7 @@ class ConsumerBase(BaseModel):
     postal_code: Optional[str] = Field(None, description="郵便番号", min_length=3, max_length=10)
     address: Optional[str] = Field(None, description="住所 (都道府県・市区町村・番地)", min_length=1, max_length=500)
     building: Optional[str] = Field(None, description="建物名・部屋番号")
+    profile_image_url: Optional[str] = Field(None, description="プロフィール画像URL")
 
 
 class ConsumerAuthRequest(BaseModel):
@@ -37,6 +38,7 @@ class ConsumerUpdateRequest(BaseModel):
     postal_code: Optional[str] = Field(None, min_length=3, max_length=10)
     address: Optional[str] = Field(None, min_length=1, max_length=500)
     building: Optional[str] = Field(None, description="建物名・部屋番号")
+    profile_image_url: Optional[str] = Field(None, description="プロフィール画像URL")
 
 
 class ConsumerResponse(ConsumerBase, TimestampSchema, BaseSchema):

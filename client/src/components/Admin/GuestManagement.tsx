@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { adminApi } from '@/services/api';
-import { Loader2, MessageSquare, BarChart2, QrCode, Download, MousePointer, Smile, Clock, Eye } from 'lucide-react';
+import { Loader2, MessageSquare, BarChart2, QrCode, Download, MousePointer, Smile, Clock, Eye, Trash2, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -44,6 +44,7 @@ interface Comment {
     comment: string | null;
     stamp_type: string | null;
     interaction_type: string;
+    user_image_url: string | null;
 }
 
 export default function GuestManagement() {
@@ -125,6 +126,18 @@ export default function GuestManagement() {
         }
     };
 
+    const handleDeleteComment = async (commentId: number) => {
+        if (!confirm('このコメントを削除しますか?')) return;
+        try {
+            await adminApi.deleteGuestInteraction(commentId);
+            toast.success('コメントを削除しました');
+            setComments(comments.filter(c => c.id !== commentId));
+        } catch (e) {
+            console.error(e);
+            toast.error('削除に失敗しました');
+        }
+    };
+
     const openQRModal = (restaurant: RestaurantStat) => {
         setSelectedRestaurant(restaurant);
         setEditMessage(restaurant.message || '');
@@ -149,8 +162,8 @@ export default function GuestManagement() {
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id as any)}
                         className={`flex items-center gap-2 px-4 py-2 rounded-md font-bold text-sm transition-colors whitespace-nowrap ${activeTab === tab.id
-                                ? 'bg-green-100 text-green-800'
-                                : 'text-gray-600 hover:bg-gray-50'
+                            ? 'bg-green-100 text-green-800'
+                            : 'text-gray-600 hover:bg-gray-50'
                             }`}
                     >
                         <tab.icon size={18} />
@@ -269,6 +282,20 @@ export default function GuestManagement() {
                             <div key={comment.id} className="p-6 hover:bg-gray-50 transition-colors">
                                 <div className="flex justify-between items-start mb-3">
                                     <div className="flex items-center gap-2">
+                                        {/* User Icon */}
+                                        <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
+                                            {comment.user_image_url ? (
+                                                <img
+                                                    src={comment.user_image_url}
+                                                    alt={comment.nickname || '匿名'}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center">
+                                                    <User size={16} className="text-gray-400" />
+                                                </div>
+                                            )}
+                                        </div>
                                         <span className="font-bold text-gray-900 bg-gray-100 px-2 py-1 rounded text-sm">
                                             {comment.nickname || '匿名'}
                                         </span>
@@ -280,9 +307,18 @@ export default function GuestManagement() {
                                             (店舗: {comment.restaurant_name})
                                         </span>
                                     </div>
-                                    <span className="text-xs text-gray-400 font-mono">
-                                        {format(new Date(comment.created_at), 'yyyy/MM/dd HH:mm', { locale: ja })}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs text-gray-400 font-mono">
+                                            {format(new Date(comment.created_at), 'yyyy/MM/dd HH:mm', { locale: ja })}
+                                        </span>
+                                        <button
+                                            onClick={() => handleDeleteComment(comment.id)}
+                                            className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors"
+                                            title="削除"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
                                 </div>
                                 <p className="text-gray-700 bg-yellow-50/50 p-4 rounded-lg border border-yellow-100 text-sm leading-relaxed">
                                     {comment.comment}
