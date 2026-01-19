@@ -41,6 +41,7 @@ class InteractionCreate(BaseModel):
     stamp_type: Optional[str] = None
     comment: Optional[str] = None
     nickname: Optional[str] = None
+    user_image_url: Optional[str] = None
 
 class LogCreate(BaseModel):
     visit_id: int
@@ -116,7 +117,8 @@ async def create_interaction(interaction: InteractionCreate, db: AsyncSession = 
             interaction_type=interaction.interaction_type,
             stamp_type=interaction.stamp_type,
             comment=interaction.comment,
-            nickname=interaction.nickname
+            nickname=interaction.nickname,
+            user_image_url=interaction.user_image_url
         )
         db.add(new_interaction)
         await db.commit()
