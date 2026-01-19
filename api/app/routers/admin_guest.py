@@ -71,6 +71,9 @@ class VisitLogResponse(BaseModel):
     created_at: datetime
     stay_time_seconds: Optional[int] = None
     scroll_depth: Optional[int] = None
+    interest_count: int = 0
+    stamp_count: int = 0
+    message_count: int = 0
 
 class VisitorFarmerDetail(BaseModel):
     farmer_id: int
@@ -302,12 +305,18 @@ async def get_visit_logs(limit: int = 50, skip: int = 0, db: AsyncSession = Depe
     """
     アクセス履歴の一覧を取得
     """
+    # Use subqueries to count interaction types efficiently
     query = (
         select(
             GuestVisit,
-            Restaurant.name.label("restaurant_name")
+            Restaurant.name.label("restaurant_name"),
+            func.count(case((GuestInteraction.interaction_type == "INTEREST", 1))).label("interest_count"),
+            func.count(case((GuestInteraction.interaction_type == "STAMP", 1))).label("stamp_count"),
+            func.count(case((GuestInteraction.interaction_type == "MESSAGE", 1))).label("message_count")
         )
         .join(Restaurant, GuestVisit.restaurant_id == Restaurant.id)
+        .outerjoin(GuestInteraction, GuestVisit.id == GuestInteraction.visit_id)
+        .group_by(GuestVisit.id, Restaurant.name)
         .order_by(desc(GuestVisit.created_at))
         .limit(limit)
         .offset(skip)
@@ -321,8 +330,11 @@ async def get_visit_logs(limit: int = 50, skip: int = 0, db: AsyncSession = Depe
             restaurant_name=r_name,
             created_at=v.created_at,
             stay_time_seconds=v.stay_time_seconds,
-            scroll_depth=v.scroll_depth
-        ) for v, r_name in rows
+            scroll_depth=v.scroll_depth,
+            interest_count=i_count,
+            stamp_count=s_count,
+            message_count=m_count
+        ) for v, r_name, i_count, s_count, m_count in rows
     ]
 
 @router.get("/analysis/visitors/{visitor_id}", response_model=VisitorDetailResponse)

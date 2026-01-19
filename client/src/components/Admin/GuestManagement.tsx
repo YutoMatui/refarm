@@ -54,6 +54,9 @@ interface VisitLog {
     created_at: string;
     stay_time_seconds: number | null;
     scroll_depth: number | null;
+    interest_count: number;
+    stamp_count: number;
+    message_count: number;
 }
 
 interface VisitorDetail {
@@ -289,7 +292,8 @@ export default function GuestManagement() {
                                     <th className="px-6 py-3 text-left">店舗</th>
                                     <th className="px-6 py-3 text-left">訪問日時</th>
                                     <th className="px-6 py-3 text-center">滞在時間</th>
-                                    <th className="px-6 py-3 text-center">スクロール率</th>
+                                    <th className="px-6 py-3 text-center">スクロール</th>
+                                    <th className="px-6 py-3 text-center">アクション</th>
                                     <th className="px-6 py-3 text-right">操作</th>
                                 </tr>
                             </thead>
@@ -318,6 +322,31 @@ export default function GuestManagement() {
                                             <span className="inline-block bg-green-50 text-green-700 px-2 py-1 rounded font-medium">
                                                 {visit.scroll_depth || 0}%
                                             </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center justify-center gap-2">
+                                                {visit.interest_count > 0 && (
+                                                    <div className="flex items-center gap-0.5 text-green-600" title="農家閲覧">
+                                                        <Eye size={14} />
+                                                        <span className="text-xs font-bold">{visit.interest_count}</span>
+                                                    </div>
+                                                )}
+                                                {visit.stamp_count > 0 && (
+                                                    <div className="flex items-center gap-0.5 text-orange-500" title="スタンプ">
+                                                        <Smile size={14} />
+                                                        <span className="text-xs font-bold">{visit.stamp_count}</span>
+                                                    </div>
+                                                )}
+                                                {visit.message_count > 0 && (
+                                                    <div className="flex items-center gap-0.5 text-blue-500" title="コメント">
+                                                        <MessageSquare size={14} />
+                                                        <span className="text-xs font-bold">{visit.message_count}</span>
+                                                    </div>
+                                                )}
+                                                {visit.interest_count === 0 && visit.stamp_count === 0 && visit.message_count === 0 && (
+                                                    <span className="text-gray-300 text-xs">-</span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <button

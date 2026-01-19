@@ -45,7 +45,6 @@ export default function GuestLanding() {
     const { visitorId } = useAnalytics();
 
     // Analytics refs
-    const startTimeRef = useRef(Date.now());
     const scrollDepthRef = useRef(0);
     const carouselRef = useRef<HTMLDivElement>(null);
     const observedFarmersRef = useRef<Set<number>>(new Set());
@@ -96,34 +95,60 @@ export default function GuestLanding() {
                 scrollDepthRef.current = Math.round(scrolled);
             }
         };
+
+        const activeTimeRef = {
+            totalSeconds: 0,
+            lastStartTime: Date.now(),
+            isPaused: false
+        };
+
+        const updateActiveTime = () => {
+            if (!activeTimeRef.isPaused) {
+                const now = Date.now();
+                activeTimeRef.totalSeconds += Math.round((now - activeTimeRef.lastStartTime) / 1000);
+                activeTimeRef.lastStartTime = now;
+            }
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                updateActiveTime();
+                activeTimeRef.isPaused = true;
+            } else {
+                activeTimeRef.lastStartTime = Date.now();
+                activeTimeRef.isPaused = false;
+            }
+        };
+
         window.addEventListener('scroll', handleScroll);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         // Periodic log update (every 10 seconds)
         const intervalId = setInterval(() => {
             if (visitId) {
-                const stayTime = Math.round((Date.now() - startTimeRef.current) / 1000);
+                updateActiveTime();
                 guestApi.log({
                     visit_id: visitId,
-                    stay_time: stayTime,
+                    stay_time: activeTimeRef.totalSeconds,
                     scroll_depth: scrollDepthRef.current
                 }).catch(console.error);
             }
-        }, 10000); // Update every 10 seconds
+        }, 10000);
 
         return () => {
             window.removeEventListener('scroll', handleScroll);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             clearInterval(intervalId);
 
-            // Send final log on unmount using sendBeacon for reliability
+            // Send final log on unmount
             if (visitId) {
-                const stayTime = Math.round((Date.now() - startTimeRef.current) / 1000);
+                updateActiveTime();
                 const data = JSON.stringify({
                     visit_id: visitId,
-                    stay_time: stayTime,
+                    stay_time: activeTimeRef.totalSeconds,
                     scroll_depth: scrollDepthRef.current
                 });
 
-                // Use sendBeacon for reliable delivery on page unload
                 const apiUrl = import.meta.env.VITE_API_BASE_URL || '/api';
                 navigator.sendBeacon(`${apiUrl}/guest/log`, new Blob([data], { type: 'application/json' }));
             }
