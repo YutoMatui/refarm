@@ -483,6 +483,10 @@ export const adminApi = {
     const response = await apiClient.get('/admin/guest/analysis/csv', { responseType: 'blob' })
     return response.data
   },
+  getVisitLogs: (limit: number = 50, skip: number = 0) =>
+    apiClient.get('/admin/guest/analysis/visits', { params: { limit, skip } }),
+  getVisitorDetail: (visitorId: string) =>
+    apiClient.get(`/admin/guest/analysis/visitors/${visitorId}`),
 
   // Delete operations
   deleteGuestVisit: (visitId: number) =>

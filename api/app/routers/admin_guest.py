@@ -64,6 +64,26 @@ class RestaurantStatsResponse(BaseModel):
     interaction_count: int
     last_visit: Optional[datetime] = None
 
+class VisitLogResponse(BaseModel):
+    id: int
+    visitor_id: Optional[str] = None
+    restaurant_name: str
+    created_at: datetime
+    stay_time_seconds: Optional[int] = None
+    scroll_depth: Optional[int] = None
+
+class VisitorFarmerDetail(BaseModel):
+    farmer_id: int
+    farmer_name: str
+    view_count: int
+
+class VisitorDetailResponse(BaseModel):
+    visitor_id: str
+    total_visits: int
+    total_stay_time: int
+    visited_farmers: List[VisitorFarmerDetail]
+    interactions: List[InteractionLog]
+
 # --- Internal helpers ---
 
 async def _update_store_message_internal(
@@ -277,6 +297,108 @@ async def aggregate_interests(db: AsyncSession = Depends(get_db)):
         for row in rows
     ]
 
+@router.get("/analysis/visits", response_model=List[VisitLogResponse])
+async def get_visit_logs(limit: int = 50, skip: int = 0, db: AsyncSession = Depends(get_db)):
+    """
+    アクセス履歴の一覧を取得
+    """
+    query = (
+        select(
+            GuestVisit,
+            Restaurant.name.label("restaurant_name")
+        )
+        .join(Restaurant, GuestVisit.restaurant_id == Restaurant.id)
+        .order_by(desc(GuestVisit.created_at))
+        .limit(limit)
+        .offset(skip)
+    )
+    result = await db.execute(query)
+    rows = result.all()
+    return [
+        VisitLogResponse(
+            id=v.id,
+            visitor_id=v.visitor_id,
+            restaurant_name=r_name,
+            created_at=v.created_at,
+            stay_time_seconds=v.stay_time_seconds,
+            scroll_depth=v.scroll_depth
+        ) for v, r_name in rows
+    ]
+
+@router.get("/analysis/visitors/{visitor_id}", response_model=VisitorDetailResponse)
+async def get_visitor_detail(visitor_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    特定の訪問者の詳細情報を取得
+    """
+    # Total visits & stay time
+    visit_query = select(
+        func.count(GuestVisit.id).label("total_visits"),
+        func.sum(GuestVisit.stay_time_seconds).label("total_stay_time")
+    ).where(GuestVisit.visitor_id == visitor_id)
+    visit_res = await db.execute(visit_query)
+    visit_stats = visit_res.one()
+    
+    # Visited farmers
+    farmer_query = (
+        select(
+            Farmer.id.label("farmer_id"),
+            Farmer.name.label("farmer_name"),
+            func.count(GuestInteraction.id).label("view_count")
+        )
+        .join(GuestInteraction, Farmer.id == GuestInteraction.farmer_id)
+        .join(GuestVisit, GuestInteraction.visit_id == GuestVisit.id)
+        .where(GuestVisit.visitor_id == visitor_id)
+        .where(GuestInteraction.interaction_type == "INTEREST")
+        .group_by(Farmer.id, Farmer.name)
+        .order_by(desc("view_count"))
+    )
+    farmer_res = await db.execute(farmer_query)
+    visited_farmers = [
+        VisitorFarmerDetail(
+            farmer_id=row.farmer_id,
+            farmer_name=row.farmer_name,
+            view_count=row.view_count
+        ) for row in farmer_res.all()
+    ]
+    
+    # Interactions
+    interaction_query = (
+        select(
+            GuestInteraction,
+            Farmer.name.label("farmer_name"),
+            Restaurant.name.label("restaurant_name"),
+        )
+        .outerjoin(Farmer, GuestInteraction.farmer_id == Farmer.id)
+        .join(GuestVisit, GuestInteraction.visit_id == GuestVisit.id)
+        .join(Restaurant, GuestVisit.restaurant_id == Restaurant.id)
+        .where(GuestVisit.visitor_id == visitor_id)
+        .order_by(desc(GuestInteraction.created_at))
+    )
+    interaction_res = await db.execute(interaction_query)
+    interactions = []
+    for interaction, f_name, r_name in interaction_res.all():
+        interactions.append(
+            InteractionLog(
+                id=interaction.id,
+                created_at=interaction.created_at,
+                interaction_type=interaction.interaction_type,
+                stamp_type=interaction.stamp_type,
+                comment=interaction.comment,
+                nickname=interaction.nickname,
+                user_image_url=interaction.user_image_url,
+                farmer_name=f_name,
+                restaurant_name=r_name,
+            )
+        )
+        
+    return VisitorDetailResponse(
+        visitor_id=visitor_id,
+        total_visits=visit_stats.total_visits or 0,
+        total_stay_time=visit_stats.total_stay_time or 0,
+        visited_farmers=visited_farmers,
+        interactions=interactions
+    )
+
 @router.get("/analysis/csv")
 async def export_guest_data_csv(db: AsyncSession = Depends(get_db)):
     """
@@ -417,3 +539,139 @@ async def bulk_delete_visits(
     
     await db.commit()
     return {"status": "ok", "deleted_count": count}
+
+
+class VisitLog(BaseModel):
+    id: int
+    visitor_id: str
+    restaurant_name: str
+    created_at: datetime
+    stay_time_seconds: Optional[int] = None
+    scroll_depth: Optional[int] = None
+
+
+@router.get("/visits", response_model=List[VisitLog])
+async def list_visits(
+    limit: int = 100,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    訪問履歴一覧を取得（表形式表示用）
+    """
+    query = (
+        select(
+            GuestVisit,
+            Restaurant.name.label("restaurant_name")
+        )
+        .join(Restaurant, GuestVisit.restaurant_id == Restaurant.id)
+        .order_by(desc(GuestVisit.created_at))
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await db.execute(query)
+    rows = result.all()
+    
+    visits = []
+    for visit, r_name in rows:
+        visits.append(
+            VisitLog(
+                id=visit.id,
+                visitor_id=visit.visitor_id or "Anonymous",
+                restaurant_name=r_name,
+                created_at=visit.created_at,
+                stay_time_seconds=visit.stay_time_seconds,
+                scroll_depth=visit.scroll_depth
+            )
+        )
+    return visits
+
+
+class VisitorDetail(BaseModel):
+    visitor_id: str
+    total_visits: int
+    total_stay_time: int
+    visited_farmers: List[dict]
+    interactions: List[InteractionLog]
+
+
+@router.get("/visitors/{visitor_id}", response_model=VisitorDetail)
+async def get_visitor_detail(
+    visitor_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    特定訪問者の詳細情報を取得
+    - 訪問回数
+    - 滞在時間合計
+    - 閲覧した農家一覧
+    - コメント・スタンプ履歴
+    """
+    # 訪問回数と滞在時間
+    visit_query = select(
+        func.count(GuestVisit.id).label("visit_count"),
+        func.sum(GuestVisit.stay_time_seconds).label("total_stay")
+    ).where(GuestVisit.visitor_id == visitor_id)
+    visit_result = await db.execute(visit_query)
+    visit_data = visit_result.one()
+    
+    # 閲覧した農家一覧（INTERESTイベント）
+    farmer_query = (
+        select(
+            Farmer.id,
+            Farmer.name,
+            func.count(GuestInteraction.id).label("view_count")
+        )
+        .join(GuestInteraction, Farmer.id == GuestInteraction.farmer_id)
+        .join(GuestVisit, GuestInteraction.visit_id == GuestVisit.id)
+        .where(
+            GuestVisit.visitor_id == visitor_id,
+            GuestInteraction.interaction_type == "INTEREST"
+        )
+        .group_by(Farmer.id, Farmer.name)
+        .order_by(desc("view_count"))
+    )
+    farmer_result = await db.execute(farmer_query)
+    farmers = [
+        {"farmer_id": row.id, "farmer_name": row.name, "view_count": row.view_count}
+        for row in farmer_result.all()
+    ]
+    
+    # インタラクション履歴
+    interaction_query = (
+        select(
+            GuestInteraction,
+            Farmer.name.label("farmer_name"),
+            Restaurant.name.label("restaurant_name")
+        )
+        .outerjoin(Farmer, GuestInteraction.farmer_id == Farmer.id)
+        .join(GuestVisit, GuestInteraction.visit_id == GuestVisit.id)
+        .join(Restaurant, GuestVisit.restaurant_id == Restaurant.id)
+        .where(GuestVisit.visitor_id == visitor_id)
+        .order_by(desc(GuestInteraction.created_at))
+    )
+    interaction_result = await db.execute(interaction_query)
+    interactions = []
+    
+    for interaction, f_name, r_name in interaction_result.all():
+        interactions.append(
+            InteractionLog(
+                id=interaction.id,
+                created_at=interaction.created_at,
+                interaction_type=interaction.interaction_type,
+                stamp_type=interaction.stamp_type,
+                comment=interaction.comment,
+                nickname=interaction.nickname,
+                user_image_url=interaction.user_image_url,
+                farmer_name=f_name,
+                restaurant_name=r_name
+            )
+        )
+    
+    return VisitorDetail(
+        visitor_id=visitor_id,
+        total_visits=visit_data.visit_count or 0,
+        total_stay_time=int(visit_data.total_stay or 0),
+        visited_farmers=farmers,
+        interactions=interactions
+    )

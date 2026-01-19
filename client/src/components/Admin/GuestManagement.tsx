@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { adminApi } from '@/services/api';
-import { Loader2, MessageSquare, BarChart2, QrCode, Download, MousePointer, Smile, Clock, Eye, Trash2, User } from 'lucide-react';
+import { Loader2, MessageSquare, BarChart2, QrCode, Download, MousePointer, Smile, Clock, Eye, Trash2, UserSearch, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -47,8 +47,29 @@ interface Comment {
     user_image_url: string | null;
 }
 
+interface VisitLog {
+    id: number;
+    visitor_id: string;
+    restaurant_name: string;
+    created_at: string;
+    stay_time_seconds: number | null;
+    scroll_depth: number | null;
+}
+
+interface VisitorDetail {
+    visitor_id: string;
+    total_visits: number;
+    total_stay_time: number;
+    visited_farmers: Array<{
+        farmer_id: number;
+        farmer_name: string;
+        view_count: number;
+    }>;
+    interactions: Comment[];
+}
+
 export default function GuestManagement() {
-    const [activeTab, setActiveTab] = useState<'overview' | 'farmers' | 'comments' | 'stores'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'farmers' | 'comments' | 'stores' | 'visits'>('overview');
 
     // Data States
     const [summary, setSummary] = useState<AnalysisSummary | null>(null);
@@ -56,12 +77,17 @@ export default function GuestManagement() {
     const [interests, setInterests] = useState<InterestAggregation[]>([]);
     const [stats, setStats] = useState<RestaurantStat[]>([]);
     const [comments, setComments] = useState<Comment[]>([]);
+    const [visits, setVisits] = useState<VisitLog[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Modal States
     const [selectedRestaurant, setSelectedRestaurant] = useState<RestaurantStat | null>(null);
     const [showQRModal, setShowQRModal] = useState(false);
     const [editMessage, setEditMessage] = useState('');
+
+    // Visitor Detail Modal
+    const [selectedVisitor, setSelectedVisitor] = useState<VisitorDetail | null>(null);
+    const [showVisitorModal, setShowVisitorModal] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -70,12 +96,13 @@ export default function GuestManagement() {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [summaryRes, stampsRes, interestsRes, statsRes, commentsRes] = await Promise.all([
+            const [summaryRes, stampsRes, interestsRes, statsRes, commentsRes, visitsRes] = await Promise.all([
                 adminApi.getAnalysisSummary(),
                 adminApi.getStampAggregation(),
                 adminApi.getInterestAggregation(),
                 adminApi.getGuestStats(),
-                adminApi.getGuestComments()
+                adminApi.getGuestComments(),
+                adminApi.getVisitLogs(100, 0)
             ]);
 
             setSummary(summaryRes.data);
@@ -83,6 +110,7 @@ export default function GuestManagement() {
             setInterests(interestsRes.data);
             setStats(statsRes.data);
             setComments(commentsRes.data);
+            setVisits(visitsRes.data);
         } catch (e) {
             console.error(e);
             toast.error('データの読み込みに失敗しました');
@@ -138,6 +166,29 @@ export default function GuestManagement() {
         }
     };
 
+    const handleDeleteVisit = async (visitId: number) => {
+        if (!confirm('この訪問履歴を削除しますか？関連するインタラクションも削除されます。')) return;
+        try {
+            await adminApi.deleteGuestVisit(visitId);
+            toast.success('訪問履歴を削除しました');
+            setVisits(visits.filter(v => v.id !== visitId));
+        } catch (e) {
+            console.error(e);
+            toast.error('削除に失敗しました');
+        }
+    };
+
+    const handleViewVisitorDetail = async (visitorId: string) => {
+        try {
+            const res = await adminApi.getVisitorDetail(visitorId);
+            setSelectedVisitor(res.data);
+            setShowVisitorModal(true);
+        } catch (e) {
+            console.error(e);
+            toast.error('詳細情報の取得に失敗しました');
+        }
+    };
+
     const openQRModal = (restaurant: RestaurantStat) => {
         setSelectedRestaurant(restaurant);
         setEditMessage(restaurant.message || '');
@@ -154,6 +205,7 @@ export default function GuestManagement() {
             <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-100 flex gap-2 overflow-x-auto">
                 {[
                     { id: 'overview', label: 'アクセス解析', icon: BarChart2 },
+                    { id: 'visits', label: 'アクセス履歴', icon: Eye },
                     { id: 'farmers', label: '農家別スタンプ・クリック', icon: Smile },
                     { id: 'comments', label: 'コメント管理', icon: MessageSquare },
                     { id: 'stores', label: '店舗設定・QR', icon: QrCode },
@@ -214,6 +266,79 @@ export default function GuestManagement() {
 
                     <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-100 text-sm text-yellow-800">
                         <p>※ CSVには「ユーザーごとの訪問回数」「滞在時間」「スクロール率」などの詳細データが含まれます。</p>
+                    </div>
+                </div>
+            )}
+
+            {/* === VISITS TAB === */}
+            {activeTab === 'visits' && (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
+                        <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                            <Eye size={20} /> アクセス履歴一覧
+                        </h2>
+                        <p className="text-sm text-gray-500 mt-1">
+                            訪問者IDをクリックすると詳細情報を表示します
+                        </p>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead className="bg-gray-50 text-gray-700 text-xs uppercase border-b border-gray-200">
+                                <tr>
+                                    <th className="px-6 py-3 text-left">訪問者ID</th>
+                                    <th className="px-6 py-3 text-left">店舗</th>
+                                    <th className="px-6 py-3 text-left">訪問日時</th>
+                                    <th className="px-6 py-3 text-center">滞在時間</th>
+                                    <th className="px-6 py-3 text-center">スクロール率</th>
+                                    <th className="px-6 py-3 text-right">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {visits.map((visit) => (
+                                    <tr key={visit.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <button
+                                                onClick={() => handleViewVisitorDetail(visit.visitor_id)}
+                                                className="text-blue-600 hover:text-blue-800 font-mono text-xs underline flex items-center gap-1"
+                                            >
+                                                <UserSearch size={14} />
+                                                {visit.visitor_id.substring(0, 16)}...
+                                            </button>
+                                        </td>
+                                        <td className="px-6 py-4 text-gray-700">{visit.restaurant_name}</td>
+                                        <td className="px-6 py-4 text-gray-600 font-mono text-xs">
+                                            {format(new Date(visit.created_at), 'yyyy/MM/dd HH:mm:ss', { locale: ja })}
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className="inline-block bg-blue-50 text-blue-700 px-2 py-1 rounded font-medium">
+                                                {visit.stay_time_seconds || 0}秒
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className="inline-block bg-green-50 text-green-700 px-2 py-1 rounded font-medium">
+                                                {visit.scroll_depth || 0}%
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <button
+                                                onClick={() => handleDeleteVisit(visit.id)}
+                                                className="text-red-500 hover:text-red-700 p-2 rounded hover:bg-red-50 transition-colors"
+                                                title="削除"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {visits.length === 0 && (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-10 text-center text-gray-400">
+                                            アクセス履歴がありません
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             )}
@@ -427,6 +552,127 @@ export default function GuestManagement() {
                                 >
                                     メッセージを更新
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Visitor Detail Modal */}
+            {showVisitorModal && selectedVisitor && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto my-8">
+                        <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white">
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                    <UserSearch size={24} />
+                                    訪問者詳細情報
+                                </h3>
+                                <p className="text-sm text-gray-500 font-mono mt-1">{selectedVisitor.visitor_id}</p>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setShowVisitorModal(false);
+                                    setSelectedVisitor(null);
+                                }}
+                                className="text-gray-400 hover:text-gray-600 bg-gray-100 p-2 rounded-full"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-6">
+                            {/* Summary Stats */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                                    <p className="text-sm text-blue-600 font-bold mb-1">総訪問回数</p>
+                                    <p className="text-3xl font-bold text-blue-900">{selectedVisitor.total_visits}</p>
+                                </div>
+                                <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+                                    <p className="text-sm text-green-600 font-bold mb-1">総滞在時間</p>
+                                    <p className="text-3xl font-bold text-green-900">{selectedVisitor.total_stay_time}秒</p>
+                                </div>
+                            </div>
+
+                            {/* Visited Farmers */}
+                            <div className="bg-white rounded-lg border border-gray-200">
+                                <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-100">
+                                    <h4 className="font-bold text-emerald-800 flex items-center gap-2">
+                                        <Eye size={18} />
+                                        閲覧した農家一覧
+                                    </h4>
+                                </div>
+                                <div className="divide-y divide-gray-100">
+                                    {selectedVisitor.visited_farmers.length > 0 ? (
+                                        selectedVisitor.visited_farmers.map((farmer) => (
+                                            <div key={farmer.farmer_id} className="px-4 py-3 flex justify-between items-center hover:bg-gray-50">
+                                                <span className="font-medium text-gray-900">{farmer.farmer_name}</span>
+                                                <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-sm font-bold">
+                                                    {farmer.view_count}回閲覧
+                                                </span>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="px-4 py-8 text-center text-gray-400">
+                                            農家の閲覧履歴がありません
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Interactions */}
+                            <div className="bg-white rounded-lg border border-gray-200">
+                                <div className="px-4 py-3 bg-purple-50 border-b border-purple-100">
+                                    <h4 className="font-bold text-purple-800 flex items-center gap-2">
+                                        <MessageSquare size={18} />
+                                        アクション履歴
+                                    </h4>
+                                </div>
+                                <div className="divide-y divide-gray-100 max-h-[400px] overflow-y-auto">
+                                    {selectedVisitor.interactions.length > 0 ? (
+                                        selectedVisitor.interactions.map((interaction) => (
+                                            <div key={interaction.id} className="px-4 py-3 hover:bg-gray-50">
+                                                <div className="flex items-start justify-between mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        {interaction.interaction_type === 'MESSAGE' && (
+                                                            <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">
+                                                                コメント
+                                                            </span>
+                                                        )}
+                                                        {interaction.interaction_type === 'STAMP' && (
+                                                            <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs font-bold">
+                                                                スタンプ: {interaction.stamp_type}
+                                                            </span>
+                                                        )}
+                                                        {interaction.interaction_type === 'INTEREST' && (
+                                                            <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">
+                                                                閲覧
+                                                            </span>
+                                                        )}
+                                                        <span className="text-xs text-gray-500">
+                                                            {interaction.farmer_name || '全体'} @ {interaction.restaurant_name}
+                                                        </span>
+                                                    </div>
+                                                    <span className="text-xs text-gray-400 font-mono">
+                                                        {format(new Date(interaction.created_at), 'MM/dd HH:mm', { locale: ja })}
+                                                    </span>
+                                                </div>
+                                                {interaction.comment && (
+                                                    <div className="mt-2 bg-yellow-50 p-3 rounded border border-yellow-100">
+                                                        <p className="text-sm text-gray-700">{interaction.comment}</p>
+                                                        {interaction.nickname && (
+                                                            <p className="text-xs text-gray-500 mt-1">by {interaction.nickname}</p>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="px-4 py-8 text-center text-gray-400">
+                                            アクション履歴がありません
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
