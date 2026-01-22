@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, User, Send, X, Heart, Star, Sprout, ThumbsUp, ChevronRight } from 'lucide-react';
+import { MapPin, User, Send, X, Sprout, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { guestApi } from '@/services/api';
 import { useAnalytics } from '@/hooks/useAnalytics';
@@ -24,10 +24,10 @@ type Restaurant = {
 
 // Stamps Definition
 const STAMPS = [
-    { id: 'delicious', label: '美味しかった', icon: <ThumbsUp size={24} />, color: 'text-orange-500', bg: 'bg-orange-50' },
-    { id: 'cheer', label: '応援してます', icon: <Heart size={24} />, color: 'text-pink-500', bg: 'bg-pink-50' },
-    { id: 'nice', label: 'こだわり素敵', icon: <Star size={24} />, color: 'text-yellow-500', bg: 'bg-yellow-50' },
-    { id: 'eat_again', label: 'また食べたい', icon: <Sprout size={24} />, color: 'text-green-600', bg: 'bg-green-50' },
+    { id: 'delicious', label: '美味しかった', image: '/stamps/oishikatta.jpg' },
+    { id: 'cheer', label: '応援してます', image: '/stamps/ouen-shitemasu.jpg' },
+    { id: 'nice', label: 'こだわり素敵', image: '/stamps/kodawari-suteki.jpg' },
+    { id: 'eat_again', label: 'また食べたい', image: '/stamps/mata-tabetai.jpg' },
 ];
 
 export default function GuestLanding() {
@@ -230,21 +230,21 @@ export default function GuestLanding() {
             const patterns = [
                 {
                     type: 'A',
-                    title: '応援ありがとうございます！',
-                    msg: '生産者さんにあなたの声を届けます。',
-                    image: selectedFarmer ? selectedFarmer.image : 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&q=80' // Farmer or Generic Smile
+                    title: 'あなたのおいしいが、一番の励みになります！',
+                    msg: 'メッセージありがとうございます！ お客様がここでお食事を楽しんでくださることが、地域の農地を守り、次の実りへとつながります。\n\nぜひまた、私たちの自慢の野菜たちに会いに来てくださいね。',
+                    image: '/thanks/thanks-a.png' // 星の目のキャラクター
                 },
                 {
                     type: 'B',
-                    title: '励みになります！',
-                    msg: 'これからも美味しい野菜を作り続けます。',
-                    image: 'https://images.unsplash.com/photo-1592982537447-6f2a6a0c7c18?auto=format&fit=crop&q=80' // Veggies
+                    title: '想いを受け取りました！',
+                    msg: '温かいお言葉が農家さんに届きました。 季節が変われば、畑の景色も、お皿の上の野菜も変わります。\n\nまた次回もこのお店で味わっていただけると嬉しいです。',
+                    image: '/thanks/thanks-b.png' // 笑顔のキャラクター
                 },
                 {
                     type: 'C',
-                    title: 'また食べてね！',
-                    msg: 'ベジコベは神戸の農業を応援しています。',
-                    image: '/logo.png' // Character/Logo (Placeholder)
+                    title: '素敵なメッセージを送信しました！',
+                    msg: 'このお店を選んでくださり、ありがとうございます。 お客様のその選択が、私たち農家とこのお店の挑戦を支えてくれています。\n\nこれからも一緒に、神戸の食を盛り上げていただけませんか？',
+                    image: '/thanks/thanks-c.png' // ハートに囲まれたキャラクター
                 }
             ];
             setThankYouContent(patterns[Math.floor(Math.random() * patterns.length)]);
@@ -268,7 +268,7 @@ export default function GuestLanding() {
                     </div>
                     <div>
                         <h2 className="text-2xl font-bold text-stone-800 mb-2">{thankYouContent.title}</h2>
-                        <p className="text-stone-600">{thankYouContent.msg}</p>
+                        <p className="text-stone-600 whitespace-pre-line">{thankYouContent.msg}</p>
                     </div>
 
                     <div className="pt-4 border-t border-gray-100">
@@ -478,10 +478,13 @@ export default function GuestLanding() {
                                                 <button
                                                     key={stamp.id}
                                                     onClick={() => handleStamp(stamp.id)}
-                                                    className={`${stamp.bg} ${stamp.color} py-3 px-2 rounded-xl flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 border border-transparent hover:border-current`}
+                                                    className="bg-white p-2 rounded-xl flex flex-col items-center justify-center transition-transform active:scale-95 border border-stone-200 hover:border-green-500 hover:shadow-md"
                                                 >
-                                                    {stamp.icon}
-                                                    <span className="text-xs font-bold">{stamp.label}</span>
+                                                    <img
+                                                        src={stamp.image}
+                                                        alt={stamp.label}
+                                                        className="w-full h-auto object-contain"
+                                                    />
                                                 </button>
                                             ))}
                                         </div>
