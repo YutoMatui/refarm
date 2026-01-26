@@ -484,7 +484,7 @@ async def download_monthly_invoice(
     )
 
 
-@router.get("/aggregation/daily", response_model=List[FarmerAggregation])
+@router.get("/aggregation/daily", response_model=list[FarmerAggregation])
 async def get_daily_aggregation(
     date: str = Query(..., description="集計日 (YYYY-MM-DD)"),
     db: AsyncSession = Depends(get_db)
@@ -585,7 +585,7 @@ async def get_daily_aggregation(
     return result
         
 
-@router.get("/aggregation/monthly", response_model=List[FarmerAggregation])
+@router.get("/aggregation/monthly", response_model=list[FarmerAggregation])
 async def get_monthly_aggregation(
     date: str = Query(..., description="集計月 (YYYY-MM)"),
     db: AsyncSession = Depends(get_db)
