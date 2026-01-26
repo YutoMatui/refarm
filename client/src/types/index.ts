@@ -164,6 +164,7 @@ export interface Product extends TimestampFields {
   image_url?: string
   media_url?: string
   cost_price?: number
+  price_multiplier?: number
   harvest_status?: HarvestStatus
   is_active: number
   is_featured: number
