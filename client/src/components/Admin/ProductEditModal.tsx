@@ -76,8 +76,9 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
             const cost = Number(costPrice);
             const multiplier = Number(priceMultiplier);
             if (!isNaN(cost) && cost > 0 && !isNaN(multiplier) && multiplier > 0) {
-                // New Formula: (Cost / multiplier * 1.08) then round
-                const rawPrice = (cost / multiplier) * 1.08;
+                // Correct Formula: (Cost / multiplier) then round to get tax-excluded price
+                // Tax will be calculated separately when displaying
+                const rawPrice = cost / multiplier;
                 const calculatedPrice = Math.round(rawPrice);
                 setValue('price', calculatedPrice.toString());
             }
@@ -225,21 +226,21 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
                                 <option value={0.8}>÷ 0.8 (125%マージン)</option>
                                 <option value={0.9}>÷ 0.9 (111%マージン)</option>
                             </select>
-                            <p className="text-xs text-gray-500 mt-1">※販売価格 = 仕入れ値 ÷ この値 × 1.08</p>
+                            <p className="text-xs text-gray-500 mt-1">※税抜販売価格 = 仕入れ値 ÷ この値（税込は表示時に計算）</p>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 gap-4">
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">
-                                販売価格 (税込) <span className="text-xs font-normal text-gray-500">(自動計算)</span>
+                                販売価格 (税抜) <span className="text-xs font-normal text-gray-500">(自動計算)</span>
                             </label>
                             <input
                                 {...register('price')}
                                 className="w-full border border-gray-300 bg-gray-100 text-gray-600 rounded p-2 text-lg font-bold"
                                 readOnly
                             />
-                            <p className="text-xs text-gray-500 mt-1">※消費税込み、四捨五入後の価格です</p>
+                            <p className="text-xs text-gray-500 mt-1">※税抜価格です。表示時に消費税（8%または10%）が加算されます</p>
                         </div>
                     </div>
 
