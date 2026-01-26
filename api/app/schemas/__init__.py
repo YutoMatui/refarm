@@ -34,6 +34,8 @@ from app.schemas.order import (
     OrderFilterParams,
     OrderStatusUpdate,
     OrderItemResponse,
+    FarmerAggregation,
+    AggregatedProduct,
 )
 from app.schemas.favorite import (
     FavoriteCreate,
@@ -104,6 +106,8 @@ __all__ = [
     "OrderFilterParams",
     "OrderStatusUpdate",
     "OrderItemResponse",
+    "FarmerAggregation",
+    "AggregatedProduct",
     # Favorite
     "FavoriteCreate",
     "FavoriteUpdate",
