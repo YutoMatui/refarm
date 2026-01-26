@@ -18,6 +18,7 @@ class ProductBase(BaseModel):
     description: Optional[str] = Field(None, description="商品説明")
     price: Decimal = Field(..., gt=0, description="単価(税抜)")
     cost_price: Optional[int] = Field(None, description="仕入れ値")
+    price_multiplier: Decimal = Field(default=Decimal("0.8"), description="価格調整係数")
     harvest_status: Optional[HarvestStatus] = Field(None, description="収穫状況")
     tax_rate: TaxRate = Field(..., description="税率")
     unit: str = Field(default="個", max_length=20, description="単位")
@@ -43,6 +44,7 @@ class ProductBase(BaseModel):
 class ProductCreate(ProductBase):
     """Schema for creating a product."""
     price: Optional[Decimal] = Field(None, gt=0, description="単価(税抜)")
+    price_multiplier: Optional[Decimal] = Field(default=Decimal("0.8"), description="価格調整係数")
     tax_rate: Optional[TaxRate] = Field(None, description="税率")
     stock_type: Optional[StockType] = Field(None, description="種別(KOBE/OTHER)")
     farmer_id: Optional[int] = Field(None, description="生産者ID")
@@ -57,6 +59,7 @@ class ProductUpdate(BaseModel):
     description: Optional[str] = None
     price: Optional[Decimal] = Field(None, gt=0)
     cost_price: Optional[int] = Field(None, description="仕入れ値")
+    price_multiplier: Optional[Decimal] = Field(None, description="価格調整係数")
     harvest_status: Optional[HarvestStatus] = Field(None, description="収穫状況")
     tax_rate: Optional[TaxRate] = None
     unit: Optional[str] = Field(None, max_length=20)
