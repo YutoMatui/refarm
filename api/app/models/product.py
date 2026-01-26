@@ -81,6 +81,13 @@ class Product(Base, TimestampMixin, SoftDeleteMixin):
         nullable=True,
         comment="仕入れ値 (農家手取り)"
     )
+
+    price_multiplier = Column(
+        Numeric(4, 2),
+        nullable=False,
+        default=0.8,
+        comment="価格調整係数 (仕入れ値 ÷ この値 × 1.08で販売価格を算出)"
+    )
     
     harvest_status = Column(
         String(50),

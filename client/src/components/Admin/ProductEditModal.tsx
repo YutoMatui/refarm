@@ -23,6 +23,7 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
 
     // Watch cost_price for auto-calculation
     const costPrice = watch('cost_price');
+    const priceMultiplier = watch('price_multiplier');
     const imageUrl = watch('image_url');
 
     // Fetch farmers list for dropdown
@@ -42,6 +43,7 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
                 farmer_id: product.farmer_id,
                 price: product.price,
                 cost_price: product.cost_price,
+                price_multiplier: product.price_multiplier || 0.8,
                 unit: product.unit,
                 weight: product.weight,
                 description: product.description,
@@ -62,26 +64,25 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
                 stock_type: StockType.KOBE,
                 harvest_status: HarvestStatus.HARVESTABLE,
                 is_active: 1,
-                is_wakeari: 0
+                is_wakeari: 0,
+                price_multiplier: 0.8
             });
         }
     }, [product, reset]);
 
-    // Auto calculate selling price when cost price changes
+    // Auto calculate selling price when cost price or multiplier changes
     useEffect(() => {
-        if (costPrice) {
+        if (costPrice && priceMultiplier) {
             const cost = Number(costPrice);
-            if (!isNaN(cost) && cost > 0) {
-                // Formula: Cost / 0.7
-                const rawPrice = cost / 0.7;
-                // Round to nearest 10 (Round off ones digit)
-                // e.g. 144 -> 14.4 -> 14 -> 140
-                // e.g. 145 -> 14.5 -> 15 -> 150
-                const calculatedPrice = Math.round(rawPrice / 10) * 10;
-                setValue('price', calculatedPrice.toString()); // price is string in types usually, but react-hook-form handles basic types
+            const multiplier = Number(priceMultiplier);
+            if (!isNaN(cost) && cost > 0 && !isNaN(multiplier) && multiplier > 0) {
+                // New Formula: (Cost / multiplier * 1.08) then round
+                const rawPrice = (cost / multiplier) * 1.08;
+                const calculatedPrice = Math.round(rawPrice);
+                setValue('price', calculatedPrice.toString());
             }
         }
-    }, [costPrice, setValue]);
+    }, [costPrice, priceMultiplier, setValue]);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -212,13 +213,33 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">
-                                販売価格 (税抜) <span className="text-xs font-normal text-gray-500">(自動計算: ÷0.7)</span>
+                                価格調整係数 <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                {...register('price_multiplier', { valueAsNumber: true, required: true })}
+                                className="w-full border border-gray-300 rounded p-2 text-lg font-bold"
+                            >
+                                <option value={0.5}>÷ 0.5 (200%マージン)</option>
+                                <option value={0.6}>÷ 0.6 (167%マージン)</option>
+                                <option value={0.7}>÷ 0.7 (143%マージン)</option>
+                                <option value={0.8}>÷ 0.8 (125%マージン)</option>
+                                <option value={0.9}>÷ 0.9 (111%マージン)</option>
+                            </select>
+                            <p className="text-xs text-gray-500 mt-1">※販売価格 = 仕入れ値 ÷ この値 × 1.08</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4">
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">
+                                販売価格 (税込) <span className="text-xs font-normal text-gray-500">(自動計算)</span>
                             </label>
                             <input
                                 {...register('price')}
                                 className="w-full border border-gray-300 bg-gray-100 text-gray-600 rounded p-2 text-lg font-bold"
                                 readOnly
                             />
+                            <p className="text-xs text-gray-500 mt-1">※消費税込み、四捨五入後の価格です</p>
                         </div>
                     </div>
 
