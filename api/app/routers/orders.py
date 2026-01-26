@@ -14,7 +14,7 @@ from app.core.database import get_db
 from app.core.cloudinary import upload_file
 from app.services.invoice import generate_invoice_pdf
 from app.services.line_notify import line_service
-from app.models import Order, OrderItem, Product, Farmer
+from app.models import Order, OrderItem, Product, Farmer, ConsumerOrder, ConsumerOrderItem, DeliverySlot
 from app.models.enums import OrderStatus
 from app.schemas import (
     OrderCreate,
@@ -23,6 +23,8 @@ from app.schemas import (
     OrderListResponse,
     OrderStatusUpdate,
     ResponseMessage,
+    FarmerAggregation,
+    AggregatedProduct,
 )
 
 router = APIRouter()
@@ -482,18 +484,15 @@ async def download_monthly_invoice(
     )
 
 
-@router.get("/aggregation/daily", response_model=list[dict])
+@router.get("/aggregation/daily", response_model=List[FarmerAggregation])
 async def get_daily_aggregation(
     date: str = Query(..., description="集計日 (YYYY-MM-DD)"),
     db: AsyncSession = Depends(get_db)
 ):
     """
     指定日の仕入れ集計を取得
-    農家ごとに必要な野菜の総数を返す
+    飲食店注文と一般消費者注文を合算し、農家ごとに必要な野菜の総数を返す
     """
-    from app.models import Farmer
-    from datetime import datetime, time
-    
     try:
         target_date = datetime.strptime(date, "%Y-%m-%d").date()
     except ValueError:
@@ -502,17 +501,11 @@ async def get_daily_aggregation(
             detail="日付の形式はYYYY-MM-DDである必要があります"
         )
         
-    # Start and end of the day
-    start_of_day = datetime.combine(target_date, time.min)
-    end_of_day = datetime.combine(target_date, time.max)
-    
-    # Query: Join Order -> OrderItem -> Product -> Farmer
-    # Filter by Order.delivery_date
-    stmt = (
+    # 1. 飲食店注文の集計
+    stmt_restaurant = (
         select(
             Farmer.id.label("farmer_id"),
             Farmer.name.label("farmer_name"),
-            Product.id.label("product_id"),
             Product.name.label("product_name"),
             Product.unit.label("product_unit"),
             func.sum(OrderItem.quantity).label("total_quantity")
@@ -525,49 +518,82 @@ async def get_daily_aggregation(
             func.date(Order.delivery_date) == target_date,
             Order.status != OrderStatus.CANCELLED
         )
-        .group_by(
-            Farmer.id,
-            Farmer.name,
-            Product.id,
-            Product.name,
-            Product.unit
-        )
-        .order_by(Farmer.id, Product.id)
+        .group_by(Farmer.id, Farmer.name, Product.name, Product.unit)
     )
     
-    result = await db.execute(stmt)
-    rows = result.all()
+    # 2. 一般消費者注文の集計
+    stmt_consumer = (
+        select(
+            Farmer.id.label("farmer_id"),
+            Farmer.name.label("farmer_name"),
+            Product.name.label("product_name"),
+            Product.unit.label("product_unit"),
+            func.sum(ConsumerOrderItem.quantity).label("total_quantity")
+        )
+        .select_from(ConsumerOrder)
+        .join(DeliverySlot, ConsumerOrder.delivery_slot_id == DeliverySlot.id)
+        .join(ConsumerOrderItem, ConsumerOrder.id == ConsumerOrderItem.order_id)
+        .join(Product, ConsumerOrderItem.product_id == Product.id)
+        .join(Farmer, Product.farmer_id == Farmer.id)
+        .where(
+            DeliverySlot.date == target_date,
+            ConsumerOrder.status != OrderStatus.CANCELLED
+        )
+        .group_by(Farmer.id, Farmer.name, Product.name, Product.unit)
+    )
     
-    # Group by Farmer in Python
+    res1 = await db.execute(stmt_restaurant)
+    res2 = await db.execute(stmt_consumer)
+    
+    # 手動マージ処理
     aggregation = {}
-    for row in rows:
-        farmer_id = row.farmer_id
-        if farmer_id not in aggregation:
-            aggregation[farmer_id] = {
-                "farmer_name": row.farmer_name,
-                "products": []
-            }
+    
+    def process_rows(rows):
+        for row in rows:
+            f_id = row.farmer_id
+            if f_id not in aggregation:
+                aggregation[f_id] = {
+                    "farmer_id": f_id,
+                    "farmer_name": row.farmer_name,
+                    "products": {}
+                }
+            
+            p_name = row.product_name
+            if p_name not in aggregation[f_id]["products"]:
+                aggregation[f_id]["products"][p_name] = {
+                    "product_name": p_name,
+                    "quantity": 0,
+                    "unit": row.product_unit
+                }
+            
+            aggregation[f_id]["products"][p_name]["quantity"] += int(row.total_quantity or 0)
+
+    process_rows(res1.all())
+    process_rows(res2.all())
+    
+    # スキーマに合わせたフォーマットに変換
+    result = []
+    for f_id in sorted(aggregation.keys()):
+        farmer_data = aggregation[f_id]
+        products_list = list(farmer_data["products"].values())
+        result.append(FarmerAggregation(
+            farmer_id=f_id,
+            farmer_name=farmer_data["farmer_name"],
+            products=[AggregatedProduct(**p) for p in products_list]
+        ))
         
-        aggregation[farmer_id]["products"].append({
-            "product_name": row.product_name,
-            "quantity": int(row.total_quantity or 0),
-            "unit": row.product_unit
-        })
-        
-    return list(aggregation.values())
+    return result
         
 
-@router.get("/aggregation/monthly", response_model=list[dict])
+@router.get("/aggregation/monthly", response_model=List[FarmerAggregation])
 async def get_monthly_aggregation(
     date: str = Query(..., description="集計月 (YYYY-MM)"),
     db: AsyncSession = Depends(get_db)
 ):
     """
     指定月の仕入れ集計を取得
-    農家ごとに必要な野菜の総数を返す
+    飲食店注文と一般消費者注文を合算し、農家ごとに必要な野菜の総数を返す
     """
-    from app.models import Farmer
-    from datetime import datetime
     import calendar
     
     try:
@@ -587,13 +613,11 @@ async def get_monthly_aggregation(
             detail="日付の形式はYYYY-MMである必要があります"
         )
         
-    # Query: Join Order -> OrderItem -> Product -> Farmer
-    # Filter by Order.delivery_date within the month range
-    stmt = (
+    # 1. 飲食店注文
+    stmt_restaurant = (
         select(
             Farmer.id.label("farmer_id"),
             Farmer.name.label("farmer_name"),
-            Product.id.label("product_id"),
             Product.name.label("product_name"),
             Product.unit.label("product_unit"),
             func.sum(OrderItem.quantity).label("total_quantity")
@@ -607,33 +631,67 @@ async def get_monthly_aggregation(
             func.date(Order.delivery_date) <= end_date,
             Order.status != OrderStatus.CANCELLED
         )
-        .group_by(
-            Farmer.id,
-            Farmer.name,
-            Product.id,
-            Product.name,
-            Product.unit
+        .group_by(Farmer.id, Farmer.name, Product.name, Product.unit)
+    )
+
+    # 2. 一般消費者注文
+    stmt_consumer = (
+        select(
+            Farmer.id.label("farmer_id"),
+            Farmer.name.label("farmer_name"),
+            Product.name.label("product_name"),
+            Product.unit.label("product_unit"),
+            func.sum(ConsumerOrderItem.quantity).label("total_quantity")
         )
-        .order_by(Farmer.id, Product.id)
+        .select_from(ConsumerOrder)
+        .join(DeliverySlot, ConsumerOrder.delivery_slot_id == DeliverySlot.id)
+        .join(ConsumerOrderItem, ConsumerOrder.id == ConsumerOrderItem.order_id)
+        .join(Product, ConsumerOrderItem.product_id == Product.id)
+        .join(Farmer, Product.farmer_id == Farmer.id)
+        .where(
+            DeliverySlot.date >= start_date,
+            DeliverySlot.date <= end_date,
+            ConsumerOrder.status != OrderStatus.CANCELLED
+        )
+        .group_by(Farmer.id, Farmer.name, Product.name, Product.unit)
     )
     
-    result = await db.execute(stmt)
-    rows = result.all()
+    res1 = await db.execute(stmt_restaurant)
+    res2 = await db.execute(stmt_consumer)
     
-    # Group by Farmer in Python
     aggregation = {}
-    for row in rows:
-        farmer_id = row.farmer_id
-        if farmer_id not in aggregation:
-            aggregation[farmer_id] = {
-                "farmer_name": row.farmer_name,
-                "products": []
-            }
+    
+    def process_rows(rows):
+        for row in rows:
+            f_id = row.farmer_id
+            if f_id not in aggregation:
+                aggregation[f_id] = {
+                    "farmer_id": f_id,
+                    "farmer_name": row.farmer_name,
+                    "products": {}
+                }
+            
+            p_name = row.product_name
+            if p_name not in aggregation[f_id]["products"]:
+                aggregation[f_id]["products"][p_name] = {
+                    "product_name": p_name,
+                    "quantity": 0,
+                    "unit": row.product_unit
+                }
+            
+            aggregation[f_id]["products"][p_name]["quantity"] += int(row.total_quantity or 0)
+
+    process_rows(res1.all())
+    process_rows(res2.all())
+    
+    result = []
+    for f_id in sorted(aggregation.keys()):
+        farmer_data = aggregation[f_id]
+        products_list = list(farmer_data["products"].values())
+        result.append(FarmerAggregation(
+            farmer_id=f_id,
+            farmer_name=farmer_data["farmer_name"],
+            products=[AggregatedProduct(**p) for p in products_list]
+        ))
         
-        aggregation[farmer_id]["products"].append({
-            "product_name": row.product_name,
-            "quantity": int(row.total_quantity or 0),
-            "unit": row.product_unit
-        })
-        
-    return list(aggregation.values())
+    return result

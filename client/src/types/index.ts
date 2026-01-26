@@ -346,6 +346,7 @@ export interface AggregatedProduct {
 }
 
 export interface FarmerAggregation {
+  farmer_id: number
   farmer_name: string
   products: AggregatedProduct[]
 }

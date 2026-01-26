@@ -166,3 +166,17 @@ class OrderStatusUpdate(BaseModel):
                 "status": "confirmed"
             }
         }
+
+
+class AggregatedProduct(BaseModel):
+    """Schema for individual product aggregation."""
+    product_name: str
+    quantity: int
+    unit: str
+
+
+class FarmerAggregation(BaseModel):
+    """Schema for farmer-wise product aggregation."""
+    farmer_id: int
+    farmer_name: str
+    products: List[AggregatedProduct]
