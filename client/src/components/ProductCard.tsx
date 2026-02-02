@@ -91,6 +91,9 @@ export default function ProductCard({ product }: ProductCardProps) {
               (税抜) /{product.unit}
             </span>
           </div>
+          {product.weight && (
+            <p className="text-xs text-gray-500 -mt-2 mb-2">重量: {product.weight}g</p>
+          )}
         </div>
 
         {/* Actions */}
