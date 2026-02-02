@@ -129,7 +129,7 @@ class Product(Base, TimestampMixin, SoftDeleteMixin):
     stock_quantity = Column(
         Integer,
         nullable=True,
-        default=0,
+        default=50,
         comment="在庫数 (神戸野菜のみ管理)"
     )
     

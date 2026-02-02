@@ -105,7 +105,7 @@ async def seed_data():
                 farmer_id=farmer1.id,
                 unit="玉",
                 is_active=1,
-                stock_quantity=30
+                stock_quantity=50
             )
             db.add_all([p1, p2, p3])
             await db.flush()
