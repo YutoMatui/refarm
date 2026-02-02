@@ -32,7 +32,8 @@ export default function ProductForm() {
             harvest_status: HarvestStatus.HARVESTABLE,
             farming_method: FarmingMethod.CONVENTIONAL,
             unit: '袋',
-            is_wakeari: false
+            is_wakeari: false,
+            stock_quantity: 50
         }
     });
 
