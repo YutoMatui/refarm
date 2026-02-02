@@ -82,6 +82,22 @@ export default function ProductDetail() {
                     <p className="whitespace-pre-wrap leading-relaxed">{product.description || '登録されていません'}</p>
                 </div>
 
+                {/* Weight & Stock Info */}
+                <div className="grid grid-cols-2 gap-4">
+                    {product.weight && (
+                        <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                            <p className="text-sm text-gray-600">
+                                重量: <span className="font-bold text-gray-900">{product.weight}g</span>
+                            </p>
+                        </div>
+                    )}
+                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                        <p className="text-sm text-gray-600">
+                            在庫: <span className="font-bold text-gray-900">{product.stock_quantity ?? 0}</span>
+                        </p>
+                    </div>
+                </div>
+
                 {/* Farmer Info */}
                 <div className="bg-green-50 rounded-xl p-4 border border-green-100">
                     <div className="flex items-center gap-2 mb-2">

@@ -14,6 +14,7 @@ interface ProductFormData {
     farming_method: FarmingMethod;
     weight: number;
     unit: string;
+    stock_quantity: number;
     cost_price: number;
     harvest_status: HarvestStatus;
     description: string;
@@ -57,6 +58,7 @@ export default function ProductForm() {
             setValue('farming_method', p.farming_method || FarmingMethod.CONVENTIONAL);
             setValue('weight', p.weight || 0);
             setValue('unit', p.unit);
+            setValue('stock_quantity', p.stock_quantity || 0);
             setValue('cost_price', p.cost_price || 0);
             setValue('harvest_status', p.harvest_status || HarvestStatus.HARVESTABLE);
             setValue('description', p.description || '');
@@ -205,8 +207,8 @@ export default function ProductForm() {
                     </div>
                 </div>
 
-                {/* Unit & Weight */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Unit & Weight & Stock */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-1">規格・単位 <span className="text-red-500">*</span></label>
                         <input
@@ -222,6 +224,15 @@ export default function ProductForm() {
                             {...register('weight', { valueAsNumber: true })}
                             type="number"
                             placeholder="例: 150"
+                            className="w-full border border-gray-300 rounded-lg p-3 text-lg"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">在庫数 <span className="text-gray-400 text-xs">※数値のみ</span></label>
+                        <input
+                            {...register('stock_quantity', { valueAsNumber: true, min: 0 })}
+                            type="number"
+                            placeholder="例: 50"
                             className="w-full border border-gray-300 rounded-lg p-3 text-lg"
                         />
                     </div>
