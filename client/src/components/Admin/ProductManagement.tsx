@@ -182,6 +182,7 @@ export default function ProductManagement() {
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">画像</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">商品名/品種</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">規格/重量</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">在庫</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">価格</th>
                             <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">栽培</th>
                             <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">おすすめ</th>
@@ -219,6 +220,9 @@ export default function ProductManagement() {
                                 <td className="px-6 py-4 text-sm text-gray-500">
                                     <div>{product.unit}</div>
                                     {product.weight && <div className="text-xs">{product.weight}g</div>}
+                                </td>
+                                <td className="px-6 py-4 text-sm text-gray-900">
+                                    {product.stock_quantity ?? 0}
                                 </td>
                                 <td className="px-6 py-4 text-sm text-gray-900">
                                     ¥{Number(product.price).toLocaleString()}
