@@ -1,22 +1,214 @@
-    <table class="summary-table">
-        <tr>
-            <th>小計 (8%対象)</th>
-            <td class="num">¥ {{ "{:,}".format(total_8_percent_subtotal) }}</td>
-        </tr>
-        <tr>
-            <th>消費税 (8%)</th>
-            <td class="num">¥ {{ "{:,}".format(total_8_percent_tax) }}</td>
-        </tr>
-        <tr>
-            <th>小計 (10%対象)</th>
-            <td class="num">¥ {{ "{:,}".format(total_10_percent_subtotal) }}</td>
-        </tr>
-        <tr>
-            <th>消費税 (10%)</th>
-            <td class="num">¥ {{ "{:,}".format(total_10_percent_tax) }}</td>
-        </tr>
-        <tr>
-            <th style="background-color: #e6e6e6;">合計</th>
-            <td class="num" style="font-weight: bold;">¥ {{ "{:,}".format(total_amount_incl_tax) }}</td>
-        </tr>
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 20mm;
+        }
+
+        body {
+            font-family: "ipaexg", sans-serif;
+            font-size: 10pt;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+
+        .title {
+            font-size: 20pt;
+            font-weight: bold;
+            text-align: center;
+            border-bottom: 2px solid #333;
+            margin-bottom: 20px;
+            padding-bottom: 5px;
+        }
+
+        .client-info {
+            width: 50%;
+            float: left;
+        }
+
+        .client-name {
+            font-size: 16pt;
+            border-bottom: 1px solid #333;
+            padding-bottom: 2px;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+
+        .sender-info {
+            width: 40%;
+            float: right;
+            text-align: right;
+            font-size: 9pt;
+        }
+
+        .sender-name {
+            font-size: 12pt;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .summary-box {
+            clear: both;
+            margin-top: 150px;
+            margin-bottom: 20px;
+            border: 2px solid #333;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .total-amount {
+            font-size: 18pt;
+            font-weight: bold;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #888;
+            padding: 6px;
+            font-size: 9pt;
+        }
+
+        th {
+            background-color: #f0f0f0;
+            text-align: center;
+        }
+
+        td.num {
+            text-align: right;
+        }
+
+        .footer {
+            margin-top: 30px;
+            font-size: 9pt;
+        }
+
+        .bank-info {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-top: 10px;
+            width: 60%;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="title">{{ title }}</div>
+    <div class="header">
+        <div style="float: right; text-align: right;">
+            <div>日付: {{ invoice_date }}</div>
+            <div>No. {{ invoice_number }}</div>
+        </div>
+    </div>
+
+    <div class="client-info">
+        <div class="client-name">{{ client_name }}</div>
+        <div>件名: {{ subject }}</div>
+    </div>
+
+    <div class="sender-info">
+        <div class="sender-name">{{ sender_name }}</div>
+        <div>〒{{ sender_zip }}</div>
+        <div>{{ sender_address }}</div>
+        <div>{{ sender_building }}</div>
+        <div>TEL: {{ sender_tel }}</div>
+        <div>担当: {{ sender_pic }}</div>
+        {% if sender_reg_num %}
+        <div>登録番号: {{ sender_reg_num }}</div>
+        {% endif %}
+    </div>
+
+    <div class="summary-box">
+        ご請求金額 &nbsp;&nbsp;&nbsp; <span class="total-amount">¥ {{ "{:,}".format(total_amount_incl_tax) }} -</span> (税込)
+    </div>
+
+    {% if bank_name %}
+    <div class="bank-info">
+        <strong>お振込先:</strong><br>
+        {{ bank_name }} {{ bank_branch }} {{ bank_type }} {{ bank_number }}<br>
+        <strong>お支払期限:</strong> {{ due_date }}
+    </div>
+    {% endif %}
+
+    <table>
+        <thead>
+            <tr>
+                <th>品名</th>
+                <th>数量</th>
+                <th>単位</th>
+                <th>単価</th>
+                <th>金額</th>
+                <th>税率</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.name }}</td>
+                <td class="num">{{ item.quantity }}</td>
+                <td style="text-align: center;">{{ item.unit }}</td>
+                <td class="num">¥ {{ "{:,}".format(item.unit_price) }}</td>
+                <td class="num">¥ {{ "{:,}".format(item.amount) }}</td>
+                <td style="text-align: center;">{{ item.tax_rate }}%</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <th colspan="4" style="text-align: right;">小計 (税抜)</th>
+                <td class="num">¥ {{ "{:,}".format(subtotal) }}</td>
+                <td></td>
+            </tr>
+            <tr>
+                <th colspan="4" style="text-align: right;">消費税等</th>
+                <td class="num">¥ {{ "{:,}".format(tax_amount) }}</td>
+                <td></td>
+            </tr>
+            <tr>
+                <th colspan="4" style="text-align: right;">合計</th>
+                <td class="num" style="font-weight: bold;">¥ {{ "{:,}".format(total_amount_incl_tax) }}</td>
+                <td></td>
+            </tr>
+        </tfoot>
     </table>
+
+    <div style="margin-top: 20px;">
+        <table style="width: 50%; margin-left: auto;">
+            <tr>
+                <th colspan="2">消費税内訳</th>
+            </tr>
+            <tr>
+                <th>10%対象</th>
+                <td class="num">¥ {{ "{:,}".format(total_10_percent_subtotal) }} (税 ¥{{
+                    "{:,}".format(total_10_percent_tax) }})</td>
+            </tr>
+            <tr>
+                <th>8%対象</th>
+                <td class="num">¥ {{ "{:,}".format(total_8_percent_subtotal) }} (税 ¥{{
+                    "{:,}".format(total_8_percent_tax) }})</td>
+            </tr>
+        </table>
+    </div>
+
+    <div style="margin-top: 20px; font-size: 8pt;">
+        {{ remarks }}
+    </div>
+</body>
+
+</html>

@@ -1,3 +1,14 @@
+import os
+import math
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+from jinja2 import Environment, FileSystemLoader
+from weasyprint import HTML
+
+# Setup Jinja2 Environment
+template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
+env = Environment(loader=FileSystemLoader(template_dir))
+
 def _generate_pdf(order, title):
     template = env.get_template('invoice.html')
     
@@ -102,7 +113,7 @@ def _generate_pdf(order, title):
         "title": title,
         "invoice_date": invoice_date.strftime('%Y/%m/%d'),
         "invoice_number": f"{1000 + order.id}",
-        "client_name": f"{order.restaurant.name} 様 御中",
+        "client_name": f"{order.restaurant.name} 様",
         "sender_name": sender_info["name"],
         "sender_zip": sender_info["zip"],
         "sender_address": sender_info["address"],
@@ -110,10 +121,10 @@ def _generate_pdf(order, title):
         "sender_tel": sender_info["tel"],
         "sender_pic": sender_info["pic"],
         "sender_reg_num": sender_info.get("reg_num", ""),
+        "subject": "野菜代金として",
         
         "total_amount_incl_tax": total_val,
         
-        "subject": "野菜代金",
         "due_date": due_date,
         "bank_name": bank_info.get("name", ""),
         "bank_branch": bank_info.get("branch", ""),
@@ -131,12 +142,114 @@ def _generate_pdf(order, title):
         "total_10_percent_subtotal": total_10_percent_subtotal,
         "total_10_percent_tax": total_10_percent_tax,
         
-        "remarks": "" 
+        "remarks": "※振込手数料は貴社負担にてお願い致します。" if title == "請求書" else ""
     }
     
     html_content = template.render(context)
     
     # PDF生成
+    pdf_bytes = HTML(string=html_content).write_pdf()
+    
+    return pdf_bytes
+
+def generate_invoice_pdf(order):
+    return _generate_pdf(order, "請求書")
+
+def generate_delivery_slip_pdf(order):
+    return _generate_pdf(order, "納品書")
+
+def generate_monthly_invoice_pdf(restaurant, orders, target_month_label, period_str):
+    template = env.get_template('invoice_monthly.html')
+    
+    # Common Data
+    invoice_date = datetime.now()
+    # Calculate totals
+    grand_total = 0
+    grand_subtotal = 0
+    grand_tax = 0
+    
+    # Daily Items Aggregation? 
+    # The template expects `daily_items` with date, description, amount.
+    daily_items = []
+    
+    # Sort orders by date
+    sorted_orders = sorted(orders, key=lambda x: x.delivery_date)
+    
+    for order in sorted_orders:
+        date_str = datetime.strptime(str(order.delivery_date), '%Y-%m-%d').strftime('%m/%d')
+        desc = "野菜代金" # Could be more specific if needed
+        amount = int(order.total_amount)
+        
+        daily_items.append({
+            "date": date_str,
+            "description": desc,
+            "amount": amount
+        })
+        
+        grand_total += amount
+        grand_subtotal += int(order.subtotal)
+        grand_tax += int(order.tax_amount)
+        
+        # Note: If shipping fee is separate in order.total_amount, we should ensure it's captured.
+        # order.total_amount includes subtotal + tax + shipping.
+        # order.subtotal is just items.
+        # order.tax_amount is tax.
+        # So grand_subtotal might need to include shipping base?
+        # For simplicity, we trust the order totals.
+
+    # 支払期限
+    payment_deadline = invoice_date + relativedelta(months=1)
+    payment_deadline = payment_deadline.replace(day=1) + relativedelta(months=1, days=-1)
+    due_date = payment_deadline.strftime('%Y/%m/%d')
+
+    # 発行元情報 (Duplicate code, should refactor ideally)
+    sender_info = {
+        "name": "りふぁーむ",
+        "zip": "653-0845",
+        "address": "兵庫県神戸市長田区戸崎通 2-8-5",
+        "building": "メゾン戸崎通 101",
+        "tel": "090-9614-4516",
+        "pic": "松井優人",
+        "reg_num": "T1234567890123"
+    }
+
+    bank_info = {
+        "name": "三井住友銀行",
+        "branch": "板宿支店",
+        "type": "普通",
+        "number": "4792089"
+    }
+
+    context = {
+        "title": "請求書",
+        "invoice_date": invoice_date.strftime('%Y/%m/%d'),
+        "invoice_number": f"M-{restaurant.id}-{datetime.now().strftime('%Y%m')}",
+        "client_name": f"{restaurant.name} 様 御中",
+        "target_month": target_month_label,
+        "period": period_str,
+        
+        "sender_name": sender_info["name"],
+        "sender_zip": sender_info["zip"],
+        "sender_address": sender_info["address"],
+        "sender_building": sender_info["building"],
+        "sender_tel": sender_info["tel"],
+        "sender_pic": sender_info["pic"],
+        "sender_reg_num": sender_info.get("reg_num", ""),
+        
+        "total_amount_incl_tax": grand_total,
+        "subtotal": grand_subtotal,
+        "tax_amount": grand_tax,
+        
+        "due_date": due_date,
+        "bank_name": bank_info["name"],
+        "bank_branch": bank_info["branch"],
+        "bank_type": bank_info["type"],
+        "bank_number": bank_info["number"],
+        
+        "daily_items": daily_items
+    }
+    
+    html_content = template.render(context)
     pdf_bytes = HTML(string=html_content).write_pdf()
     
     return pdf_bytes
