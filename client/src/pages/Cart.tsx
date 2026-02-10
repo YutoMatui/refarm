@@ -5,9 +5,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { orderApi } from '@/services/api'
+import { orderApi, settingsApi, farmerApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
-import { settingsApi } from '@/services/api'
 import { DeliveryTimeSlot, type OrderCreateRequest, DeliverySchedule } from '@/types'
 import { Trash2, ShoppingCart, Calendar, MapPin, ChevronLeft } from 'lucide-react'
 import { format, addDays } from 'date-fns'
@@ -119,7 +118,7 @@ export default function Cart() {
     },
   })
 
-  const handleSubmitOrder = () => {
+  const handleSubmitOrder = async () => {
     if (!restaurant) {
       alert('飲食店情報が見つかりません')
       return
@@ -129,6 +128,26 @@ export default function Cart() {
       alert('配送日と時間帯を選択してください')
       return
     }
+
+    // --- Validation: Check Farmer Availability ---
+    const uniqueFarmerIds = Array.from(new Set(cart.map(item => item.product.farmer_id).filter(id => id !== undefined))) as number[];
+    
+    // Check all involved farmers
+    for (const farmerId of uniqueFarmerIds) {
+        try {
+            const res = await farmerApi.checkAvailability(farmerId, deliveryDate);
+            if (!res.data.is_available) {
+                // Find farmer name from cart
+                const product = cart.find(item => item.product.farmer_id === farmerId)?.product;
+                const farmerName = product?.farmer?.name || "農家";
+                alert(`申し訳ありません。\n「${farmerName}」さんは、指定された日（${deliveryDate}）の出荷に対応していません。\n\n日付を変更するか、該当農家の商品を削除してください。`);
+                return; // Block submission
+            }
+        } catch (e) {
+            console.error("Availability check failed", e);
+        }
+    }
+    // ---------------------------------------------
 
     // Ensure date is ISO format with timezone
     const isoDate = new Date(deliveryDate).toISOString()

@@ -68,6 +68,7 @@ export default function RestaurantManagement() {
         setValue('invoice_email', restaurant.invoice_email)
         setValue('business_hours', restaurant.business_hours)
         setValue('notes', restaurant.notes)
+        setValue('shipping_fee', restaurant.shipping_fee)
         setIsModalOpen(true)
     }
 
@@ -260,9 +261,15 @@ export default function RestaurantManagement() {
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">住所</label>
-                                <input {...register('address', { required: true })} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">住所</label>
+                                    <input {...register('address', { required: true })} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">配送料 (税込)</label>
+                                    <input {...register('shipping_fee', { valueAsNumber: true })} type="number" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" placeholder="800" />
+                                </div>
                             </div>
 
                             <div>

@@ -214,6 +214,12 @@ class Farmer(Base, TimestampMixin, SoftDeleteMixin):
         cascade="all, delete-orphan"
     )
     
+    schedules = relationship(
+        "FarmerSchedule",
+        back_populates="farmer",
+        cascade="all, delete-orphan"
+    )
+    
     __table_args__ = (
         {'comment': '生産者テーブル'}
     )

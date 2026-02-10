@@ -16,6 +16,7 @@ import type {
   FavoriteToggleRequest,
   FavoriteToggleResponse,
   FarmerAggregation,
+  FarmerSchedule,
   RegisterRequest,
   RouteResponse,
   FullRouteResponse,
@@ -171,6 +172,9 @@ export const farmerApi = {
 
   unlinkLine: (id: number) =>
     apiClient.post<{ message: string; success: boolean }>(`/farmers/${id}/unlink_line`),
+
+  checkAvailability: (id: number, date: string) =>
+    apiClient.get<{ is_available: boolean; reason: string }>(`/farmers/${id}/availability`, { params: { date } }),
 }
 
 // Product API
@@ -341,6 +345,20 @@ export const producerApi = {
 
   sendPaymentNoticeLine: (farmerId: number | undefined, month: string) =>
     apiClient.post<{ message: string; success: boolean }>(`/producer/dashboard/sales/invoice/send_line?month=${month}${farmerId ? `&farmer_id=${farmerId}` : ''}`),
+
+  getScheduleSettings: (start: string, end: string, farmerId?: number) =>
+    apiClient.get<FarmerSchedule[]>('/producer/schedule/settings', {
+      params: { start_date: start, end_date: end, farmer_id: farmerId }
+    }),
+
+  updateScheduleSetting: (date: string, isAvailable: boolean, notes?: string, farmerId?: number) =>
+    apiClient.post<FarmerSchedule>('/producer/schedule/settings', {
+      date,
+      is_available: isAvailable,
+      notes,
+    }, {
+      params: { farmer_id: farmerId }
+    }),
 }
 
 // Upload API
@@ -395,6 +413,12 @@ export const settingsApi = {
 
   updateDeliverySettings: (data: DeliverySettings) =>
     apiClient.post<DeliverySettings>('/settings/delivery', data),
+
+  getGeneralSettings: () =>
+    apiClient.get<{ default_price_multiplier: number }>('/settings/general'),
+
+  updateGeneralSettings: (data: { default_price_multiplier: number }) =>
+    apiClient.post('/settings/general', data),
 }
 
 // Logistics API

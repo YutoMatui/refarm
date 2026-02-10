@@ -80,6 +80,7 @@ export interface Restaurant extends TimestampFields {
   cuisine_type?: string
   kodawari?: string
   closing_date?: number
+  shipping_fee?: number
 }
 
 // Consumer (B2C)
@@ -486,4 +487,14 @@ export interface VisitLog {
   scroll_depth?: number;
   interaction_count: number;
   interactions: InteractionLog[];
+}
+
+export interface FarmerSchedule {
+  id: number
+  farmer_id: number
+  date: string
+  is_available: boolean
+  notes?: string
+  created_at: string
+  updated_at?: string
 }
