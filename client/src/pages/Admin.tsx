@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, ShoppingBag, Truck, ClipboardList, Store, Map, ShieldAlert, MessageCircle, UserCircle, Calendar } from 'lucide-react'
+import { Users, ShoppingBag, Truck, ClipboardList, Store, Map, ShieldAlert, MessageCircle, UserCircle, Calendar, Settings } from 'lucide-react'
 import FarmerManagement from '@/components/Admin/FarmerManagement'
 import ProductManagement from '@/components/Admin/ProductManagement'
 import DeliveryManagement from '@/components/Admin/DeliveryManagement'
@@ -11,10 +11,11 @@ import DeliveryScheduleManagement from '@/components/Admin/DeliveryScheduleManag
 import ConsumerDeliverySlotManagement from '@/components/Admin/ConsumerDeliverySlotManagement'
 import GuestManagement from '@/components/Admin/GuestManagement'
 import ConsumerManagement from '@/components/Admin/ConsumerManagement'
+import SystemSettings from '@/components/Admin/SystemSettings'
 import { adminApi } from '@/services/api'
 
 export default function Admin() {
-    const [activeTab, setActiveTab] = useState<'farmers' | 'products' | 'delivery' | 'procurement' | 'restaurants' | 'route' | 'admin_users' | 'delivery_schedule' | 'consumer_delivery' | 'guest' | 'consumers'>('farmers')
+    const [activeTab, setActiveTab] = useState<'farmers' | 'products' | 'delivery' | 'procurement' | 'restaurants' | 'route' | 'admin_users' | 'delivery_schedule' | 'consumer_delivery' | 'guest' | 'consumers' | 'settings'>('farmers')
     const [userRole, setUserRole] = useState<string>('editor')
 
     useEffect(() => {
@@ -35,6 +36,7 @@ export default function Admin() {
         { id: 'procurement', label: '仕入れ集計', icon: ClipboardList },
         { id: 'route', label: 'ルート最適化', icon: Map },
         { id: 'guest', label: 'ゲスト機能管理', icon: MessageCircle },
+        { id: 'settings', label: 'システム設定', icon: Settings },
     ] as const
 
     // Add Admin User Management tab only for super_admin
@@ -92,6 +94,7 @@ export default function Admin() {
                         {activeTab === 'route' && <RoutePlanning />}
                         {activeTab === 'admin_users' && <AdminUserManagement />}
                         {activeTab === 'guest' && <GuestManagement />}
+                        {activeTab === 'settings' && <SystemSettings />}
                     </div>
                 </div>
             </main>

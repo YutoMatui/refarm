@@ -30,6 +30,13 @@ from app.schemas import (
     ProductResponse,
     ProductListResponse,
 )
+from app.models.farmer_schedule import FarmerSchedule
+from app.schemas.farmer_schedule import (
+    FarmerScheduleCreate,
+    FarmerScheduleUpdate,
+    FarmerScheduleResponse,
+    FarmerScheduleListResponse
+)
 
 from app.core.dependencies import get_line_user_id
 
@@ -730,3 +737,90 @@ async def generate_farmer_invite(farmer_id: int, db: AsyncSession = Depends(get_
         "access_code": new_code,
         "expires_at": farmer.invite_expires_at
     }
+
+
+@router.get("/schedule/settings", response_model=list[FarmerScheduleResponse])
+async def get_schedule_settings(
+    start_date: str = Query(..., description="開始日 (YYYY-MM-DD)"),
+    end_date: str = Query(..., description="終了日 (YYYY-MM-DD)"),
+    farmer_id: int = Query(None, description="生産者ID (省略可)"),
+    line_user_id: str = Depends(get_line_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    指定期間の出荷可能スケジュール設定を取得
+    """
+    if farmer_id:
+        stmt = select(Farmer).where(Farmer.id == farmer_id)
+        result = await db.execute(stmt)
+        farmer = result.scalar_one_or_none()
+        if not farmer:
+            raise HTTPException(status_code=404, detail="生産者が見つかりません")
+        if farmer.line_user_id != line_user_id:
+            raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+    else:
+        farmer = await get_current_farmer(line_user_id, db)
+        farmer_id = farmer.id
+
+    try:
+        start = datetime.strptime(start_date, "%Y-%m-%d").date()
+        end = datetime.strptime(end_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    stmt = select(FarmerSchedule).where(
+        FarmerSchedule.farmer_id == farmer_id,
+        FarmerSchedule.date >= start,
+        FarmerSchedule.date <= end
+    )
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+
+@router.post("/schedule/settings", response_model=FarmerScheduleResponse)
+async def update_schedule_setting(
+    schedule_data: FarmerScheduleCreate,
+    farmer_id: int = Query(None, description="生産者ID (省略可)"),
+    line_user_id: str = Depends(get_line_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    特定の日付の出荷可能設定を登録・更新
+    """
+    if farmer_id:
+        stmt = select(Farmer).where(Farmer.id == farmer_id)
+        result = await db.execute(stmt)
+        farmer = result.scalar_one_or_none()
+        if not farmer:
+            raise HTTPException(status_code=404, detail="生産者が見つかりません")
+        if farmer.line_user_id != line_user_id:
+            raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+    else:
+        farmer = await get_current_farmer(line_user_id, db)
+        farmer_id = farmer.id
+
+    # Check if exists
+    stmt = select(FarmerSchedule).where(
+        FarmerSchedule.farmer_id == farmer_id,
+        FarmerSchedule.date == schedule_data.date
+    )
+    result = await db.execute(stmt)
+    existing_schedule = result.scalar_one_or_none()
+
+    if existing_schedule:
+        existing_schedule.is_available = schedule_data.is_available
+        existing_schedule.notes = schedule_data.notes
+        await db.commit()
+        await db.refresh(existing_schedule)
+        return existing_schedule
+    else:
+        new_schedule = FarmerSchedule(
+            farmer_id=farmer_id,
+            date=schedule_data.date,
+            is_available=schedule_data.is_available,
+            notes=schedule_data.notes
+        )
+        db.add(new_schedule)
+        await db.commit()
+        await db.refresh(new_schedule)
+        return new_schedule

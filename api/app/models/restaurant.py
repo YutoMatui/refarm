@@ -127,6 +127,13 @@ class Restaurant(Base, TimestampMixin, SoftDeleteMixin):
         nullable=True,
         comment="締め日 (1-28, 99=末日)"
     )
+
+    shipping_fee = Column(
+        Integer,
+        nullable=False,
+        default=800,
+        comment="配送料 (税込)"
+    )
     
     # Invitation System
     invite_token = Column(String(64), nullable=True, index=True)

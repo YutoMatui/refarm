@@ -189,3 +189,60 @@ async def generate_farmer_invite(farmer_id: int, db: AsyncSession = Depends(get_
         "access_code": new_code,
         "expires_at": farmer.invite_expires_at
     }
+
+
+@router.get("/{farmer_id}/availability", response_model=dict)
+async def check_farmer_availability(
+    farmer_id: int, 
+    date: str = Query(..., description="日付 (YYYY-MM-DD)"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    指定日の農家の出荷可否を確認
+    """
+    try:
+        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+
+    stmt = select(Farmer).where(Farmer.id == farmer_id, Farmer.deleted_at.is_(None))
+    result = await db.execute(stmt)
+    farmer = result.scalar_one_or_none()
+    
+    if not farmer:
+        raise HTTPException(status_code=404, detail="生産者が見つかりません")
+
+    # 1. Check specific schedule
+    from app.models.farmer_schedule import FarmerSchedule
+    import json
+    
+    stmt_sched = select(FarmerSchedule).where(
+        FarmerSchedule.farmer_id == farmer_id,
+        FarmerSchedule.date == target_date
+    )
+    result_sched = await db.execute(stmt_sched)
+    schedule = result_sched.scalar_one_or_none()
+    
+    if schedule:
+        return {
+            "is_available": schedule.is_available,
+            "reason": schedule.notes or ("出荷可能日設定" if schedule.is_available else "休業日設定")
+        }
+    
+    # 2. Check weekly schedule
+    is_available = False
+    if farmer.selectable_days:
+        try:
+            allowed_days = json.loads(farmer.selectable_days)
+            if isinstance(allowed_days, list):
+                # 0=Sunday, 1=Monday... matches strftime('%w')
+                day_idx = int(target_date.strftime('%w'))
+                is_available = day_idx in allowed_days
+        except:
+            is_available = False
+    
+    return {
+        "is_available": is_available,
+        "reason": "曜日設定"
+    }
+

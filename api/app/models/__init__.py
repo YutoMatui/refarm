@@ -23,6 +23,7 @@ from app.models.delivery_slot import DeliverySlot
 from app.models.support_message import SupportMessage
 from app.models.guest import GuestVisit, GuestInteraction
 from app.models.analytics import FarmerFollow
+from app.models.farmer_schedule import FarmerSchedule
 
 __all__ = [
     # Enums
@@ -49,4 +50,5 @@ __all__ = [
     "GuestVisit",
     "GuestInteraction",
     "FarmerFollow",
+    "FarmerSchedule",
 ]

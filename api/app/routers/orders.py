@@ -14,7 +14,7 @@ from app.core.database import get_db
 from app.core.cloudinary import upload_file
 from app.services.invoice import generate_invoice_pdf
 from app.services.line_notify import line_service
-from app.models import Order, OrderItem, Product, Farmer, ConsumerOrder, ConsumerOrderItem, DeliverySlot
+from app.models import Order, OrderItem, Product, Farmer, ConsumerOrder, ConsumerOrderItem, DeliverySlot, Restaurant
 from app.models.enums import OrderStatus
 from app.schemas import (
     OrderCreate,
@@ -92,8 +92,17 @@ async def create_order(
         subtotal += item_subtotal
         tax_amount += item_tax
     
-    # Add shipping fee (税込 800円)
-    shipping_fee = Decimal(800)
+    # Add shipping fee
+    # Fetch restaurant to get custom shipping fee
+    stmt_rest = select(Restaurant).where(Restaurant.id == order_data.restaurant_id)
+    result_rest = await db.execute(stmt_rest)
+    restaurant = result_rest.scalar_one_or_none()
+    
+    if restaurant and restaurant.shipping_fee is not None:
+        shipping_fee = Decimal(restaurant.shipping_fee)
+    else:
+        shipping_fee = Decimal(800)
+        
     db_order.shipping_fee = shipping_fee
     
     # Update order totals
