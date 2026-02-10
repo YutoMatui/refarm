@@ -28,6 +28,9 @@ export default function ProducerSchedule() {
     const [selectableDays, setSelectableDays] = useState<number[]>([]);
     const [isUpdating, setIsUpdating] = useState(false);
     const [showWeeklySettings, setShowWeeklySettings] = useState(false);
+    
+    // Order Indicators (Lightweight)
+    const [orderDates, setOrderDates] = useState<string[]>([]);
 
     // Fetch Farmer Profile
     useEffect(() => {
@@ -56,8 +59,12 @@ export default function ProducerSchedule() {
     useEffect(() => {
         const fetchMonthly = async () => {
             try {
-                // Removed getSales call (orange dots removed) for performance
+                const monthStr = format(currentDate, 'yyyy-MM');
                 
+                // Fetch Calendar Events (Lightweight order indicators)
+                const eventsRes = await producerApi.getCalendarEvents(undefined, monthStr);
+                setOrderDates(eventsRes.data.order_dates || []);
+
                 // Fetch Schedule Settings
                 const start = format(startOfMonth(currentDate), 'yyyy-MM-dd');
                 const end = format(endOfMonth(currentDate), 'yyyy-MM-dd');
@@ -238,8 +245,10 @@ export default function ProducerSchedule() {
                             {emptyStartDays.map((_, i) => <div key={`empty-${i}`} />)}
 
                             {daysInMonth.map((day) => {
+                                const dateStr = format(day, 'yyyy-MM-dd');
                                 const isSelected = isSameDay(day, selectedDate);
                                 const available = isDateAvailable(day);
+                                const hasOrder = orderDates.includes(dateStr);
 
                                 return (
                                     <div
@@ -269,6 +278,14 @@ export default function ProducerSchedule() {
                                                     : <span className="text-gray-300 text-xs font-bold border border-gray-300 rounded-full w-5 h-5 flex items-center justify-center bg-gray-50">×</span>
                                                 }
                                             </button>
+                                        </div>
+                                        
+                                        <div className="flex-1 w-full flex flex-col items-center justify-end pb-1 space-y-1">
+                                            {hasOrder && (
+                                                <span className="bg-orange-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold shadow-sm border border-white">
+                                                    販売
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 );
