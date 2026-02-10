@@ -231,15 +231,23 @@ async def check_farmer_availability(
     
     # 2. Check weekly schedule
     is_available = False
+    weekly_setting_exists = False
+    
     if farmer.selectable_days:
         try:
             allowed_days = json.loads(farmer.selectable_days)
             if isinstance(allowed_days, list):
+                weekly_setting_exists = True
                 # 0=Sunday, 1=Monday... matches strftime('%w')
                 day_idx = int(target_date.strftime('%w'))
                 is_available = day_idx in allowed_days
         except:
-            is_available = False
+            pass
+            
+    # Default fallback if no settings at all: Wednesday (3) is available
+    if not weekly_setting_exists:
+        day_idx = int(target_date.strftime('%w'))
+        is_available = (day_idx == 3)
     
     return {
         "is_available": is_available,

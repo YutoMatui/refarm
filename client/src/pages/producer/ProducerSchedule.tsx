@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Package, Truck, Calendar as CalendarIcon, Loader2, CheckCircle2, Settings } from 'lucide-react';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, getDay } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDay } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { producerApi } from '../../services/api';
 import { FarmerSchedule } from '@/types';
@@ -22,9 +22,6 @@ export default function ProducerSchedule() {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [items, setItems] = useState<ScheduleItem[]>([]);
     const [loading, setLoading] = useState(false);
-
-    // Monthly sales data (used for calendar dots)
-    const [monthlyData, setMonthlyData] = useState<{ day: number, amount: number }[]>([]);
     
     // Availability Settings
     const [scheduleSettings, setScheduleSettings] = useState<FarmerSchedule[]>([]);
@@ -40,11 +37,13 @@ export default function ProducerSchedule() {
                 if (res.data.selectable_days) {
                     try {
                         const days = JSON.parse(res.data.selectable_days);
-                        setSelectableDays(Array.isArray(days) ? days : []);
+                        setSelectableDays(Array.isArray(days) ? days : [3]); // Default to Wed if array issue
                     } catch (e) {
                         console.error("Failed to parse selectable_days", e);
-                        setSelectableDays([]);
+                        setSelectableDays([3]); // Default to Wednesday
                     }
+                } else {
+                    setSelectableDays([3]); // Default to Wednesday if null
                 }
             } catch (e) {
                 console.error("Failed to fetch profile", e);
@@ -53,16 +52,12 @@ export default function ProducerSchedule() {
         fetchProfile();
     }, []);
 
-    // Fetch monthly data for indicators
+    // Fetch monthly data
     useEffect(() => {
         const fetchMonthly = async () => {
             try {
-                const monthStr = format(currentDate, 'yyyy-MM');
+                // Removed getSales call (orange dots removed) for performance
                 
-                // Fetch Sales
-                const salesRes = await producerApi.getSales(undefined, monthStr);
-                setMonthlyData(salesRes.data.dailySales || []);
-
                 // Fetch Schedule Settings
                 const start = format(startOfMonth(currentDate), 'yyyy-MM-dd');
                 const end = format(endOfMonth(currentDate), 'yyyy-MM-dd');
@@ -172,16 +167,18 @@ export default function ProducerSchedule() {
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold flex items-center">
+                <h2 className="text-xl font-bold flex items-center whitespace-nowrap">
                     <CalendarIcon className="mr-2" />
-                    出荷・準備スケジュール
+                    出荷・準備<br className="md:hidden" />スケジュール
                 </h2>
                 <button
                     onClick={() => setShowWeeklySettings(!showWeeklySettings)}
-                    className="flex items-center text-sm bg-white border border-gray-300 px-3 py-2 rounded-lg hover:bg-gray-50 text-gray-700 font-medium shadow-sm transition-colors"
+                    className="flex items-center text-sm bg-white border border-gray-300 px-3 py-2 rounded-lg hover:bg-gray-50 text-gray-700 font-medium shadow-sm transition-colors whitespace-nowrap"
                 >
                     <Settings size={16} className="mr-2" />
-                    {showWeeklySettings ? 'カレンダーに戻る' : '曜日設定'}
+                    {showWeeklySettings ? (
+                        <>カレンダーに<br className="md:hidden" />戻る</>
+                    ) : '曜日設定'}
                 </button>
             </div>
 
@@ -189,8 +186,8 @@ export default function ProducerSchedule() {
                 <div className="bg-white rounded-xl shadow p-6">
                     <h3 className="font-bold text-lg mb-4">毎週の出荷可能日設定</h3>
                     <p className="text-gray-500 text-sm mb-6">
-                        定期的に出荷を受け付ける曜日を選択してください。
-                        個別の休業日や臨時出荷日はカレンダーから設定できます。
+                        定期的に出荷を受け付ける曜日を選択してください。<br />
+                        初期設定では水曜日が受け入れ可能になっています。
                     </p>
                     <div className="flex flex-wrap gap-4">
                         {weekDays.map((day, i) => {
@@ -244,9 +241,6 @@ export default function ProducerSchedule() {
                                 const isSelected = isSameDay(day, selectedDate);
                                 const available = isDateAvailable(day);
 
-                                // Check if this day has orders
-                                const hasOrder = monthlyData.some((d: { day: number, amount: number }) => d.day === day.getDate() && d.amount > 0 && isSameMonth(day, currentDate));
-
                                 return (
                                     <div
                                         key={day.toString()}
@@ -275,15 +269,6 @@ export default function ProducerSchedule() {
                                                     : <span className="text-gray-300 text-xs font-bold border border-gray-300 rounded-full w-5 h-5 flex items-center justify-center bg-gray-50">×</span>
                                                 }
                                             </button>
-                                        </div>
-                                        
-                                        <div className="flex-1 w-full flex flex-col items-center justify-end pb-1 space-y-1">
-                                            {hasOrder && (
-                                                <div className="flex items-center text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500 mr-1" />
-                                                    注文
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
                                 );
