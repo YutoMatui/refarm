@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Package, Truck, Calendar as CalendarIcon, Loader2, CheckCircle2, XCircle, Settings } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Package, Truck, Calendar as CalendarIcon, Loader2, CheckCircle2, Settings } from 'lucide-react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, getDay } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { producerApi } from '../../services/api';
-import { FarmerSchedule, Farmer } from '@/types';
+import { FarmerSchedule } from '@/types';
 
 // Data type
 type ScheduleItem = {
@@ -28,7 +28,6 @@ export default function ProducerSchedule() {
     
     // Availability Settings
     const [scheduleSettings, setScheduleSettings] = useState<FarmerSchedule[]>([]);
-    const [farmerProfile, setFarmerProfile] = useState<Farmer | null>(null);
     const [selectableDays, setSelectableDays] = useState<number[]>([]);
     const [isUpdating, setIsUpdating] = useState(false);
     const [showWeeklySettings, setShowWeeklySettings] = useState(false);
@@ -38,7 +37,6 @@ export default function ProducerSchedule() {
         const fetchProfile = async () => {
             try {
                 const res = await producerApi.getProfile();
-                setFarmerProfile(res.data);
                 if (res.data.selectable_days) {
                     try {
                         const days = JSON.parse(res.data.selectable_days);
@@ -244,7 +242,6 @@ export default function ProducerSchedule() {
 
                             {daysInMonth.map((day) => {
                                 const isSelected = isSameDay(day, selectedDate);
-                                const isToday = isSameDay(day, new Date());
                                 const available = isDateAvailable(day);
 
                                 // Check if this day has orders
