@@ -130,22 +130,32 @@ export default function Cart() {
     }
 
     // --- Validation: Check Farmer Availability ---
-    const uniqueFarmerIds = Array.from(new Set(cart.map(item => item.product.farmer_id).filter(id => id !== undefined))) as number[];
-    
-    // Check all involved farmers
-    for (const farmerId of uniqueFarmerIds) {
+    const uniqueFarmerIds = Array.from(new Set(
+      cart
+        .map(item => item.product.farmer_id)
+        .filter(id => id !== undefined && id !== null && id !== 0)
+    )) as number[];
+
+    if (uniqueFarmerIds.length > 0) {
+      for (const farmerId of uniqueFarmerIds) {
         try {
-            const res = await farmerApi.checkAvailability(farmerId, deliveryDate);
-            if (!res.data.is_available) {
-                // Find farmer name from cart
-                const product = cart.find(item => item.product.farmer_id === farmerId)?.product;
-                const farmerName = product?.farmer?.name || "農家";
-                alert(`申し訳ありません。\n「${farmerName}」さんは、指定された日（${deliveryDate}）の出荷に対応していません。\n\n日付を変更するか、該当農家の商品を削除してください。`);
-                return; // Block submission
-            }
-        } catch (e) {
-            console.error("Availability check failed", e);
+          const res = await farmerApi.checkAvailability(farmerId, deliveryDate);
+          if (!res.data.is_available) {
+            // Find farmer name from cart
+            const product = cart.find(item => item.product.farmer_id === farmerId)?.product;
+            const farmerName = product?.farmer?.name || "農家";
+            const reason = res.data.reason || "出荷不可";
+            alert(`申し訳ありません。\n「${farmerName}」さんは、指定された日（${deliveryDate}）の出荷に対応していません。\n理由: ${reason}\n\n日付を変更するか、該当農家の商品を削除してください。`);
+            return; // Block submission
+          }
+        } catch (e: any) {
+          console.error("Availability check failed", e);
+          const product = cart.find(item => item.product.farmer_id === farmerId)?.product;
+          const farmerName = product?.farmer?.name || "農家";
+          alert(`「${farmerName}」さんの出荷状況を確認できませんでした。\n配送日を読み込み直すか、時間をおいて再度お試しください。`);
+          return; // Block submission on error for safety
         }
+      }
     }
     // ---------------------------------------------
 
@@ -341,17 +351,23 @@ export default function Cart() {
               <span>消費税</span>
               <span>¥{taxAmount.toLocaleString()}</span>
             </div>
+            {restaurant?.shipping_fee ? (
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>配送料</span>
+                <span>¥{restaurant.shipping_fee.toLocaleString()}</span>
+              </div>
+            ) : null}
             <div className="border-t pt-3 flex justify-between items-baseline">
               <span className="font-bold text-gray-900">合計 (税込)</span>
               <span className="text-2xl font-bold text-blue-600">
-                ¥{totalWithTax.toLocaleString()}
+                ¥{(totalWithTax + (restaurant?.shipping_fee || 0)).toLocaleString()}
               </span>
             </div>
           </div>
 
           <button
             onClick={handleSubmitOrder}
-            disabled={!deliveryDate || !deliveryTimeSlot || createOrderMutation.isPending}
+            disabled={!deliveryDate || !deliveryTimeSlot || createOrderMutation.isPending || (totalWithTax + (restaurant?.shipping_fee || 0)) === 0}
             className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-200 active:scale-[0.98] transition-all disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed"
           >
             {createOrderMutation.isPending ? '注文を送信中...' : '注文を確定する'}

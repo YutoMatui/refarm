@@ -1,9 +1,9 @@
 """
 Farmer API Router - 生産者管理
 """
-from fastapi import APIRouter,Depends, HTTPException, status, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, extract, desc, and_, or_
+from sqlalchemy import select, func, extract, desc
 from sqlalchemy.orm import selectinload
 import io
 import secrets
@@ -173,6 +173,57 @@ async def send_payment_notice_line(
     return ResponseMessage(message="支払通知書をLINEに送信しました", success=True)
 
 
+@router.get("/dashboard/calendar-events")
+async def get_producer_calendar_events(
+    farmer_id: int = Query(None, description="生産者ID (省略可)"),
+    month: str = Query(..., description="対象月 (YYYY-MM)"),
+    line_user_id: str = Depends(get_line_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    カレンダー表示用：注文がある日付のリストを取得
+    """
+    if farmer_id:
+        stmt = select(Farmer).where(Farmer.id == farmer_id)
+        result = await db.execute(stmt)
+        farmer = result.scalar_one_or_none()
+        if not farmer:
+            raise HTTPException(status_code=404, detail="生産者が見つかりません")
+        if farmer.line_user_id != line_user_id:
+            raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
+    else:
+        farmer = await get_current_farmer(line_user_id, db)
+        farmer_id = farmer.id
+
+    try:
+        target_month = datetime.strptime(month, "%Y-%m")
+        # Start and end of month
+        start_date = target_month.replace(day=1)
+        _, last_day = calendar.monthrange(start_date.year, start_date.month)
+        end_date = start_date.replace(day=last_day, hour=23, minute=59, second=59)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
+
+    # Lightweight query: just get distinct delivery dates
+    query = (
+        select(func.date(Order.delivery_date).label("date"))
+        .join(OrderItem.order)
+        .join(OrderItem.product)
+        .where(
+            Product.farmer_id == farmer_id,
+            Order.delivery_date >= start_date,
+            Order.delivery_date <= end_date,
+            Order.status != OrderStatus.CANCELLED
+        )
+        .group_by(func.date(Order.delivery_date))
+    )
+    
+    result = await db.execute(query)
+    dates = [row.date.strftime('%Y-%m-%d') for row in result.all()]
+    
+    return {"order_dates": dates}
+
+
 @router.get("/dashboard/schedule")
 async def get_producer_schedule(
     farmer_id: int = Query(None, description="生産者ID (省略可)"),
@@ -217,7 +268,7 @@ async def get_producer_schedule(
             Product.farmer_id == farmer_id,
             func.date(Order.delivery_date) == target_date,
             Order.status != OrderStatus.CANCELLED,
-            Order.status != OrderStatus.DELIVERED  # 完了したものは表示しない？一旦表示する方針で
+            Order.status != OrderStatus.DELIVERED
         )
         .group_by(Product.id, Product.name, Product.unit)
     )
@@ -527,7 +578,6 @@ async def update_producer_product(
     return result.scalar_one()
 
 
-
 @router.get("/profile", response_model=FarmerResponse)
 async def get_producer_profile(
     farmer_id: int = Query(None, description="生産者ID (省略可)"),
@@ -601,142 +651,6 @@ async def unlink_farmer_line(
     
     await db.commit()
     return {"message": "LINE連携を解除しました", "success": True}
-
-
-@router.post("/", response_model=FarmerResponse, status_code=status.HTTP_201_CREATED)
-async def create_farmer(farmer_data: FarmerCreate, db: AsyncSession = Depends(get_db)):
-    """生産者を新規登録"""
-    # Auto-geocode if address is provided
-    if farmer_data.address:
-        coords = await route_service.get_coordinates(farmer_data.address)
-        if coords:
-            farmer_data.latitude = str(coords["lat"])
-            farmer_data.longitude = str(coords["lng"])
-            
-    db_farmer = Farmer(**farmer_data.model_dump())
-    db.add(db_farmer)
-    await db.commit()
-    await db.refresh(db_farmer)
-    return db_farmer
-
-
-@router.get("/", response_model=FarmerListResponse)
-async def list_farmers(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
-    is_active: int = Query(None),
-    db: AsyncSession = Depends(get_db)
-):
-    """生産者一覧を取得"""
-    query = select(Farmer).where(Farmer.deleted_at.is_(None))
-    if is_active is not None:
-        query = query.where(Farmer.is_active == is_active)
-    
-    count_query = select(func.count()).select_from(query.subquery())
-    total = await db.scalar(count_query)
-    
-    query = query.offset(skip).limit(limit)
-    result = await db.execute(query)
-    farmers = result.scalars().all()
-    
-    return FarmerListResponse(items=farmers, total=total or 0, skip=skip, limit=limit)
-
-
-@router.get("/{farmer_id}", response_model=FarmerResponse)
-async def get_farmer(farmer_id: int, db: AsyncSession = Depends(get_db)):
-    """生産者詳細を取得"""
-    stmt = select(Farmer).where(Farmer.id == farmer_id, Farmer.deleted_at.is_(None))
-    result = await db.execute(stmt)
-    farmer = result.scalar_one_or_none()
-    
-    if not farmer:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
-    
-    return farmer
-
-
-@router.put("/{farmer_id}", response_model=FarmerResponse)
-async def update_farmer(
-    farmer_id: int,
-    farmer_data: FarmerUpdate,
-    db: AsyncSession = Depends(get_db)
-):
-    """生産者情報を更新"""
-    stmt = select(Farmer).where(Farmer.id == farmer_id, Farmer.deleted_at.is_(None))
-    result = await db.execute(stmt)
-    farmer = result.scalar_one_or_none()
-    
-    if not farmer:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
-    
-    # Auto-geocode if address is changing
-    if farmer_data.address is not None and farmer_data.address != farmer.address:
-         coords = await route_service.get_coordinates(farmer_data.address)
-         if coords:
-            farmer_data.latitude = str(coords["lat"])
-            farmer_data.longitude = str(coords["lng"])
-            
-    update_data = farmer_data.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(farmer, field, value)
-    
-    await db.commit()
-    await db.refresh(farmer)
-    return farmer
-
-
-@router.delete("/{farmer_id}", response_model=ResponseMessage)
-async def delete_farmer(farmer_id: int, db: AsyncSession = Depends(get_db)):
-    """生産者を削除（ソフトデリート）"""
-    from datetime import datetime
-    
-    stmt = select(Farmer).where(Farmer.id == farmer_id, Farmer.deleted_at.is_(None))
-    result = await db.execute(stmt)
-    farmer = result.scalar_one_or_none()
-    
-    if not farmer:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
-    
-    farmer.deleted_at = datetime.now()
-    await db.commit()
-    
-    return ResponseMessage(message="生産者を削除しました", success=True)
-
-
-@router.post("/{farmer_id}/generate_invite", summary="招待URL生成")
-async def generate_farmer_invite(farmer_id: int, db: AsyncSession = Depends(get_db)):
-    """
-    農家向けの招待URLと認証コードを生成します。
-    """
-    stmt = select(Farmer).where(Farmer.id == farmer_id, Farmer.deleted_at.is_(None))
-    result = await db.execute(stmt)
-    farmer = result.scalar_one_or_none()
-    
-    if not farmer:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
-    
-    # 1. Generate secure token and easy code
-    new_token = secrets.token_urlsafe(32)
-    new_code = str(secrets.randbelow(10000)).zfill(4)
-    
-    # 2. Update DB
-    farmer.invite_token = new_token
-    farmer.invite_code = new_code
-    farmer.invite_expires_at = datetime.now() + timedelta(days=7)
-    
-    await db.commit()
-    
-    # 3. Return info
-    # Get LIFF ID from env or use default (Farmer specific)
-    liff_id = os.environ.get("FARMER_LIFF_ID", "2008674356-P5YFllFd") 
-    liff_base_url = f"https://liff.line.me/{liff_id}"
-    
-    # Add type=farmer param so frontend knows which LIFF ID to use
-    return {
-        "invite_url": f"{liff_base_url}?token={new_token}&type=farmer",
-        "access_code": new_code,
-        "expires_at": farmer.invite_expires_at
-    }
 
 
 @router.get("/schedule/settings", response_model=list[FarmerScheduleResponse])

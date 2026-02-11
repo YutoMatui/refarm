@@ -22,7 +22,7 @@ export default function ProducerSchedule() {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [items, setItems] = useState<ScheduleItem[]>([]);
     const [loading, setLoading] = useState(false);
-    
+
     // Availability Settings
     const [scheduleSettings, setScheduleSettings] = useState<FarmerSchedule[]>([]);
     const [selectableDays, setSelectableDays] = useState<number[]>([]);
@@ -57,7 +57,7 @@ export default function ProducerSchedule() {
         const fetchMonthly = async () => {
             try {
                 // Removed getSales call (orange dots removed) for performance
-                
+
                 // Fetch Schedule Settings
                 const start = format(startOfMonth(currentDate), 'yyyy-MM-dd');
                 const end = format(endOfMonth(currentDate), 'yyyy-MM-dd');
@@ -97,7 +97,7 @@ export default function ProducerSchedule() {
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(currentDate);
     const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-    const startDayOfWeek = monthStart.getDay(); 
+    const startDayOfWeek = monthStart.getDay();
     const emptyStartDays = Array.from({ length: startDayOfWeek });
 
     // Check Availability Logic
@@ -106,7 +106,7 @@ export default function ProducerSchedule() {
         // Check specific override
         const setting = scheduleSettings.find(s => s.date === dateStr);
         if (setting) return setting.is_available;
-        
+
         // Check weekly schedule
         const dayOfWeek = getDay(date);
         return selectableDays.includes(dayOfWeek);
@@ -116,14 +116,14 @@ export default function ProducerSchedule() {
         e.stopPropagation(); // Prevent selecting the date when clicking the toggle
         if (isUpdating) return;
         setIsUpdating(true);
-        
+
         const currentStatus = isDateAvailable(date);
         const newStatus = !currentStatus;
         const dateStr = format(date, 'yyyy-MM-dd');
 
         try {
             const res = await producerApi.updateScheduleSetting(dateStr, newStatus);
-            
+
             // Update local state
             setScheduleSettings(prev => {
                 const idx = prev.findIndex(s => s.date === dateStr);
@@ -199,8 +199,8 @@ export default function ProducerSchedule() {
                                     disabled={isUpdating}
                                     className={`
                                         w-16 h-16 rounded-full flex flex-col items-center justify-center border-2 transition-all
-                                        ${isSelected 
-                                            ? 'border-green-500 bg-green-50 text-green-700' 
+                                        ${isSelected
+                                            ? 'border-green-500 bg-green-50 text-green-700'
                                             : 'border-gray-200 bg-white text-gray-400 hover:border-gray-300'
                                         }
                                     `}
@@ -247,10 +247,10 @@ export default function ProducerSchedule() {
                                         onClick={() => setSelectedDate(day)}
                                         className={`
                                             flex flex-col items-center p-1 rounded-lg transition-colors relative h-20 cursor-pointer border
-                                            ${isSelected 
-                                                ? 'border-green-500 ring-1 ring-green-500 z-10' 
-                                                : available 
-                                                    ? 'bg-green-50/30 border-transparent hover:bg-green-50' 
+                                            ${isSelected
+                                                ? 'border-green-500 ring-1 ring-green-500 z-10'
+                                                : available
+                                                    ? 'bg-green-50/30 border-transparent hover:bg-green-50'
                                                     : 'bg-white border-transparent hover:bg-gray-50'
                                             }
                                         `}
@@ -264,7 +264,7 @@ export default function ProducerSchedule() {
                                                 className={`mr-1 mt-1 p-0.5 rounded-full hover:bg-gray-200 transition-colors`}
                                                 title={available ? "受付可" : "受付不可"}
                                             >
-                                                {available 
+                                                {available
                                                     ? <span className="text-green-500 text-xs font-bold border border-green-500 rounded-full w-5 h-5 flex items-center justify-center bg-white">○</span>
                                                     : <span className="text-gray-300 text-xs font-bold border border-gray-300 rounded-full w-5 h-5 flex items-center justify-center bg-gray-50">×</span>
                                                 }
@@ -284,7 +284,7 @@ export default function ProducerSchedule() {
                                     {format(selectedDate, 'M月d日 (E)', { locale: ja })} の予定
                                 </h3>
                                 <div className="mt-1">
-                                    {isDateAvailable(selectedDate) 
+                                    {isDateAvailable(selectedDate)
                                         ? <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">出荷受付中</span>
                                         : <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">出荷受付停止</span>
                                     }

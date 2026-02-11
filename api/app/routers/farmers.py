@@ -241,16 +241,21 @@ async def check_farmer_availability(
                 # 0=Sunday, 1=Monday... matches strftime('%w')
                 day_idx = int(target_date.strftime('%w'))
                 is_available = day_idx in allowed_days
-        except:
+        except Exception as e:
+            # Log error if possible or just pass
             pass
             
-    # Default fallback if no settings at all: Wednesday (3) is available
+    # Default fallback: If no settings at all, default to "Wednesday (3)"
+    # This matches the frontend default in ProducerSchedule.tsx
     if not weekly_setting_exists:
         day_idx = int(target_date.strftime('%w'))
         is_available = (day_idx == 3)
+        reason = "曜日設定 (初期設定: 水曜のみ)" if not is_available else "曜日設定 (デフォルト)"
+    else:
+        reason = "曜日設定"
     
     return {
         "is_available": is_available,
-        "reason": "曜日設定"
+        "reason": reason
     }
 

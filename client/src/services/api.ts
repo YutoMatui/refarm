@@ -329,6 +329,9 @@ export const producerApi = {
   getSales: (farmerId: number | undefined, month: string) =>
     apiClient.get<any>(`/producer/dashboard/sales?month=${month}${farmerId ? `&farmer_id=${farmerId}` : ''}`),
 
+  getCalendarEvents: (farmerId: number | undefined, month: string) =>
+    apiClient.get<{ order_dates: string[] }>(`/producer/dashboard/calendar-events?month=${month}${farmerId ? `&farmer_id=${farmerId}` : ''}`),
+
   getSchedule: (farmerId: number | undefined, date: string) =>
     apiClient.get<any>(`/producer/dashboard/schedule?date=${date}${farmerId ? `&farmer_id=${farmerId}` : ''}`),
 
