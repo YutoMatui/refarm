@@ -73,9 +73,11 @@ export default function VegetableList() {
         price: item.unit_price,
         unit: item.product_unit,
         tax_rate: item.tax_rate === 8 ? TaxRate.REDUCED : TaxRate.STANDARD,
-        stock_type: StockType.KOBE, // Default
+        stock_type: StockType.KOBE, // Default, but farmer_id is more critical for check
+        farmer_id: item.farmer_id, // CRITICAL: Added farmer_id for availability check
         price_with_tax: String(parseInt(item.unit_price) * (1 + item.tax_rate / 100)),
-        is_kobe_veggie: false
+        is_kobe_veggie: false,
+        farmer: { name: item.farmer_name } // Help display farmer name in alert
       }
 
       addToCart(product, Number(item.quantity))

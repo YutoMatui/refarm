@@ -5,7 +5,7 @@ import { format, parseISO } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { MapPin, AlertCircle } from 'lucide-react'
-import { consumerOrderApi, deliverySlotApi } from '@/services/api'
+import { consumerOrderApi, deliverySlotApi, farmerApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
 import { DeliverySlotType, type DeliverySlot, type ConsumerOrder, type ConsumerOrderCreateRequest } from '@/types'
 
@@ -98,7 +98,7 @@ const LocalCart = () => {
         }
     })
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!consumer) {
             toast.error('会員情報が取得できませんでした')
             return
@@ -113,6 +113,41 @@ const LocalCart = () => {
             toast.error('受取枠を選択してください')
             return
         }
+
+        // --- Validation: Check Farmer Availability ---
+        const selectedSlot = slots.find(s => s.id === selectedSlotId);
+        if (selectedSlot?.date) {
+            const uniqueFarmerIds = Array.from(new Set(
+                cart
+                    .map(item => item.product.farmer_id)
+                    .filter(id => id !== undefined && id !== null && id !== 0)
+            )) as number[];
+
+            if (uniqueFarmerIds.length > 0) {
+                toast.info('農家さんの出荷状況を確認しています...');
+                for (const farmerId of uniqueFarmerIds) {
+                    try {
+                        const res = await farmerApi.checkAvailability(farmerId, selectedSlot.date);
+                        if (!res.data.is_available) {
+                            const product = cart.find(item => item.product.farmer_id === farmerId)?.product;
+                            const farmerName = product?.farmer?.name || "農家";
+                            const reason = res.data.reason || "出荷不可";
+
+                            // Use native alert for critical blocking to match main Cart.tsx
+                            alert(`申し訳ありません。\n「${farmerName}」さんは、指定された日（${selectedSlot.date}）の出荷に対応していません。\n理由: ${reason}\n\n日付を変更するか、該当農家の商品を削除してください。`);
+                            return; // Block submission
+                        }
+                    } catch (e: any) {
+                        console.error("Availability check failed", e);
+                        const product = cart.find(item => item.product.farmer_id === farmerId)?.product;
+                        const farmerName = product?.farmer?.name || "農家";
+                        toast.error(`「${farmerName}」さんの出荷状況を確認できませんでした。`);
+                        return; // Block submission on error for safety
+                    }
+                }
+            }
+        }
+        // ---------------------------------------------
 
         const items = cart.map(item => ({
             product_id: item.product.id,
