@@ -53,7 +53,8 @@ async def list_products(
     query = select(Product).join(Product.farmer).options(selectinload(Product.farmer)).where(
         Product.deleted_at.is_(None),
         Farmer.deleted_at.is_(None),
-        Farmer.is_active == 1  # Only show products from active farmers
+        Farmer.is_active == 1,
+        Product.harvest_status != "ended"  # Hide 'Ended' items
     )
     
     if stock_type:
@@ -104,7 +105,11 @@ async def list_purchased_products(
     query = select(Product).options(selectinload(Product.farmer))\
         .join(OrderItem, OrderItem.product_id == Product.id)\
         .join(Order, Order.id == OrderItem.order_id)\
-        .where(Order.restaurant_id == restaurant_id)\
+        .where(
+            Order.restaurant_id == restaurant_id,
+            Product.harvest_status != "ended", # Hide 'Ended' items
+            Product.deleted_at.is_(None)
+        )\
         .distinct()
         
     if search:

@@ -254,6 +254,11 @@ async def check_farmer_availability(
     else:
         reason = "曜日設定"
     
+    return {
+        "is_available": is_available,
+        "reason": reason
+    }
+    
 @router.post("/availability/bulk", response_model=dict)
 async def check_farmer_availability_bulk(
     params: dict, # { "farmer_ids": [int], "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD" }

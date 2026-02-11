@@ -95,9 +95,50 @@ export default function Cart() {
     }
   });
 
-  const handleDateSelect = (date: string, schedule?: DeliverySchedule) => {
+  const handleDateSelect = async (date: string, schedule?: DeliverySchedule) => {
     setDeliveryDate(date);
     setDeliveryTimeSlot(''); // Reset time slot on date change
+
+    // Immediate Availability Check
+    if (uniqueFarmerIds.length > 0) {
+      const badItems: any[] = [];
+      for (const farmerId of uniqueFarmerIds) {
+        try {
+          const res = await farmerApi.checkAvailability(farmerId, date);
+          if (!res.data.is_available) {
+            const product = cart.find(item => item.product.farmer_id === farmerId)?.product;
+            badItems.push({
+              productName: product?.name || "商品",
+              farmerName: product?.farmer?.name || "農家",
+              reason: res.data.reason || "出荷不可",
+              productId: product?.id,
+              farmerId: farmerId
+            });
+          }
+        } catch (e) {
+          console.error("Selection check failed", e);
+        }
+      }
+
+      if (badItems.length > 0) {
+        setUnavailableItems(badItems);
+        if (bulkAvailability) {
+          const today = new Date();
+          const dates = Object.keys(bulkAvailability).sort();
+          const nextComplete = dates.find(d => {
+            const dObj = new Date(d);
+            return isAfter(dObj, today) && bulkAvailability[d].all_available;
+          });
+          if (nextComplete) {
+            setNextDateSuggestion({
+              date: nextComplete,
+              label: format(parseISO(nextComplete), 'M月d日(E)', { locale: ja })
+            });
+          }
+        }
+        setIsAvailModalOpen(true);
+      }
+    }
 
     // Determine available time slots for this date
     if (schedule && schedule.time_slot) {

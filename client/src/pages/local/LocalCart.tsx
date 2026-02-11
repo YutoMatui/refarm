@@ -134,6 +134,46 @@ const LocalCart = () => {
         }
     })
 
+    const handleSlotSelect = async (slotId: number) => {
+        setSelectedSlotId(slotId);
+        const slot = slots.find(s => s.id === slotId);
+        if (slot?.date && uniqueFarmerIds.length > 0) {
+            const badItems: any[] = [];
+            for (const farmerId of uniqueFarmerIds) {
+                try {
+                    const res = await farmerApi.checkAvailability(farmerId, slot.date);
+                    if (!res.data.is_available) {
+                        const product = cart.find(item => item.product.farmer_id === farmerId)?.product;
+                        badItems.push({
+                            productName: product?.name || "商品",
+                            farmerName: product?.farmer?.name || "農家",
+                            reason: res.data.reason || "出荷不可",
+                            productId: product?.id,
+                            farmerId: farmerId
+                        });
+                    }
+                } catch (e) {
+                    console.error("Slot selection check failed", e);
+                }
+            }
+
+            if (badItems.length > 0) {
+                setUnavailableItems(badItems);
+                if (bulkAvailability) {
+                    const dates = Object.keys(bulkAvailability).sort();
+                    const nextComplete = dates.find(d => bulkAvailability[d].all_available);
+                    if (nextComplete) {
+                        setNextDateSuggestion({
+                            date: nextComplete,
+                            label: format(parseISO(nextComplete), 'M月d日(E)', { locale: ja })
+                        });
+                    }
+                }
+                setIsAvailModalOpen(true);
+            }
+        }
+    };
+
     const handleSubmit = async () => {
         if (!consumer) {
             toast.error('会員情報が取得できませんでした')
@@ -328,7 +368,7 @@ const LocalCart = () => {
                                 name="delivery_slot"
                                 value={slot.id}
                                 checked={selectedSlotId === slot.id}
-                                onChange={() => setSelectedSlotId(slot.id)}
+                                onChange={() => handleSlotSelect(slot.id)}
                                 className="mt-1 h-4 w-4 text-emerald-600"
                             />
                             <div className="flex-1 flex items-center justify-between">
