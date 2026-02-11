@@ -28,6 +28,7 @@ export default function ProducerSchedule() {
     const [selectableDays, setSelectableDays] = useState<number[]>([]);
     const [isUpdating, setIsUpdating] = useState(false);
     const [showWeeklySettings, setShowWeeklySettings] = useState(false);
+    const [orderDates, setOrderDates] = useState<string[]>([]);
 
     // Fetch Farmer Profile
     useEffect(() => {
@@ -56,13 +57,16 @@ export default function ProducerSchedule() {
     useEffect(() => {
         const fetchMonthly = async () => {
             try {
-                // Removed getSales call (orange dots removed) for performance
-
                 // Fetch Schedule Settings
                 const start = format(startOfMonth(currentDate), 'yyyy-MM-dd');
                 const end = format(endOfMonth(currentDate), 'yyyy-MM-dd');
                 const settingsRes = await producerApi.getScheduleSettings(start, end);
                 setScheduleSettings(settingsRes.data);
+
+                // Fetch Dates with Orders
+                const monthStr = format(currentDate, 'yyyy-MM');
+                const eventsRes = await producerApi.getCalendarEvents(undefined, monthStr);
+                setOrderDates(eventsRes.data.order_dates || []);
 
             } catch (e) {
                 console.error("Failed to fetch monthly data:", e);
@@ -261,7 +265,7 @@ export default function ProducerSchedule() {
                                             </span>
                                             <button
                                                 onClick={(e) => toggleDateAvailability(day, e)}
-                                                className={`mr-1 mt-1 p-0.5 rounded-full hover:bg-gray-200 transition-colors`}
+                                                className="mr-1 mt-1 p-0.5 rounded-full hover:bg-gray-200 transition-colors"
                                                 title={available ? "受付可" : "受付不可"}
                                             >
                                                 {available
@@ -270,6 +274,15 @@ export default function ProducerSchedule() {
                                                 }
                                             </button>
                                         </div>
+
+                                        {/* Order Indicator */}
+                                        {orderDates.includes(format(day, 'yyyy-MM-dd')) && (
+                                            <div className="absolute bottom-1 w-full flex justify-center">
+                                                <span className="bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                                                    注文
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
