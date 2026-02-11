@@ -1,18 +1,19 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, getDay, startOfWeek, endOfWeek } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { deliveryScheduleApi } from '@/services/api';
-import { DeliverySchedule } from '@/types';
+import { deliveryScheduleApi, farmerApi } from '@/services/api';
+import { DeliverySchedule, CartItem } from '@/types';
 
 interface DeliveryCalendarProps {
     selectedDate: string;
     onSelect: (date: string, schedule?: DeliverySchedule) => void;
     minDate: string; // YYYY-MM-DD
+    cart?: CartItem[]; // New prop
 }
 
-export default function DeliveryCalendar({ selectedDate, onSelect, minDate }: DeliveryCalendarProps) {
+export default function DeliveryCalendar({ selectedDate, onSelect, minDate, cart = [] }: DeliveryCalendarProps) {
     const [currentMonth, setCurrentMonth] = useState(new Date());
 
     const startDate = startOfWeek(startOfMonth(currentMonth));
@@ -34,6 +35,30 @@ export default function DeliveryCalendar({ selectedDate, onSelect, minDate }: De
         }
     })
 
+    // --- Bulk Farmer Availability ---
+    const uniqueFarmerIds = useMemo(() => {
+        return Array.from(new Set(
+            cart
+                .map(item => item.product.farmer_id)
+                .filter(id => id !== undefined && id !== null && id !== 0)
+        )) as number[];
+    }, [cart]);
+
+    const { data: bulkAvailability } = useQuery({
+        queryKey: ['farmer-availability-bulk', monthStr, uniqueFarmerIds],
+        queryFn: async () => {
+            if (uniqueFarmerIds.length === 0) return null;
+            const res = await farmerApi.checkAvailabilityBulk({
+                farmer_ids: uniqueFarmerIds,
+                start_date: format(startDate, 'yyyy-MM-dd'),
+                end_date: format(endDate, 'yyyy-MM-dd')
+            });
+            return res.data;
+        },
+        enabled: uniqueFarmerIds.length > 0
+    });
+    // --------------------------------
+
     const getSchedule = (date: Date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
         return schedules?.find(s => s.date === dateStr);
@@ -54,9 +79,31 @@ export default function DeliveryCalendar({ selectedDate, onSelect, minDate }: De
             return schedule.is_available;
         }
 
-        // If no schedule exists, default to closed (based on user request: "only selectable where set as available")
-        // "具体的には配送可能な日時にだけ、マルをつけて、それ以外はそもそも選択できないようにして"
         return false;
+    };
+
+    const getAvailabilityIcon = (date: Date, isSelectable: boolean) => {
+        if (!isSelectable) return <span className="text-lg text-gray-300 absolute inset-0 flex items-center justify-center select-none font-light">/</span>;
+
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const avail = bulkAvailability?.[dateStr];
+
+        if (!avail || uniqueFarmerIds.length === 0) {
+            return <span className="text-xs text-green-600 font-bold">○</span>;
+        }
+
+        if (avail.all_available) {
+            return <span className="text-xs text-green-600 font-bold">○</span>;
+        } else if (avail.available.length > 0) {
+            return (
+                <div className="flex flex-col items-center">
+                    <span className="text-xs text-orange-500 font-bold">△</span>
+                    <span className="text-[8px] text-orange-400 scale-90">一部不可</span>
+                </div>
+            );
+        } else {
+            return <span className="text-xs text-red-500 font-bold">×</span>;
+        }
     };
 
     const handlePrevMonth = () => setCurrentMonth(prev => addMonths(prev, -1));
@@ -72,9 +119,14 @@ export default function DeliveryCalendar({ selectedDate, onSelect, minDate }: De
                 >
                     <ChevronLeft size={20} className="text-gray-600" />
                 </button>
-                <span className="font-bold text-gray-700">
-                    {format(currentMonth, 'yyyy年 M月', { locale: ja })}
-                </span>
+                <div className="flex flex-col items-center">
+                    <span className="font-bold text-gray-700">
+                        {format(currentMonth, 'yyyy年 M月', { locale: ja })}
+                    </span>
+                    {uniqueFarmerIds.length > 0 && (
+                        <span className="text-[10px] text-gray-400 font-medium">カート商品の出荷状況を表示中</span>
+                    )}
+                </div>
                 <button
                     onClick={handleNextMonth}
                     className="p-2 hover:bg-gray-200 rounded-full transition-colors"
@@ -133,15 +185,7 @@ export default function DeliveryCalendar({ selectedDate, onSelect, minDate }: De
                                 {format(day, 'd')}
                             </span>
 
-                            {isSelectable ? (
-                                <span className="text-xs text-green-600 font-bold">○</span>
-                            ) : (
-                                isCurrentMonth && (
-                                    <span className="text-lg text-gray-300 absolute inset-0 flex items-center justify-center select-none font-light">
-                                        /
-                                    </span>
-                                )
-                            )}
+                            {getAvailabilityIcon(day, isSelectable)}
                         </button>
                     );
                 })}

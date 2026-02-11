@@ -9,8 +9,10 @@ import { orderApi, settingsApi, farmerApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
 import { DeliveryTimeSlot, type OrderCreateRequest, DeliverySchedule } from '@/types'
 import { Trash2, ShoppingCart, Calendar, MapPin, ChevronLeft } from 'lucide-react'
-import { format, addDays } from 'date-fns'
+import { format, addDays, parseISO, isAfter } from 'date-fns'
+import { ja } from 'date-fns/locale'
 import DeliveryCalendar from '@/components/DeliveryCalendar'
+import AvailabilityModal from '@/components/AvailabilityModal'
 
 export default function Cart() {
   const navigate = useNavigate()
@@ -21,6 +23,11 @@ export default function Cart() {
   const [deliveryTimeSlot, setDeliveryTimeSlot] = useState<DeliveryTimeSlot | ''>('')
   const [deliveryNotes, setDeliveryNotes] = useState('')
   const [availableTimeSlots, setAvailableTimeSlots] = useState<{ value: DeliveryTimeSlot, label: string }[]>([])
+
+  // Availability Modal State
+  const [isAvailModalOpen, setIsAvailModalOpen] = useState(false);
+  const [unavailableItems, setUnavailableItems] = useState<any[]>([]);
+  const [nextDateSuggestion, setNextDateSuggestion] = useState<{ date: string, label: string } | undefined>();
 
   // Delivery Settings
   const { data: settings } = useQuery({
@@ -41,6 +48,29 @@ export default function Cart() {
         };
       }
     }
+  });
+
+  // Bulk Availability for suggestions
+  const uniqueFarmerIds = Array.from(new Set(
+    cart
+      .map(item => item.product.farmer_id)
+      .filter(id => id !== undefined && id !== null && id !== 0)
+  )) as number[];
+
+  const { data: bulkAvailability } = useQuery({
+    queryKey: ['farmer-availability-bulk', format(new Date(), 'yyyy-MM'), uniqueFarmerIds],
+    queryFn: async () => {
+      if (uniqueFarmerIds.length === 0) return null;
+      const start = format(new Date(), 'yyyy-MM-dd');
+      const end = format(addDays(new Date(), 30), 'yyyy-MM-dd');
+      const res = await farmerApi.checkAvailabilityBulk({
+        farmer_ids: uniqueFarmerIds,
+        start_date: start,
+        end_date: end
+      });
+      return res.data;
+    },
+    enabled: uniqueFarmerIds.length > 0
   });
 
   // Min date (3 days from now)
@@ -130,31 +160,51 @@ export default function Cart() {
     }
 
     // --- Validation: Check Farmer Availability ---
-    const uniqueFarmerIds = Array.from(new Set(
-      cart
-        .map(item => item.product.farmer_id)
-        .filter(id => id !== undefined && id !== null && id !== 0)
-    )) as number[];
-
     if (uniqueFarmerIds.length > 0) {
+      const badItems: any[] = [];
+
       for (const farmerId of uniqueFarmerIds) {
         try {
           const res = await farmerApi.checkAvailability(farmerId, deliveryDate);
           if (!res.data.is_available) {
-            // Find farmer name from cart
             const product = cart.find(item => item.product.farmer_id === farmerId)?.product;
-            const farmerName = product?.farmer?.name || "農家";
-            const reason = res.data.reason || "出荷不可";
-            alert(`申し訳ありません。\n「${farmerName}」さんは、指定された日（${deliveryDate}）の出荷に対応していません。\n理由: ${reason}\n\n日付を変更するか、該当農家の商品を削除してください。`);
-            return; // Block submission
+            badItems.push({
+              productName: product?.name || "商品",
+              farmerName: product?.farmer?.name || "農家",
+              reason: res.data.reason || "出荷不可",
+              productId: product?.id,
+              farmerId: farmerId
+            });
           }
         } catch (e: any) {
           console.error("Availability check failed", e);
-          const product = cart.find(item => item.product.farmer_id === farmerId)?.product;
-          const farmerName = product?.farmer?.name || "農家";
-          alert(`「${farmerName}」さんの出荷状況を確認できませんでした。\n配送日を読み込み直すか、時間をおいて再度お試しください。`);
-          return; // Block submission on error for safety
+          alert(`出荷状況を確認できませんでした。再度お試しください。`);
+          return;
         }
+      }
+
+      if (badItems.length > 0) {
+        setUnavailableItems(badItems);
+
+        // Find next candidate date where all are available
+        if (bulkAvailability) {
+          const today = new Date();
+          const dates = Object.keys(bulkAvailability).sort();
+          const nextComplete = dates.find(d => {
+            const dObj = new Date(d);
+            return isAfter(dObj, today) && bulkAvailability[d].all_available;
+          });
+
+          if (nextComplete) {
+            setNextDateSuggestion({
+              date: nextComplete,
+              label: format(parseISO(nextComplete), 'M月d日(E)', { locale: ja })
+            });
+          }
+        }
+
+        setIsAvailModalOpen(true);
+        return; // Block submission
       }
     }
     // ---------------------------------------------
@@ -177,6 +227,19 @@ export default function Cart() {
 
     createOrderMutation.mutate(orderData)
   }
+
+  const handleConsolidate = (date: string) => {
+    setDeliveryDate(date);
+    setIsAvailModalOpen(false);
+    // User can now review the new date in the UI
+  };
+
+  const handleRemoveUnavailable = () => {
+    const idsToRemove = unavailableItems.map(item => item.productId);
+    idsToRemove.forEach(id => removeFromCart(id));
+    setIsAvailModalOpen(false);
+    // UI will update and user can click submit again
+  };
 
   const subtotal = cart.reduce((sum, item) => {
     // Ensure price is treated as a number, defaulting to 0 if invalid
@@ -277,8 +340,9 @@ export default function Cart() {
               selectedDate={deliveryDate}
               onSelect={handleDateSelect}
               minDate={minDate}
+              cart={cart}
             />
-            <p className="text-xs text-gray-500 mt-2">※3日後以降の日付を選択してください（○：可能、/：不可）</p>
+            <p className="text-xs text-gray-500 mt-2">※3日後以降の日付を選択可能（○：揃う、△：一部不可、×：不可）</p>
           </div>
 
           {/* Delivery Time Slot */}
@@ -374,6 +438,14 @@ export default function Cart() {
           </button>
         </div>
       </div>
+      <AvailabilityModal
+        isOpen={isAvailModalOpen}
+        onClose={() => setIsAvailModalOpen(false)}
+        unavailableItems={unavailableItems}
+        nextAvailableDate={nextDateSuggestion}
+        onConsolidate={handleConsolidate}
+        onRemoveUnavailable={handleRemoveUnavailable}
+      />
     </div>
   )
 }

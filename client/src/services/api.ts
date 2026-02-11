@@ -175,6 +175,8 @@ export const farmerApi = {
 
   checkAvailability: (id: number, date: string) =>
     apiClient.get<{ is_available: boolean; reason: string }>(`/farmers/${id}/availability`, { params: { date } }),
+  checkAvailabilityBulk: (params: { farmer_ids: number[], start_date: string, end_date: string }) =>
+    apiClient.post<Record<string, { available: number[], unavailable: { id: number, reason: string }[], all_available: boolean }>>('/farmers/availability/bulk', params),
 }
 
 // Product API

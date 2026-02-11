@@ -254,8 +254,101 @@ async def check_farmer_availability(
     else:
         reason = "曜日設定"
     
-    return {
-        "is_available": is_available,
-        "reason": reason
-    }
+@router.post("/availability/bulk", response_model=dict)
+async def check_farmer_availability_bulk(
+    params: dict, # { "farmer_ids": [int], "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD" }
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    複数農家の複数日程の出荷可否を一括確認
+    """
+    farmer_ids = params.get("farmer_ids", [])
+    start_date_str = params.get("start_date")
+    end_date_str = params.get("end_date")
+
+    if not farmer_ids or not start_date_str or not end_date_str:
+        raise HTTPException(status_code=400, detail="Missing parameters")
+
+    try:
+        start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+
+    # Fetch farmers
+    stmt = select(Farmer).where(Farmer.id.in_(farmer_ids), Farmer.deleted_at.is_(None))
+    result = await db.execute(stmt)
+    farmers = result.scalars().all()
+    farmer_map = {f.id: f for f in farmers}
+
+    # Fetch all relevant overrides
+    from app.models.farmer_schedule import FarmerSchedule
+    stmt_sched = select(FarmerSchedule).where(
+        FarmerSchedule.farmer_id.in_(farmer_ids),
+        FarmerSchedule.date >= start_date,
+        FarmerSchedule.date <= end_date
+    )
+    result_sched = await db.execute(stmt_sched)
+    schedules = result_sched.scalars().all()
+    
+    # Organize schedules: {farmer_id: {date: is_available}}
+    schedule_map = {}
+    for s in schedules:
+        if s.farmer_id not in schedule_map:
+            schedule_map[s.farmer_id] = {}
+        schedule_map[s.farmer_id][s.date] = s
+
+    import json
+    results = {}
+    curr = start_date
+    while curr <= end_date:
+        date_str = curr.strftime("%Y-%m-%d")
+        available_ids = []
+        unavailable = []
+        
+        for fid in farmer_ids:
+            farmer = farmer_map.get(fid)
+            if not farmer:
+                continue
+                
+            # 1. Override
+            over = schedule_map.get(fid, {}).get(curr)
+            if over:
+                if over.is_available:
+                    available_ids.append(fid)
+                else:
+                    unavailable.append({"id": fid, "reason": over.notes or "休業日設定"})
+                continue
+            
+            # 2. Weekly
+            is_avail = False
+            weekly_setting_exists = False
+            if farmer.selectable_days:
+                try:
+                    allowed = json.loads(farmer.selectable_days)
+                    if isinstance(allowed, list):
+                        weekly_setting_exists = True
+                        day_idx = int(curr.strftime('%w'))
+                        is_avail = day_idx in allowed
+                except:
+                    pass
+            
+            if not weekly_setting_exists:
+                day_idx = int(curr.strftime('%w'))
+                is_avail = (day_idx == 3)
+            
+            if is_avail:
+                available_ids.append(fid)
+            else:
+                reason = "曜日設定 (初期設定: 水曜のみ)" if not weekly_setting_exists else "曜日設定"
+                unavailable.append({"id": fid, "reason": reason})
+        
+        results[date_str] = {
+            "available": available_ids,
+            "unavailable": unavailable,
+            "all_available": len(unavailable) == 0
+        }
+        curr += timedelta(days=1)
+        
+    return results
 

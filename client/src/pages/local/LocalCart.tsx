@@ -8,6 +8,7 @@ import { MapPin, AlertCircle } from 'lucide-react'
 import { consumerOrderApi, deliverySlotApi, farmerApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
 import { DeliverySlotType, type DeliverySlot, type ConsumerOrder, type ConsumerOrderCreateRequest } from '@/types'
+import AvailabilityModal from '@/components/AvailabilityModal'
 
 const formatSlotLabel = (slot: DeliverySlot) => {
     const dateText = slot.date ? format(parseISO(slot.date), 'M月d日(E)', { locale: ja }) : ''
@@ -25,6 +26,11 @@ const LocalCart = () => {
     const [deliveryNotes, setDeliveryNotes] = useState('')
     const [overrideAddress, setOverrideAddress] = useState('')
     const [univLocationDetail, setUnivLocationDetail] = useState('')
+
+    // Availability Modal State
+    const [isAvailModalOpen, setIsAvailModalOpen] = useState(false);
+    const [unavailableItems, setUnavailableItems] = useState<any[]>([]);
+    const [nextDateSuggestion, setNextDateSuggestion] = useState<{ date: string, label: string } | undefined>();
 
     useEffect(() => {
         if (consumer && deliveryDestination === 'HOME') {
@@ -53,6 +59,36 @@ const LocalCart = () => {
             setSelectedSlotId(null)
         }
     }, [slots])
+
+    // --- Bulk Farmer Availability ---
+    const uniqueFarmerIds = useMemo(() => {
+        return Array.from(new Set(
+            cart
+                .map(item => item.product.farmer_id)
+                .filter(id => id !== undefined && id !== null && id !== 0)
+        )) as number[];
+    }, [cart]);
+
+    const { data: bulkAvailability } = useQuery({
+        queryKey: ['farmer-availability-bulk-local', uniqueFarmerIds, slots],
+        queryFn: async () => {
+            if (uniqueFarmerIds.length === 0 || slots.length === 0) return null;
+            const dates = slots.map(s => s.date).filter((d): d is string => !!d);
+            if (dates.length === 0) return null;
+
+            const startStr = dates.sort()[0];
+            const endStr = dates.sort()[dates.length - 1];
+
+            const res = await farmerApi.checkAvailabilityBulk({
+                farmer_ids: uniqueFarmerIds,
+                start_date: startStr,
+                end_date: endStr
+            });
+            return res.data;
+        },
+        enabled: uniqueFarmerIds.length > 0 && slots.length > 0
+    });
+    // --------------------------------
 
     // 税抜き小計と消費税を計算
     const { subtotal, taxAmount, productTotal } = useMemo(() => {
@@ -117,34 +153,46 @@ const LocalCart = () => {
         // --- Validation: Check Farmer Availability ---
         const selectedSlot = slots.find(s => s.id === selectedSlotId);
         if (selectedSlot?.date) {
-            const uniqueFarmerIds = Array.from(new Set(
-                cart
-                    .map(item => item.product.farmer_id)
-                    .filter(id => id !== undefined && id !== null && id !== 0)
-            )) as number[];
+            const badItems: any[] = [];
 
-            if (uniqueFarmerIds.length > 0) {
-                toast.info('農家さんの出荷状況を確認しています...');
-                for (const farmerId of uniqueFarmerIds) {
-                    try {
-                        const res = await farmerApi.checkAvailability(farmerId, selectedSlot.date);
-                        if (!res.data.is_available) {
-                            const product = cart.find(item => item.product.farmer_id === farmerId)?.product;
-                            const farmerName = product?.farmer?.name || "農家";
-                            const reason = res.data.reason || "出荷不可";
-
-                            // Use native alert for critical blocking to match main Cart.tsx
-                            alert(`申し訳ありません。\n「${farmerName}」さんは、指定された日（${selectedSlot.date}）の出荷に対応していません。\n理由: ${reason}\n\n日付を変更するか、該当農家の商品を削除してください。`);
-                            return; // Block submission
-                        }
-                    } catch (e: any) {
-                        console.error("Availability check failed", e);
+            for (const farmerId of uniqueFarmerIds) {
+                try {
+                    const res = await farmerApi.checkAvailability(farmerId, selectedSlot.date);
+                    if (!res.data.is_available) {
                         const product = cart.find(item => item.product.farmer_id === farmerId)?.product;
-                        const farmerName = product?.farmer?.name || "農家";
-                        toast.error(`「${farmerName}」さんの出荷状況を確認できませんでした。`);
-                        return; // Block submission on error for safety
+                        badItems.push({
+                            productName: product?.name || "商品",
+                            farmerName: product?.farmer?.name || "農家",
+                            reason: res.data.reason || "出荷不可",
+                            productId: product?.id,
+                            farmerId: farmerId
+                        });
+                    }
+                } catch (e: any) {
+                    console.error("Availability check failed", e);
+                    toast.error(`出荷状況を確認できませんでした。`);
+                    return;
+                }
+            }
+
+            if (badItems.length > 0) {
+                setUnavailableItems(badItems);
+
+                // Find next candidate date where all are available
+                if (bulkAvailability) {
+                    const dates = Object.keys(bulkAvailability).sort();
+                    const nextComplete = dates.find(d => bulkAvailability[d].all_available);
+
+                    if (nextComplete) {
+                        setNextDateSuggestion({
+                            date: nextComplete,
+                            label: format(parseISO(nextComplete), 'M月d日(E)', { locale: ja })
+                        });
                     }
                 }
+
+                setIsAvailModalOpen(true);
+                return; // Block submission
             }
         }
         // ---------------------------------------------
@@ -168,6 +216,21 @@ const LocalCart = () => {
             items,
         })
     }
+
+    const handleConsolidate = (date: string) => {
+        const targetSlot = slots.find(s => s.date === date);
+        if (targetSlot) {
+            setSelectedSlotId(targetSlot.id);
+        }
+        setIsAvailModalOpen(false);
+    };
+
+    const handleRemoveUnavailable = () => {
+        const removeFromCart = useStore.getState().removeFromCart;
+        const idsToRemove = unavailableItems.map(item => item.productId);
+        idsToRemove.forEach(id => removeFromCart(id));
+        setIsAvailModalOpen(false);
+    };
 
     if (!consumer) {
         return (
@@ -268,68 +331,84 @@ const LocalCart = () => {
                                 onChange={() => setSelectedSlotId(slot.id)}
                                 className="mt-1 h-4 w-4 text-emerald-600"
                             />
-                            <div className="flex-1">
+                            <div className="flex-1 flex items-center justify-between">
                                 <p className="font-bold text-gray-900">{formatSlotLabel(slot)}</p>
-                                {slot.note && (
-                                    <p className="text-xs text-gray-500 mt-2 bg-gray-50 px-2 py-1 rounded">
-                                        {slot.note}
-                                    </p>
+                                {/* Availability Icon */}
+                                {slot.date && bulkAvailability?.[slot.date] && (
+                                    <div className="flex items-center gap-1">
+                                        {bulkAvailability[slot.date].all_available ? (
+                                            <span className="text-xs text-green-600 font-bold border border-green-200 px-2 py-0.5 rounded-full bg-green-50">○ すべて揃う</span>
+                                        ) : bulkAvailability[slot.date].available.length > 0 ? (
+                                            <span className="text-xs text-orange-500 font-bold border border-orange-200 px-2 py-0.5 rounded-full bg-orange-50">△ 一部不可</span>
+                                        ) : (
+                                            <span className="text-xs text-red-500 font-bold border border-red-200 px-2 py-0.5 rounded-full bg-red-50">× 揃わない</span>
+                                        )}
+                                    </div>
                                 )}
                             </div>
+                            {slot.note && (
+                                <p className="text-xs text-gray-500 mt-2 bg-gray-50 px-2 py-1 rounded">
+                                    {slot.note}
+                                </p>
+                            )}
                         </label>
                     ))}
                 </div>
             </section>
 
             {/* 兵庫県立大学受け取り - 詳細指定 */}
-            {deliveryDestination === 'UNIV' && (
-                <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-                    <h2 className="text-lg font-bold text-gray-900">受け取り場所の詳細（任意）</h2>
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
-                        <p className="text-sm text-blue-800 font-semibold flex items-center gap-2">
-                            <AlertCircle size={16} />
-                            学校関係者の方へ
-                        </p>
-                        <p className="text-xs text-blue-700 leading-relaxed">
-                            校内受け取りをご希望の場合は、建物名・階数・教室番号などを記入してください。<br />
-                            例: 社会情報科学棟4階資料準備室、本部棟1階事務室 など
-                        </p>
-                    </div>
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-2">
-                        <p className="text-sm text-emerald-800 font-semibold flex items-center gap-2">
-                            <MapPin size={16} />
-                            地域住民の方へ
-                        </p>
-                        <p className="text-xs text-emerald-700 leading-relaxed">
-                            正門前での受け取りをご希望の場合は、空欄のままで結構です。<br />
-                            または「正門前」とご記入ください。
-                        </p>
-                    </div>
-                    <textarea
-                        value={univLocationDetail}
-                        onChange={(e) => setUnivLocationDetail(e.target.value)}
-                        placeholder="例: 社会情報科学棟4階資料準備室"
-                        rows={2}
-                        className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    />
-                </section>
-            )}
+            {
+                deliveryDestination === 'UNIV' && (
+                    <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+                        <h2 className="text-lg font-bold text-gray-900">受け取り場所の詳細（任意）</h2>
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+                            <p className="text-sm text-blue-800 font-semibold flex items-center gap-2">
+                                <AlertCircle size={16} />
+                                学校関係者の方へ
+                            </p>
+                            <p className="text-xs text-blue-700 leading-relaxed">
+                                校内受け取りをご希望の場合は、建物名・階数・教室番号などを記入してください。<br />
+                                例: 社会情報科学棟4階資料準備室、本部棟1階事務室 など
+                            </p>
+                        </div>
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-2">
+                            <p className="text-sm text-emerald-800 font-semibold flex items-center gap-2">
+                                <MapPin size={16} />
+                                地域住民の方へ
+                            </p>
+                            <p className="text-xs text-emerald-700 leading-relaxed">
+                                正門前での受け取りをご希望の場合は、空欄のままで結構です。<br />
+                                または「正門前」とご記入ください。
+                            </p>
+                        </div>
+                        <textarea
+                            value={univLocationDetail}
+                            onChange={(e) => setUnivLocationDetail(e.target.value)}
+                            placeholder="例: 社会情報科学棟4階資料準備室"
+                            rows={2}
+                            className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        />
+                    </section>
+                )
+            }
 
             {/* 自宅配送 - 配送先住所 */}
-            {deliveryDestination === 'HOME' && (
-                <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-                    <h2 className="text-lg font-bold text-gray-900">配送先住所</h2>
-                    <p className="text-xs text-gray-500">
-                        建物名・部屋番号が無い場合は「なし」とご記入ください。必要に応じて住所を修正できます。
-                    </p>
-                    <textarea
-                        value={overrideAddress}
-                        onChange={(e) => setOverrideAddress(e.target.value)}
-                        rows={3}
-                        className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    />
-                </section>
-            )}
+            {
+                deliveryDestination === 'HOME' && (
+                    <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+                        <h2 className="text-lg font-bold text-gray-900">配送先住所</h2>
+                        <p className="text-xs text-gray-500">
+                            建物名・部屋番号が無い場合は「なし」とご記入ください。必要に応じて住所を修正できます。
+                        </p>
+                        <textarea
+                            value={overrideAddress}
+                            onChange={(e) => setOverrideAddress(e.target.value)}
+                            rows={3}
+                            className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        />
+                    </section>
+                )
+            }
 
             {/* ご要望など */}
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
@@ -400,6 +479,15 @@ const LocalCart = () => {
                     {mutation.isPending ? '注文処理中...' : '注文を確定する'}
                 </button>
             </section>
+
+            <AvailabilityModal
+                isOpen={isAvailModalOpen}
+                onClose={() => setIsAvailModalOpen(false)}
+                unavailableItems={unavailableItems}
+                nextAvailableDate={nextDateSuggestion}
+                onConsolidate={handleConsolidate}
+                onRemoveUnavailable={handleRemoveUnavailable}
+            />
         </div>
     )
 }
