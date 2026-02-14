@@ -678,7 +678,12 @@ async def download_invoice(
     )
 
 @router.get("/{order_id}/delivery_slip")
-async def download_delivery_slip(order_id: int, db: AsyncSession = Depends(get_db)):
+async def download_delivery_slip(
+    order_id: int, 
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
     """納品書をダウンロード"""
     from app.services.invoice import generate_delivery_slip_pdf
     
@@ -696,6 +701,20 @@ async def download_delivery_slip(order_id: int, db: AsyncSession = Depends(get_d
     # Generate PDF
     pdf_content = generate_delivery_slip_pdf(order)
     
+    # Background Task: Send LINE notification with API URL
+    async def send_line_notification(order_obj, request_obj):
+        try:
+            # Construct PDF URL using API endpoint
+            pdf_url = str(request_obj.url_for("download_delivery_slip", order_id=order_obj.id)) + "?no_notify=true"
+            # Send to LINE
+            await line_service.send_delivery_slip_message(order_obj, pdf_url)
+        except Exception as e:
+            print(f"Failed to send delivery slip to LINE: {e}")
+
+    # Add background task only if no_notify parameter is not set
+    if request.query_params.get("no_notify") != "true":
+        background_tasks.add_task(send_line_notification, order, request)
+
     # Return as stream
     return StreamingResponse(
         io.BytesIO(pdf_content),

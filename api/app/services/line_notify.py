@@ -470,4 +470,33 @@ No. {order.id} の請求書をお送りします。
 
         await self.send_push_message(token, target_user_id, message)
 
+    async def send_delivery_slip_message(self, order: Order, slip_url: str):
+        """Send delivery slip PDF link to restaurant"""
+        target_user_id = None
+        if order.restaurant and order.restaurant.line_user_id:
+             target_user_id = order.restaurant.line_user_id
+        
+        if not target_user_id:
+            target_user_id = settings.LINE_TEST_USER_ID
+
+        if not target_user_id:
+            print(f"No target user ID for delivery slip {order.id}")
+            return
+
+        token = await self.get_access_token(
+            settings.LINE_RESTAURANT_CHANNEL_ID,
+            settings.LINE_RESTAURANT_CHANNEL_SECRET,
+            settings.LINE_RESTAURANT_CHANNEL_ACCESS_TOKEN
+        )
+
+        message = f"""【納品書送付のお知らせ】
+No. {order.id} の納品書をお送りします。
+以下のリンクからダウンロードしてご確認ください。
+
+{slip_url}
+
+※ このリンクの有効期限はありませんが、お早めに保存してください。"""
+
+        await self.send_push_message(token, target_user_id, message)
+
 line_service = LineNotificationService()
