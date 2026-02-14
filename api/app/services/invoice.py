@@ -165,11 +165,12 @@ def generate_monthly_invoice_pdf(restaurant, orders, target_month_label, period_
     invoice_date = datetime.now()
     # Calculate totals
     grand_total = 0
-    grand_subtotal = 0
-    grand_tax = 0
+    subtotal_8 = 0
+    tax_8 = 0
+    subtotal_10 = 0
+    tax_10 = 0
     
-    # Daily Items Aggregation? 
-    # The template expects `daily_items` with date, description, amount.
+    # Daily Items Aggregation
     daily_items = []
     
     # Sort orders by date
@@ -177,7 +178,7 @@ def generate_monthly_invoice_pdf(restaurant, orders, target_month_label, period_
     
     for order in sorted_orders:
         date_str = order.delivery_date.strftime('%m/%d') if hasattr(order.delivery_date, 'strftime') else str(order.delivery_date)[:10]
-        desc = "野菜代金" # Could be more specific if needed
+        desc = "野菜代金" 
         amount = int(order.total_amount)
         
         daily_items.append({
@@ -187,15 +188,20 @@ def generate_monthly_invoice_pdf(restaurant, orders, target_month_label, period_
         })
         
         grand_total += amount
-        grand_subtotal += int(order.subtotal)
-        grand_tax += int(order.tax_amount)
+        # Vegetables are 8% reduced tax rate
+        s8 = int(order.subtotal)
+        t8 = int(order.tax_amount)
+        subtotal_8 += s8
+        tax_8 += t8
         
-        # Note: If shipping fee is separate in order.total_amount, we should ensure it's captured.
-        # order.total_amount includes subtotal + tax + shipping.
-        # order.subtotal is just items.
-        # order.tax_amount is tax.
-        # So grand_subtotal might need to include shipping base?
-        # For simplicity, we trust the order totals.
+        # Shipping fee is 10% standard tax rate
+        shipping_fee = int(getattr(order, 'shipping_fee', 0) or 0)
+        if shipping_fee > 0:
+            # Re-calculate shipping base and tax for consistency (usually 10% included)
+            s10 = math.ceil(shipping_fee / 1.1)
+            t10 = shipping_fee - s10
+            subtotal_10 += s10
+            tax_10 += t10
 
     # 支払期限
     payment_deadline = invoice_date + relativedelta(months=1)
@@ -228,23 +234,28 @@ def generate_monthly_invoice_pdf(restaurant, orders, target_month_label, period_
         "target_month": target_month_label,
         "period": period_str,
         
-        "sender_name": sender_info["name"],
-        "sender_zip": sender_info["zip"],
-        "sender_address": sender_info["address"],
-        "sender_building": sender_info["building"],
-        "sender_tel": sender_info["tel"],
-        "sender_pic": sender_info["pic"],
-        "sender_reg_num": sender_info.get("reg_num", ""),
+        "sender_name": "りふぁーむ",
+        "sender_zip": "653-0845",
+        "sender_address": "兵庫県神戸市長田区戸崎通 2-8-5",
+        "sender_building": "メゾン戸崎通 101",
+        "sender_tel": "090-9614-4516",
+        "sender_pic": "松井優人",
+        "sender_reg_num": "T1234567890123", # Placeholder
         
         "total_amount_incl_tax": grand_total,
-        "subtotal": grand_subtotal,
-        "tax_amount": grand_tax,
+        "subtotal": subtotal_8 + subtotal_10,
+        "tax_amount": tax_8 + tax_10,
+        
+        "subtotal_8": subtotal_8,
+        "tax_8": tax_8,
+        "subtotal_10": subtotal_10,
+        "tax_10": tax_10,
         
         "due_date": due_date,
-        "bank_name": bank_info["name"],
-        "bank_branch": bank_info["branch"],
-        "bank_type": bank_info["type"],
-        "bank_number": bank_info["number"],
+        "bank_name": "三井住友銀行",
+        "bank_branch": "板宿支店",
+        "bank_type": "普通",
+        "bank_number": "4792089",
         
         "daily_items": daily_items
     }

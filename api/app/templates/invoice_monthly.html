@@ -182,8 +182,12 @@
                 <td class="amount">¥ {{ "{:,}".format(subtotal) }}</td>
             </tr>
             <tr>
-                <th colspan="2" style="text-align: right;">消費税等</th>
-                <td class="amount">¥ {{ "{:,}".format(tax_amount) }}</td>
+                <th colspan="2" style="text-align: right;">消費税 (8%対象)</th>
+                <td class="amount">¥ {{ "{:,}".format(tax_8) }}</td>
+            </tr>
+            <tr>
+                <th colspan="2" style="text-align: right;">消費税 (10%対象)</th>
+                <td class="amount">¥ {{ "{:,}".format(tax_10) }}</td>
             </tr>
             <tr>
                 <th colspan="2" style="text-align: right;">合計</th>
@@ -193,9 +197,8 @@
     </table>
 
     <div style="margin-top: 20px; font-size: 8pt;">
-        ※本請求書はインボイス制度（適格請求書等保存方式）に対応した形式で発行しております。<br>
-        ※軽減税率対象品目（8%）と標準税率対象品目（10%）の区分については、各納品書をご参照ください。<br>
-        （本システム上では便宜上、日次合計に対して税額計算を行っています）
+        <!-- ※本請求書はインボイス制度（適格請求書等保存方式）に対応した形式で発行しております。 --><br>
+        ※軽減税率対象品目（8%）と標準税率対象品目（10%）の区分については、上記内訳をご確認ください。
     </div>
 </body>
 
