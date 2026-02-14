@@ -8,6 +8,7 @@ import logging
 
 from app.core.database import get_db
 from app.models import Farmer, Restaurant, Order, OrderItem, Product
+from app.models.enums import OrderStatus
 from app.services.route_service import route_service
 
 logger = logging.getLogger(__name__)
@@ -129,7 +130,7 @@ async def calculate_full_delivery_route(
         # 1. Determine target Orders for the date
         stmt = select(Order).where(
             func.date(Order.delivery_date) == target_date,
-            Order.status != "cancelled"
+            Order.status != OrderStatus.CANCELLED
         )
         result = await db.execute(stmt)
         orders = result.scalars().all()

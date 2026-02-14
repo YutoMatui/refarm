@@ -253,3 +253,62 @@ def generate_monthly_invoice_pdf(restaurant, orders, target_month_label, period_
     pdf_bytes = HTML(string=html_content).write_pdf()
     
     return pdf_bytes
+
+def generate_farmer_payment_notice_pdf(farmer, total_amount, period_str, details):
+    """
+    生産者向けの支払通知書PDFを生成
+    """
+    template = env.get_template('payment_notice.html')
+    
+    invoice_date = datetime.now()
+    
+    # 振込先情報（farmerモデルから取得。なければ空文字）
+    bank_info = {
+        "name": getattr(farmer, 'bank_name', "") or "",
+        "branch": getattr(farmer, 'bank_branch', "") or "",
+        "type": getattr(farmer, 'bank_account_type', "") or "",
+        "number": getattr(farmer, 'bank_account_number', "") or "",
+        "holder": getattr(farmer, 'bank_account_holder', "") or ""
+    }
+
+    # 発行元（Refarm）
+    sender_info = {
+        "name": "りふぁーむ",
+        "zip": "653-0845",
+        "address": "兵庫県神戸市長田区戸崎通 2-8-5",
+        "building": "メゾン戸崎通 101",
+        "tel": "090-9614-4516",
+        "pic": "松井優人",
+        "reg_num": "T1234567890123"
+    }
+
+    context = {
+        "title": "支払通知書",
+        "invoice_date": invoice_date.strftime('%Y/%m/%d'),
+        "invoice_number": f"P-{farmer.id}-{datetime.now().strftime('%Y%m')}",
+        "client_name": f"{farmer.name} 様",
+        "period": period_str,
+        
+        "sender_name": sender_info["name"],
+        "sender_zip": sender_info["zip"],
+        "sender_address": sender_info["address"],
+        "sender_building": sender_info["building"],
+        "sender_tel": sender_info["tel"],
+        "sender_pic": sender_info["pic"],
+        "sender_reg_num": sender_info.get("reg_num", ""),
+        
+        "total_amount": total_amount,
+        
+        "bank_name": bank_info["name"],
+        "bank_branch": bank_info["branch"],
+        "bank_type": bank_info["type"],
+        "bank_number": bank_info["number"],
+        "bank_holder": bank_info["holder"],
+        
+        "items": details # [{date, product, amount}]
+    }
+    
+    html_content = template.render(context)
+    pdf_bytes = HTML(string=html_content).write_pdf()
+    
+    return pdf_bytes

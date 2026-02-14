@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 20mm;
+        }
+
+        body {
+            font-family: "ipaexg", sans-serif;
+            font-size: 10pt;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+
+        .title {
+            font-size: 20pt;
+            font-weight: bold;
+            text-align: center;
+            border-bottom: 2px solid #333;
+            margin-bottom: 20px;
+            padding-bottom: 5px;
+        }
+
+        .client-info {
+            width: 50%;
+            float: left;
+        }
+
+        .client-name {
+            font-size: 16pt;
+            border-bottom: 1px solid #333;
+            padding-bottom: 2px;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+
+        .sender-info {
+            width: 40%;
+            float: right;
+            text-align: right;
+            font-size: 9pt;
+        }
+
+        .sender-name {
+            font-size: 12pt;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .summary-box {
+            clear: both;
+            margin-top: 150px;
+            margin-bottom: 20px;
+            border: 2px solid #333;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .total-amount {
+            font-size: 18pt;
+            font-weight: bold;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #888;
+            padding: 6px;
+            font-size: 9pt;
+        }
+
+        th {
+            background-color: #f0f0f0;
+            text-align: center;
+        }
+
+        td.num {
+            text-align: right;
+        }
+
+        .footer {
+            margin-top: 30px;
+            font-size: 9pt;
+        }
+
+        .bank-box {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-top: 10px;
+            width: 100%;
+            font-size: 9pt;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="title">{{ title }}</div>
+    <div class="header">
+        <div style="float: right; text-align: right;">
+            <div>発行日: {{ invoice_date }}</div>
+            <div>No. {{ invoice_number }}</div>
+        </div>
+    </div>
+
+    <div class="client-info">
+        <div class="client-name">{{ client_name }}</div>
+        <div>対象期間: {{ period }}</div>
+    </div>
+
+    <div class="sender-info">
+        <div class="sender-name">{{ sender_name }}</div>
+        <div>〒{{ sender_zip }}</div>
+        <div>{{ sender_address }}</div>
+        <div>{{ sender_building }}</div>
+        <div>TEL: {{ sender_tel }}</div>
+        {% if sender_reg_num %}
+        <div>登録番号: {{ sender_reg_num }}</div>
+        {% endif %}
+    </div>
+
+    <div class="summary-box">
+        お支払予定金額 &nbsp;&nbsp;&nbsp; <span class="total-amount">¥ {{ "{:,}".format(total_amount) }} -</span> (税込)
+    </div>
+
+    <div class="bank-box">
+        <strong>ご指定振込先:</strong><br>
+        {{ bank_name }} {{ bank_branch }} {{ bank_type }} {{ bank_number }}<br>
+        口座名義: {{ bank_holder }}
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 20%;">日付</th>
+                <th>品名</th>
+                <th style="width: 25%;">金額 (税込)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td style="text-align: center;">{{ item.date }}</td>
+                <td>{{ item.product }}</td>
+                <td class="num">¥ {{ "{:,}".format(item.amount) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <th colspan="2" style="text-align: right;">合計</th>
+                <td class="num" style="font-weight: bold;">¥ {{ "{:,}".format(total_amount) }}</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <div style="margin-top: 40px; font-size: 9pt;">
+        <p>※本通知書は、弊社から貴殿への支払内容を通知するものです。</p>
+        <p>※内容に相違がある場合は、お手数ですが発行日までにご連絡ください。</p>
+    </div>
+</body>
+
+</html>

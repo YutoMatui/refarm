@@ -14,7 +14,7 @@ from app.schemas import (
 # from app.routers.admin_auth import get_current_admin # TODO: Add Auth check if needed
 
 router = APIRouter(
-    prefix="/admin/organizations",
+    prefix="/organizations",
     tags=["admin-organizations"]
 )
 
