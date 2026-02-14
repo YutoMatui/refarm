@@ -89,10 +89,11 @@ export interface Consumer extends TimestampFields {
   line_user_id: string
   name: string
   phone_number: string
-  postal_code?: string
-  address?: string
+  postal_code?: string | null
+  address?: string | null
   building?: string | null
   profile_image_url?: string | null
+  organization_id?: number | null
 }
 
 // Chef Comment
@@ -372,9 +373,10 @@ export interface ConsumerRegisterRequest {
   id_token: string
   name: string
   phone_number: string
-  postal_code: string
-  address: string
+  postal_code?: string
+  address?: string
   building?: string
+  organization_id?: number
 }
 
 export interface ConsumerUpdateRequest {
@@ -384,6 +386,7 @@ export interface ConsumerUpdateRequest {
   address?: string
   building?: string | null
   profile_image_url?: string | null
+  organization_id?: number | null
 }
 
 export interface ConsumerAuthResponse {

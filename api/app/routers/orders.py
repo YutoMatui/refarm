@@ -163,238 +163,6 @@ async def list_orders(
     return OrderListResponse(items=orders, total=total or 0, skip=skip, limit=limit)
 
 
-@router.get("/{order_id}", response_model=OrderResponse)
-async def get_order(order_id: int, db: AsyncSession = Depends(get_db)):
-    """注文詳細を取得"""
-    stmt = select(Order).options(
-        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
-        selectinload(Order.restaurant)
-    ).where(Order.id == order_id)
-    result = await db.execute(stmt)
-    order = result.scalar_one_or_none()
-    
-    if not order:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
-    
-    return order
-
-
-@router.patch("/{order_id}", response_model=OrderResponse)
-async def update_order(
-    order_id: int,
-    order_data: OrderUpdate,
-    db: AsyncSession = Depends(get_db)
-):
-    """注文情報を更新"""
-    stmt = select(Order).options(
-        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
-        selectinload(Order.restaurant)
-    ).where(Order.id == order_id)
-    result = await db.execute(stmt)
-    order = result.scalar_one_or_none()
-    
-    if not order:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
-    
-    # Update fields
-    update_data = order_data.model_dump(exclude_unset=True)
-    
-    # Handle status change logic if status is present
-    if "status" in update_data:
-        new_status = update_data["status"]
-        if new_status != order.status:
-            now = datetime.now()
-            if new_status == OrderStatus.CONFIRMED:
-                order.confirmed_at = now
-            elif new_status == OrderStatus.SHIPPED:
-                order.shipped_at = now
-            elif new_status == OrderStatus.DELIVERED:
-                order.delivered_at = now
-            elif new_status == OrderStatus.CANCELLED:
-                order.cancelled_at = now
-    
-    for field, value in update_data.items():
-        setattr(order, field, value)
-    
-    await db.commit()
-    await db.refresh(order)
-    
-    return order
-
-
-@router.patch("/{order_id}/status", response_model=OrderResponse)
-async def update_order_status(
-    order_id: int,
-    status_update: OrderStatusUpdate,
-    db: AsyncSession = Depends(get_db)
-):
-    """注文ステータスを更新"""
-    stmt = select(Order).where(Order.id == order_id)
-    result = await db.execute(stmt)
-    order = result.scalar_one_or_none()
-    
-    if not order:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
-    
-    # Update status and timestamp
-    order.status = status_update.status
-    
-    now = datetime.now()
-    if status_update.status == OrderStatus.CONFIRMED:
-        order.confirmed_at = now
-    elif status_update.status == OrderStatus.SHIPPED:
-        order.shipped_at = now
-    elif status_update.status == OrderStatus.DELIVERED:
-        order.delivered_at = now
-    elif status_update.status == OrderStatus.CANCELLED:
-        order.cancelled_at = now
-    
-    await db.commit()
-    
-    # Reload order with items to ensure all fields are populated and items are loaded
-    stmt = select(Order).options(
-        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
-        selectinload(Order.restaurant)
-    ).where(Order.id == order.id)
-    result = await db.execute(stmt)
-    order = result.scalar_one()
-    
-    return order
-
-
-@router.delete("/{order_id}", response_model=ResponseMessage)
-async def cancel_order(order_id: int, db: AsyncSession = Depends(get_db)):
-    """注文をキャンセル"""
-    stmt = select(Order).where(Order.id == order_id)
-    result = await db.execute(stmt)
-    order = result.scalar_one_or_none()
-    
-    if not order:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
-    
-    if order.status in [OrderStatus.SHIPPED, OrderStatus.DELIVERED]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="配送中または配達完了の注文はキャンセルできません"
-        )
-    
-    order.status = OrderStatus.CANCELLED
-    order.cancelled_at = datetime.now()
-    await db.commit()
-    
-    return ResponseMessage(message="注文をキャンセルしました", success=True)
-
-
-@router.post("/{order_id}/send_invoice_line", response_model=ResponseMessage)
-async def send_invoice_line(
-    order_id: int, 
-    request: Request,
-    db: AsyncSession = Depends(get_db)
-):
-    """請求書を生成してLINEに送信"""
-    stmt = select(Order).options(
-        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
-        selectinload(Order.restaurant)
-    ).where(Order.id == order_id)
-    
-    result = await db.execute(stmt)
-    order = result.scalar_one_or_none()
-    
-    if not order:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
-    
-    # 1. Generate PDF
-    pdf_content = generate_invoice_pdf(order)
-    
-    # 2. Construct Direct Download URL (Skip Cloudinary)
-    # Use the API's own endpoint to serve the file
-    # Add ?no_notify=true to prevent infinite loop of notifications when user clicks
-    pdf_url = str(request.url_for("download_invoice", order_id=order_id)) + "?no_notify=true"
-    
-    # 3. Send to LINE
-    await line_service.send_invoice_message(order, pdf_url)
-    
-    # 4. Save URL to order (optional but good)
-    order.invoice_url = pdf_url
-    await db.commit()
-    
-    return ResponseMessage(message="請求書をLINEに送信しました", success=True)
-
-
-@router.get("/{order_id}/invoice")
-async def download_invoice(
-    order_id: int, 
-    request: Request,
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db)
-):
-    """請求書をダウンロード"""
-    stmt = select(Order).options(
-        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
-        selectinload(Order.restaurant)
-    ).where(Order.id == order_id)
-    
-    result = await db.execute(stmt)
-    order = result.scalar_one_or_none()
-    
-    if not order:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
-    
-    # Generate PDF
-    pdf_content = generate_invoice_pdf(order)
-
-    # Background Task: Send LINE notification with API URL
-    async def send_line_notification(order_obj, request_obj):
-        try:
-            # Construct PDF URL using API endpoint
-            pdf_url = str(request_obj.url_for("download_invoice", order_id=order_obj.id)) + "?no_notify=true"
-            # Send to LINE
-            await line_service.send_invoice_message(order_obj, pdf_url)
-        except Exception as e:
-            print(f"Failed to send invoice to LINE: {e}")
-
-    # Add background task only if no_notify parameter is not set
-    if request.query_params.get("no_notify") != "true":
-        background_tasks.add_task(send_line_notification, order, request)
-    
-    # Return as stream
-    return StreamingResponse(
-        io.BytesIO(pdf_content),
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": f"attachment; filename=invoice_{order.id}.pdf"
-        }
-    )
-
-@router.get("/{order_id}/delivery_slip")
-async def download_delivery_slip(order_id: int, db: AsyncSession = Depends(get_db)):
-    """納品書をダウンロード"""
-    from app.services.invoice import generate_delivery_slip_pdf
-    
-    stmt = select(Order).options(
-        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
-        selectinload(Order.restaurant)
-    ).where(Order.id == order_id)
-    
-    result = await db.execute(stmt)
-    order = result.scalar_one_or_none()
-    
-    if not order:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
-    
-    # Generate PDF
-    pdf_content = generate_delivery_slip_pdf(order)
-    
-    # Return as stream
-    return StreamingResponse(
-        io.BytesIO(pdf_content),
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": f"attachment; filename=delivery_slip_{order.id}.pdf"
-        }
-    )
-
-
 @router.get("/invoice/monthly")
 async def download_monthly_invoice(
     restaurant_id: int,
@@ -704,3 +472,235 @@ async def get_monthly_aggregation(
         ))
         
     return result
+
+
+@router.get("/{order_id}", response_model=OrderResponse)
+async def get_order(order_id: int, db: AsyncSession = Depends(get_db)):
+    """注文詳細を取得"""
+    stmt = select(Order).options(
+        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
+        selectinload(Order.restaurant)
+    ).where(Order.id == order_id)
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
+    
+    return order
+
+
+@router.patch("/{order_id}", response_model=OrderResponse)
+async def update_order(
+    order_id: int,
+    order_data: OrderUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+    """注文情報を更新"""
+    stmt = select(Order).options(
+        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
+        selectinload(Order.restaurant)
+    ).where(Order.id == order_id)
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
+    
+    # Update fields
+    update_data = order_data.model_dump(exclude_unset=True)
+    
+    # Handle status change logic if status is present
+    if "status" in update_data:
+        new_status = update_data["status"]
+        if new_status != order.status:
+            now = datetime.now()
+            if new_status == OrderStatus.CONFIRMED:
+                order.confirmed_at = now
+            elif new_status == OrderStatus.SHIPPED:
+                order.shipped_at = now
+            elif new_status == OrderStatus.DELIVERED:
+                order.delivered_at = now
+            elif new_status == OrderStatus.CANCELLED:
+                order.cancelled_at = now
+    
+    for field, value in update_data.items():
+        setattr(order, field, value)
+    
+    await db.commit()
+    await db.refresh(order)
+    
+    return order
+
+
+@router.patch("/{order_id}/status", response_model=OrderResponse)
+async def update_order_status(
+    order_id: int,
+    status_update: OrderStatusUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+    """注文ステータスを更新"""
+    stmt = select(Order).where(Order.id == order_id)
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
+    
+    # Update status and timestamp
+    order.status = status_update.status
+    
+    now = datetime.now()
+    if status_update.status == OrderStatus.CONFIRMED:
+        order.confirmed_at = now
+    elif status_update.status == OrderStatus.SHIPPED:
+        order.shipped_at = now
+    elif status_update.status == OrderStatus.DELIVERED:
+        order.delivered_at = now
+    elif status_update.status == OrderStatus.CANCELLED:
+        order.cancelled_at = now
+    
+    await db.commit()
+    
+    # Reload order with items to ensure all fields are populated and items are loaded
+    stmt = select(Order).options(
+        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
+        selectinload(Order.restaurant)
+    ).where(Order.id == order.id)
+    result = await db.execute(stmt)
+    order = result.scalar_one()
+    
+    return order
+
+
+@router.delete("/{order_id}", response_model=ResponseMessage)
+async def cancel_order(order_id: int, db: AsyncSession = Depends(get_db)):
+    """注文をキャンセル"""
+    stmt = select(Order).where(Order.id == order_id)
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
+    
+    if order.status in [OrderStatus.SHIPPED, OrderStatus.DELIVERED]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="配送中または配達完了の注文はキャンセルできません"
+        )
+    
+    order.status = OrderStatus.CANCELLED
+    order.cancelled_at = datetime.now()
+    await db.commit()
+    
+    return ResponseMessage(message="注文をキャンセルしました", success=True)
+
+
+@router.post("/{order_id}/send_invoice_line", response_model=ResponseMessage)
+async def send_invoice_line(
+    order_id: int, 
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """請求書を生成してLINEに送信"""
+    stmt = select(Order).options(
+        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
+        selectinload(Order.restaurant)
+    ).where(Order.id == order_id)
+    
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
+    
+    # 1. Generate PDF
+    pdf_content = generate_invoice_pdf(order)
+    
+    # 2. Construct Direct Download URL (Skip Cloudinary)
+    # Use the API's own endpoint to serve the file
+    # Add ?no_notify=true to prevent infinite loop of notifications when user clicks
+    pdf_url = str(request.url_for("download_invoice", order_id=order_id)) + "?no_notify=true"
+    
+    # 3. Send to LINE
+    await line_service.send_invoice_message(order, pdf_url)
+    
+    # 4. Save URL to order (optional but good)
+    order.invoice_url = pdf_url
+    await db.commit()
+    
+    return ResponseMessage(message="請求書をLINEに送信しました", success=True)
+
+
+@router.get("/{order_id}/invoice")
+async def download_invoice(
+    order_id: int, 
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
+    """請求書をダウンロード"""
+    stmt = select(Order).options(
+        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
+        selectinload(Order.restaurant)
+    ).where(Order.id == order_id)
+    
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
+    
+    # Generate PDF
+    pdf_content = generate_invoice_pdf(order)
+
+    # Background Task: Send LINE notification with API URL
+    async def send_line_notification(order_obj, request_obj):
+        try:
+            # Construct PDF URL using API endpoint
+            pdf_url = str(request_obj.url_for("download_invoice", order_id=order_obj.id)) + "?no_notify=true"
+            # Send to LINE
+            await line_service.send_invoice_message(order_obj, pdf_url)
+        except Exception as e:
+            print(f"Failed to send invoice to LINE: {e}")
+
+    # Add background task only if no_notify parameter is not set
+    if request.query_params.get("no_notify") != "true":
+        background_tasks.add_task(send_line_notification, order, request)
+    
+    # Return as stream
+    return StreamingResponse(
+        io.BytesIO(pdf_content),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=invoice_{order.id}.pdf"
+        }
+    )
+
+@router.get("/{order_id}/delivery_slip")
+async def download_delivery_slip(order_id: int, db: AsyncSession = Depends(get_db)):
+    """納品書をダウンロード"""
+    from app.services.invoice import generate_delivery_slip_pdf
+    
+    stmt = select(Order).options(
+        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
+        selectinload(Order.restaurant)
+    ).where(Order.id == order_id)
+    
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
+    
+    # Generate PDF
+    pdf_content = generate_delivery_slip_pdf(order)
+    
+    # Return as stream
+    return StreamingResponse(
+        io.BytesIO(pdf_content),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=delivery_slip_{order.id}.pdf"
+        }
+    )

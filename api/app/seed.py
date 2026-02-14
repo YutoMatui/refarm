@@ -2,7 +2,7 @@ import asyncio
 import logging
 from sqlalchemy import select
 from app.core.database import AsyncSessionLocal
-from app.models import Restaurant, Farmer, Product, Favorite
+from app.models import Restaurant, Farmer, Product, Favorite, Organization, Consumer
 from app.models.enums import StockType, TaxRate, ProductCategory
 
 logging.basicConfig(level=logging.INFO)
@@ -10,6 +10,51 @@ logger = logging.getLogger(__name__)
 
 async def seed_data():
     async with AsyncSessionLocal() as db:
+        # 0. Create Organizations (NEW)
+        logger.info("Seeding Organizations...")
+        org_refarm = None
+        org_hyogo = None
+
+        # Check and create Refarm
+        stmt = select(Organization).where(Organization.name == "りふぁーむ")
+        result = await db.execute(stmt)
+        org_refarm = result.scalar_one_or_none()
+        if not org_refarm:
+            org_refarm = Organization(
+                name="りふぁーむ",
+                address="兵庫県神戸市中央区...", # 仮の住所
+                phone_number="078-000-0000"
+            )
+            db.add(org_refarm)
+            logger.info("Created Organization: Refarm")
+
+        # Check and create University of Hyogo
+        stmt = select(Organization).where(Organization.name == "兵庫県立大学")
+        result = await db.execute(stmt)
+        org_hyogo = result.scalar_one_or_none()
+        if not org_hyogo:
+            org_hyogo = Organization(
+                name="兵庫県立大学",
+                address="兵庫県神戸市西区学園西町8-2-1",
+                phone_number="078-794-6500"
+            )
+            db.add(org_hyogo)
+            logger.info("Created Organization: University of Hyogo")
+        
+        await db.flush() # Ensure IDs are generated
+
+        # Migrate existing Consumers to Hyogo Univ
+        if org_hyogo:
+            logger.info("Migrating existing Consumers to University of Hyogo...")
+            stmt = select(Consumer).where(Consumer.organization_id == None)
+            result = await db.execute(stmt)
+            consumers = result.scalars().all()
+            for c in consumers:
+                c.organization_id = org_hyogo.id
+                logger.info(f"Assigned Consumer {c.name} to {org_hyogo.name}")
+            
+            await db.flush()
+
         # 1. Create Restaurant
         logger.info("Seeding Restaurant...")
         # Check if exists

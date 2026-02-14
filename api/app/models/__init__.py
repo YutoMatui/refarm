@@ -24,6 +24,7 @@ from app.models.support_message import SupportMessage
 from app.models.guest import GuestVisit, GuestInteraction
 from app.models.analytics import FarmerFollow
 from app.models.farmer_schedule import FarmerSchedule
+from app.models.organization import Organization
 
 __all__ = [
     # Enums
@@ -40,6 +41,7 @@ __all__ = [
     "Order",
     "OrderItem",
     "Consumer",
+    "Organization",
     "ConsumerOrder",
     "ConsumerOrderItem",
     "Favorite",

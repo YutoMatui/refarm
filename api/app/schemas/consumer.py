@@ -16,6 +16,7 @@ class ConsumerBase(BaseModel):
     address: Optional[str] = Field(None, description="住所 (都道府県・市区町村・番地)", min_length=1, max_length=500)
     building: Optional[str] = Field(None, description="建物名・部屋番号")
     profile_image_url: Optional[str] = Field(None, description="プロフィール画像URL")
+    organization_id: Optional[int] = Field(None, description="所属組織ID")
 
 
 class ConsumerAuthRequest(BaseModel):
@@ -39,6 +40,7 @@ class ConsumerUpdateRequest(BaseModel):
     address: Optional[str] = Field(None, min_length=1, max_length=500)
     building: Optional[str] = Field(None, description="建物名・部屋番号")
     profile_image_url: Optional[str] = Field(None, description="プロフィール画像URL")
+    organization_id: Optional[int] = Field(None, description="所属組織ID")
 
 
 class ConsumerResponse(ConsumerBase, TimestampSchema, BaseSchema):
@@ -46,6 +48,7 @@ class ConsumerResponse(ConsumerBase, TimestampSchema, BaseSchema):
 
     id: int
     line_user_id: str
+    organization_id: Optional[int]
 
     class Config:
         json_schema_extra = {

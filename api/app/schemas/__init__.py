@@ -72,6 +72,12 @@ from app.schemas.support_message import (
     SupportMessage,
     SupportMessageResponse,
 )
+from app.schemas.organization import (
+    OrganizationCreate,
+    OrganizationUpdate,
+    OrganizationResponse,
+    OrganizationList
+)
 
 # Forward reference resolution for circular dependencies
 FavoriteWithProductResponse.model_rebuild()
@@ -82,6 +88,11 @@ __all__ = [
     "TimestampSchema",
     "PaginationParams",
     "ResponseMessage",
+    # Organization
+    "OrganizationCreate",
+    "OrganizationUpdate",
+    "OrganizationResponse",
+    "OrganizationList",
     # Restaurant
     "RestaurantCreate",
     "RestaurantUpdate",

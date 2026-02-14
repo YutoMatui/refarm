@@ -125,6 +125,9 @@ export const consumerApi = {
 
   updateProfile: (data: ConsumerUpdateRequest) =>
     apiClient.put<Consumer>('/consumers/me', data),
+
+  getOrganizations: () =>
+    apiClient.get<{ items: any[], total: number }>('/consumers/organizations'),
 }
 
 // Restaurant API
@@ -576,6 +579,24 @@ export const adminConsumerApi = {
     apiClient.delete(`/admin/consumers/${id}`),
   getMessages: (consumerId: number) =>
     apiClient.get(`/admin/consumers/${consumerId}/messages`),
+}
+
+// Admin Organization API
+export const adminOrganizationApi = {
+  list: (params?: { skip?: number; limit?: number }) =>
+    apiClient.get<PaginatedResponse<any>>('/admin/organizations/', { params }),
+
+  getById: (id: number) =>
+    apiClient.get<any>(`/admin/organizations/${id}`),
+
+  create: (data: any) =>
+    apiClient.post<any>('/admin/organizations/', data),
+
+  update: (id: number, data: any) =>
+    apiClient.put<any>(`/admin/organizations/${id}`, data),
+
+  delete: (id: number) =>
+    apiClient.delete(`/admin/organizations/${id}`),
 }
 
 export default apiClient

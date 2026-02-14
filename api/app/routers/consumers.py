@@ -15,9 +15,23 @@ from app.schemas import (
     ConsumerRegisterRequest,
     ConsumerUpdateRequest,
     ConsumerResponse,
+    OrganizationList,
 )
+from app.models import Consumer, Organization
+
 
 router = APIRouter()
+
+
+@router.get("/organizations", response_model=OrganizationList)
+async def get_organizations(
+    db: AsyncSession = Depends(get_db)
+):
+    """Get list of available organizations."""
+    stmt = select(Organization)
+    result = await db.execute(stmt)
+    items = result.scalars().all()
+    return {"items": items, "total": len(items)}
 
 
 def _normalize_building(value: str | None) -> str | None:
@@ -86,6 +100,7 @@ async def register_consumer(
         postal_code=register_request.postal_code,
         address=register_request.address,
         building=building,
+        organization_id=register_request.organization_id,
     )
     db.add(consumer)
     await db.commit()

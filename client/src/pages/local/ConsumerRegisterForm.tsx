@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { consumerApi } from '@/services/api'
 import type { Consumer } from '@/types'
+import Loading from '@/components/Loading'
 
 interface ConsumerRegisterFormProps {
     idToken: string | null
@@ -9,56 +10,42 @@ interface ConsumerRegisterFormProps {
     onRetry?: () => void
 }
 
-const sanitizePostalCode = (value: string) => value.replace(/[^0-9]/g, '')
+interface Organization {
+    id: number
+    name: string
+    address: string
+    phone_number: string
+}
 
 const ConsumerRegisterForm = ({ idToken, onSuccess, onRetry }: ConsumerRegisterFormProps) => {
     const [name, setName] = useState('')
     const [phoneNumber, setPhoneNumber] = useState('')
-    const [postalCode, setPostalCode] = useState('')
-    const [address, setAddress] = useState('')
-    const [building, setBuilding] = useState('')
+    const [selectedOrgId, setSelectedOrgId] = useState<number | ''>('')
+    const [organizations, setOrganizations] = useState<Organization[]>([])
+    const [isLoadingOrgs, setIsLoadingOrgs] = useState(true)
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const [isLookupLoading, setIsLookupLoading] = useState(false)
-    const lastLookupPostal = useRef<string>('')
 
-    const handlePostalLookup = async () => {
-        const sanitized = sanitizePostalCode(postalCode)
-        if (sanitized.length !== 7) {
-            toast.error('郵便番号は7桁で入力してください')
-            return
-        }
-
-        if (sanitized === lastLookupPostal.current) {
-            return
-        }
-
-        try {
-            setIsLookupLoading(true)
-            const response = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${sanitized}`)
-            const data = await response.json()
-
-            if (data?.status === 200 && Array.isArray(data.results) && data.results.length > 0) {
-                const result = data.results[0]
-                const composed = `${result.address1}${result.address2}${result.address3}`
-                setAddress(composed)
-                lastLookupPostal.current = sanitized
-                toast.success('住所を自動入力しました')
-            } else {
-                toast.error('住所が見つかりませんでした。番地まで入力してください')
+    useEffect(() => {
+        const fetchOrganizations = async () => {
+            try {
+                const response = await consumerApi.getOrganizations()
+                setOrganizations(response.data.items)
+                // デフォルトで最初の組織を選択してもよいが、明示的に選択させる
+            } catch (error) {
+                console.error("Failed to fetch organizations", error)
+                toast.error("組織情報の取得に失敗しました")
+            } finally {
+                setIsLoadingOrgs(false)
             }
-        } catch (error) {
-            console.error('Postal lookup error', error)
-            toast.error('住所の自動入力に失敗しました')
-        } finally {
-            setIsLookupLoading(false)
         }
-    }
+        fetchOrganizations()
+    }, [])
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
 
-        if (!name || !phoneNumber) {
-            toast.error('名前と電話番号は必須です')
+        if (!name || !phoneNumber || !selectedOrgId) {
+            toast.error('全ての必須項目を入力してください')
             return
         }
 
@@ -72,11 +59,12 @@ const ConsumerRegisterForm = ({ idToken, onSuccess, onRetry }: ConsumerRegisterF
                     line_user_id: 'dev-user-id',
                     name,
                     phone_number: phoneNumber,
-                    postal_code: sanitizePostalCode(postalCode),
-                    address,
-                    building: building || null,
+                    postal_code: null,
+                    address: null,
+                    building: null,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
+                    organization_id: Number(selectedOrgId)
                 }
                 await new Promise(resolve => setTimeout(resolve, 500)) // 少し待機
                 toast.success('会員登録が完了しました（開発モード）')
@@ -94,10 +82,12 @@ const ConsumerRegisterForm = ({ idToken, onSuccess, onRetry }: ConsumerRegisterF
                 id_token: idToken,
                 name,
                 phone_number: phoneNumber,
-                postal_code: sanitizePostalCode(postalCode),
-                address,
-                building: building || undefined,
+                postal_code: undefined,
+                address: undefined,
+                building: undefined,
+                organization_id: Number(selectedOrgId)
             })
+
             toast.success('会員登録が完了しました')
             onSuccess(response.data)
         } catch (error: any) {
@@ -109,19 +99,21 @@ const ConsumerRegisterForm = ({ idToken, onSuccess, onRetry }: ConsumerRegisterF
         }
     }
 
+    if (isLoadingOrgs) return <Loading message="読み込み中..." />
+
     return (
         <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white flex items-center justify-center px-4 py-12">
             <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl p-8 space-y-6">
                 <div className="space-y-2 text-center">
                     <h1 className="text-2xl font-bold text-gray-900">ベジコベ 会員登録</h1>
                     <p className="text-sm text-gray-600">
-                        お届けに必要な情報をご入力ください。建物名・部屋番号が無い場合は「なし」とご記入ください。
+                        サービスを利用するために必要な情報を入力してください。
                     </p>
                 </div>
 
                 <form className="space-y-5" onSubmit={handleSubmit}>
                     <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">お名前（フルネーム）</label>
+                        <label className="block text-sm font-medium text-gray-700">お名前（フルネーム） <span className="text-red-500">*</span></label>
                         <input
                             type="text"
                             value={name}
@@ -133,7 +125,7 @@ const ConsumerRegisterForm = ({ idToken, onSuccess, onRetry }: ConsumerRegisterF
                     </div>
 
                     <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">電話番号（緊急連絡先）</label>
+                        <label className="block text-sm font-medium text-gray-700">電話番号（緊急連絡先） <span className="text-red-500">*</span></label>
                         <input
                             type="tel"
                             value={phoneNumber}
@@ -145,49 +137,23 @@ const ConsumerRegisterForm = ({ idToken, onSuccess, onRetry }: ConsumerRegisterF
                     </div>
 
                     <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">郵便番号（任意）</label>
-                        <div className="flex space-x-2">
-                            <input
-                                type="text"
-                                value={postalCode}
-                                onChange={(e) => setPostalCode(e.target.value)}
-                                placeholder="例）6500001"
-                                maxLength={8}
-                                className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            />
-                            <button
-                                type="button"
-                                onClick={handlePostalLookup}
-                                disabled={isLookupLoading}
-                                className="px-4 py-2 rounded-md bg-emerald-600 text-white font-semibold hover:bg-emerald-700 disabled:opacity-60"
-                            >
-                                {isLookupLoading ? '検索中...' : '住所検索'}
-                            </button>
-                        </div>
-                        <p className="text-xs text-gray-500">ご自宅配送をご希望の場合は、7桁の郵便番号を入力すると住所を自動で補完できます。</p>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">住所（任意：都道府県・市区町村・番地）</label>
-                        <textarea
-                            value={address}
-                            onChange={(e) => setAddress(e.target.value)}
-                            placeholder="例）兵庫県神戸市中央区加納町6-5-1"
-                            rows={3}
+                        <label className="block text-sm font-medium text-gray-700">所属組織・受取場所 <span className="text-red-500">*</span></label>
+                        <select
+                            value={selectedOrgId}
+                            onChange={(e) => setSelectedOrgId(Number(e.target.value))}
+                            required
                             className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        />
-                        <p className="text-xs text-gray-500 italic">※ 大学受取のみをご利用の方は、住所の入力は不要です。</p>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">建物名・部屋番号</label>
-                        <input
-                            type="text"
-                            value={building}
-                            onChange={(e) => setBuilding(e.target.value)}
-                            placeholder="例）神戸ハイツ 501号室（戸建ての場合は「なし」と入力）"
-                            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        />
+                        >
+                            <option value="">選択してください</option>
+                            {organizations.map(org => (
+                                <option key={org.id} value={org.id}>
+                                    {org.name}
+                                </option>
+                            ))}
+                        </select>
+                        <p className="text-xs text-gray-500">
+                            商品を受け取る組織（キャンパス等）を選択してください。
+                        </p>
                     </div>
 
                     <button

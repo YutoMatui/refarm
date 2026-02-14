@@ -11,11 +11,12 @@ import DeliveryScheduleManagement from '@/components/Admin/DeliveryScheduleManag
 import ConsumerDeliverySlotManagement from '@/components/Admin/ConsumerDeliverySlotManagement'
 import GuestManagement from '@/components/Admin/GuestManagement'
 import ConsumerManagement from '@/components/Admin/ConsumerManagement'
+import OrganizationManagement from '@/components/Admin/OrganizationManagement'
 import SystemSettings from '@/components/Admin/SystemSettings'
 import { adminApi } from '@/services/api'
 
 export default function Admin() {
-    const [activeTab, setActiveTab] = useState<'farmers' | 'products' | 'delivery' | 'procurement' | 'restaurants' | 'route' | 'admin_users' | 'delivery_schedule' | 'consumer_delivery' | 'guest' | 'consumers' | 'settings'>('farmers')
+    const [activeTab, setActiveTab] = useState<'farmers' | 'products' | 'delivery' | 'procurement' | 'restaurants' | 'organizations' | 'route' | 'admin_users' | 'delivery_schedule' | 'consumer_delivery' | 'guest' | 'consumers' | 'settings'>('farmers')
     const [userRole, setUserRole] = useState<string>('editor')
 
     useEffect(() => {
@@ -28,6 +29,7 @@ export default function Admin() {
     const tabs = [
         { id: 'farmers', label: '農家管理', icon: Users },
         { id: 'restaurants', label: '飲食店管理', icon: Store },
+        { id: 'organizations', label: '組織・企業管理', icon: Store },
         { id: 'consumers', label: '消費者管理', icon: UserCircle },
         { id: 'products', label: '商品・在庫管理', icon: ShoppingBag },
         { id: 'delivery', label: '注文・配送管理（飲食店）', icon: Truck },
@@ -90,6 +92,7 @@ export default function Admin() {
                         {activeTab === 'consumer_delivery' && <ConsumerDeliverySlotManagement />}
                         {activeTab === 'procurement' && <ProcurementManagement />}
                         {activeTab === 'restaurants' && <RestaurantManagement />}
+                        {activeTab === 'organizations' && <OrganizationManagement />}
                         {activeTab === 'consumers' && <ConsumerManagement />}
                         {activeTab === 'route' && <RoutePlanning />}
                         {activeTab === 'admin_users' && <AdminUserManagement />}

@@ -131,14 +131,14 @@ class RouteService:
         # But requirement says "Start -> Farmers -> University -> Restaurants".
         # If no farmers, Start -> University -> Restaurants.
         
-        if "error" in collection_result and collection_result.get("details") != "No farmers provided":
+        if "error" in collection_result and collection_result.get("error") != "No farmers provided":
              # Real error
              return collection_result
         
         # 2. Calculate Delivery Leg (University -> Restaurants -> Start/End)
         delivery_result = await self.calculate_restaurant_route(restaurants, destination_address=start_address)
         
-        if "error" in delivery_result and delivery_result.get("details") != "No restaurants provided":
+        if "error" in delivery_result and delivery_result.get("error") != "No restaurants provided":
              return delivery_result
 
         # 3. Merge Results
@@ -176,66 +176,77 @@ class RouteService:
 
     def _format_route_response(self, data: Dict, locations: List[Dict], type_key: str) -> Dict:
         """Helper to format the messy Google Maps response into a clean Timeline."""
-        if not data.get("routes"):
-            return {"error": "No routes found", "details": f"Status: {data.get('status')}"}
+        try:
+            if not data.get("routes"):
+                return {"error": "No routes found", "details": f"Status: {data.get('status')}"}
 
-        route = data["routes"][0]
-        waypoint_order = route.get("waypoint_order", []) # Default empty if no waypoints
-        legs = route["legs"]
-        
-        # Calculate total info
-        total_distance_meters = sum(leg["distance"]["value"] for leg in legs)
-        total_duration_seconds = sum(leg["duration"]["value"] for leg in legs)
-        
-        timeline = []
-        
-        # Start Point
-        timeline.append({
-            "type": "start",
-            "name": legs[0]["start_address"],
-            "address": legs[0]["start_address"],
-            "time_from_prev": "0分",
-            "distance_from_prev": "0km"
-        })
-        
-        # Waypoints (reordered)
-        # legs[0] is Start -> Waypoint 1
-        # legs[1] is Waypoint 1 -> Waypoint 2
-        # ...
-        current_time_accumulated = 0
-        
-        for i, original_index in enumerate(waypoint_order):
-            leg = legs[i]
-            location_info = locations[original_index]
+            route = data["routes"][0]
+            waypoint_order = route.get("waypoint_order", []) # Default empty if no waypoints
+            legs = route.get("legs", [])
             
-            # Duration of this leg
-            duration_text = leg["duration"]["text"]
-            distance_text = leg["distance"]["text"]
+            if not legs:
+                 return {"error": "No route legs found"}
+
+            # Calculate total info
+            total_distance_meters = sum(leg.get("distance", {}).get("value", 0) for leg in legs)
+            total_duration_seconds = sum(leg.get("duration", {}).get("value", 0) for leg in legs)
             
+            timeline = []
+            
+            # Start Point
+            first_leg = legs[0]
             timeline.append({
-                "type": "visit",
-                "name": location_info.get("name", "Unknown"),
-                "address": leg["end_address"],
-                "arrival_time_estimate": f"+{duration_text}", # Simplified
-                "distance": distance_text,
-                "data": location_info
+                "type": "start",
+                "name": first_leg.get("start_address", "Start"),
+                "address": first_leg.get("start_address", "Start"),
+                "time_from_prev": "0分",
+                "distance_from_prev": "0km"
             })
             
-        # End Point
-        last_leg = legs[-1]
-        timeline.append({
-            "type": "end",
-            "name": last_leg["end_address"],
-            "address": last_leg["end_address"],
-            "arrival_time_estimate": f"+{last_leg['duration']['text']}",
-            "distance": last_leg["distance"]["text"]
-        })
-        
-        return {
-            "total_distance": f"{total_distance_meters / 1000:.1f} km",
-            "total_duration": f"{total_duration_seconds // 60} 分",
-            "timeline": timeline,
-            "optimized_order": waypoint_order
-        }
+            # Waypoints processing
+            for i, original_index in enumerate(waypoint_order):
+                if i >= len(legs):
+                    break # Safety check
+                
+                leg = legs[i] # This leg goes FROM waypoint i-1 (or start) TO waypoint i
+                
+                # Check if we have valid location info
+                if original_index < len(locations):
+                    location_info = locations[original_index]
+                else:
+                    location_info = {"name": "Unknown Location"}
+                
+                # Duration of this leg
+                duration_text = leg.get("duration", {}).get("text", "")
+                distance_text = leg.get("distance", {}).get("text", "")
+                
+                timeline.append({
+                    "type": "visit",
+                    "name": location_info.get("name", "Unknown"),
+                    "address": leg.get("end_address", ""),
+                    "arrival_time_estimate": f"+{duration_text}", # Simplified
+                    "distance": distance_text,
+                    "data": location_info
+                })
+                
+            # End Point
+            if legs:
+                last_leg = legs[-1]
+                timeline.append({
+                    "type": "end",
+                    "name": last_leg.get("end_address", "End"),
+                    "address": last_leg.get("end_address", "End"),
+                    "arrival_time_estimate": f"+{last_leg.get('duration', {}).get('text', '')}",
+                    "distance": last_leg.get("distance", {}).get("text", "")
+                })
+            
+            return {
+                "total_distance": f"{total_distance_meters / 1000:.1f} km",
+                "total_duration": f"{total_duration_seconds // 60} 分",
+                "timeline": timeline,
+                "optimized_order": waypoint_order
+            }
+        except Exception as e:
+            return {"error": "Error formatting route response", "details": str(e)}
 
 route_service = RouteService()
