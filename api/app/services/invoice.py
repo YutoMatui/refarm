@@ -176,7 +176,7 @@ def generate_monthly_invoice_pdf(restaurant, orders, target_month_label, period_
     sorted_orders = sorted(orders, key=lambda x: x.delivery_date)
     
     for order in sorted_orders:
-        date_str = datetime.strptime(str(order.delivery_date), '%Y-%m-%d').strftime('%m/%d')
+        date_str = order.delivery_date.strftime('%m/%d') if hasattr(order.delivery_date, 'strftime') else str(order.delivery_date)[:10]
         desc = "野菜代金" # Could be more specific if needed
         amount = int(order.total_amount)
         
