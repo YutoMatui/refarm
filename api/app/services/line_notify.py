@@ -1,5 +1,5 @@
 import httpx
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Any
 from app.core.config import settings
@@ -10,60 +10,69 @@ class LineNotificationService:
     BASE_URL = "https://api.line.me"
     
     def __init__(self):
-        self.restaurant_token = None
-        self.restaurant_token_expires = 0
-        self.producer_token = None
-        self.producer_token_expires = 0
+        # Cache for tokens: { "channel_id": {"token": str, "expires_at": datetime} }
+        self._tokens = {}
         
     async def get_access_token(self, channel_id: str, channel_secret: str, long_lived_token: str = None) -> str:
         """
         Get Channel Access Token
         If long_lived_token is provided, use it directly.
-        Otherwise, issue a short-lived token using channel credentials.
+        Otherwise, issue a short-lived token using channel credentials and cache it.
         """
         # Prioritize long-lived token if provided
         if long_lived_token:
             return long_lived_token
         
-        # Simple in-memory cache check (not perfect for multi-worker but ok for demo)
-        if channel_id == settings.LINE_RESTAURANT_CHANNEL_ID and self.restaurant_token:
-            return self.restaurant_token
-        if channel_id == settings.LINE_PRODUCER_CHANNEL_ID and self.producer_token:
-            return self.producer_token
+        if not channel_id or not channel_secret:
+            print(f"Missing channel credentials for {channel_id}")
+            return None
 
-        # LINE Messaging API uses /v2/oauth/issue endpoint, not accessToken
+        # Check in-memory cache
+        now = datetime.now()
+        if channel_id in self._tokens:
+            cache = self._tokens[channel_id]
+            # Use cached token if it has more than 5 minutes before expiration
+            if cache["expires_at"] > now:
+                return cache["token"]
+
+        # LINE Messaging API v2.1 token issuance
         async with httpx.AsyncClient() as client:
             payload = {
                 "grant_type": "client_credentials",
                 "client_id": channel_id,
                 "client_secret": channel_secret
             }
-            # The Content-Type must be correctly handled by passing `data` for x-www-form-urlencoded
-            response = await client.post(
-                f"{self.BASE_URL}/oauth2/v3/token",
-                data=payload,
-                headers={"Content-Type": "application/x-www-form-urlencoded"}
-            )
-            
-            # Additional check for better error messages
-            if response.status_code != 200:
-                print(f"LINE Token Error: {response.status_code} - {response.text}")
-                # Don't raise, just log and return None to prevent order failure
-                return None
-            
-            data = response.json()
-            
-            token = data.get("access_token")
-            if not token:
-                print(f"No access token in response: {data}")
-                return None
-            
-            if channel_id == settings.LINE_RESTAURANT_CHANNEL_ID:
-                self.restaurant_token = token
-            else:
-                self.producer_token = token
+            try:
+                # Use v2.1 endpoint: /v2/oauth/accessToken
+                response = await client.post(
+                    f"{self.BASE_URL}/v2/oauth/accessToken",
+                    data=payload,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"}
+                )
                 
-            return token
+                if response.status_code != 200:
+                    print(f"LINE Token Error: {response.status_code} - {response.text}")
+                    return None
+                
+                data = response.json()
+                token = data.get("access_token")
+                expires_in = data.get("expires_in", 0) # seconds
+                
+                if not token:
+                    print(f"No access token in response for {channel_id}: {data}")
+                    return None
+                
+                # Cache the token with expiration (buffer 5 minutes)
+                self._tokens[channel_id] = {
+                    "token": token,
+                    "expires_at": now + (timedelta(seconds=expires_in - 300) if expires_in > 300 else timedelta(seconds=expires_in))
+                }
+                
+                print(f"Successfully issued new LINE token for channel {channel_id}")
+                return token
+            except Exception as e:
+                print(f"Exception while getting LINE token for {channel_id}: {e}")
+                return None
 
     async def send_push_message(self, token: str, to_user_id: str, text: str):
         """Send a push message"""
@@ -266,7 +275,7 @@ No. {order.id}
         
         token = await self.get_access_token(
             consumer_channel_id,
-            "",  # Channel secretは不要（long-lived tokenを使用）
+            getattr(settings, 'LINE_CONSUMER_CHANNEL_SECRET', ""),
             consumer_access_token
         )
         

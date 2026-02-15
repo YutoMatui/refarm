@@ -77,6 +77,7 @@ class Settings(BaseSettings):
 
     # LINE Messaging API (Consumer) - NEW
     LINE_CONSUMER_CHANNEL_ID: str = "2007987539"
+    LINE_CONSUMER_CHANNEL_SECRET: str = "" # Optional: for auto-token issuance
     LINE_CONSUMER_ACCESS_TOKEN: str = "Jf7za5jmyPzScJ/gyTnUzG/Oe/6HTt+BCS8l8c07w1+dxNlLaJoK24EfCSjEoIuVT2vGKFc99+02JOi64IpyYZVdiAoY5T55SH/c0XGXcYwwqp7dC5Pg//bmRrPmk+G4Dw4eNqZSj0j3VGLPgmcDfAdB04t89/1O/w1cDnyilFU="
 
     # LINE Test User ID
