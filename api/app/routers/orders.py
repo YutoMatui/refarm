@@ -636,9 +636,13 @@ async def delete_order_item(
     if not item_to_delete:
         raise HTTPException(status_code=404, detail="注文明細が見つかりません")
 
-    # Store item data for notification
-    # We must do this before deleting/committing
-    target_item_copy = item_to_delete 
+    # Store item data for notification before deleting
+    # Re-fetch item with product and farmer to ensure we have data for notification
+    stmt_item = select(OrderItem).options(
+        joinedload(OrderItem.product).joinedload(Product.farmer)
+    ).where(OrderItem.id == item_id)
+    result_item = await db.execute(stmt_item)
+    item_for_notify = result_item.scalar_one()
 
     # 3. Delete the item
     await db.delete(item_to_delete)
@@ -648,12 +652,6 @@ async def delete_order_item(
     # Filter out the deleted item from the local relationship list
     remaining_items = [i for i in order.order_items if i.id != item_id]
     
-    if not remaining_items:
-        # If no items left, maybe we should cancel the order or allow 0 total?
-        # User said "削除のみできるようにしてください", implying partial deletion.
-        # If all deleted, totals are 0 + shipping_fee.
-        pass
-
     subtotal = sum(i.subtotal for i in remaining_items)
     tax_amount = sum(i.tax_amount for i in remaining_items)
     
@@ -662,14 +660,21 @@ async def delete_order_item(
     order.total_amount = subtotal + tax_amount + Decimal(order.shipping_fee)
     
     await db.commit()
-    await db.refresh(order)
-    
-    # 5. Notify farmer
+
+    # 5. Notify farmer (using the pre-fetched item data)
     try:
-        await line_service.notify_farmer_item_deleted(order, target_item_copy)
+        await line_service.notify_farmer_item_deleted(order, item_for_notify)
     except Exception as e:
         logger.error(f"Failed to notify farmer about deleted item: {e}")
-        
+
+    # 6. Re-fetch order with items for response serialization
+    stmt = select(Order).options(
+        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
+        selectinload(Order.restaurant)
+    ).where(Order.id == order_id)
+    result = await db.execute(stmt)
+    order = result.scalar_one()
+    
     return order
 
 

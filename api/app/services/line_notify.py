@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Any
 from app.core.config import settings
-from app.models import Order, OrderItem, ConsumerOrder
+from app.models import Order, OrderItem, ConsumerOrder, Farmer, Product
 from app.models.enums import DeliverySlotType
 
 class LineNotificationService:
@@ -507,5 +507,44 @@ No. {order.id} の納品書をお送りします。
 ※ このリンクの有効期限はありませんが、お早めに保存してください。"""
 
         await self.send_push_message(token, target_user_id, message)
+
+    async def notify_farmer_item_deleted(self, order: Order, item: OrderItem):
+        """注文明細が削除されたことを農家に通知"""
+        # Ensure farmer info is available
+        target_user_id = None
+        
+        # We need the farmer's LINE ID. 
+        # The item might have product.farmer loaded, or we use item.product_id to find it.
+        farmer = None
+        if hasattr(item, 'product') and item.product and item.product.farmer:
+            farmer = item.product.farmer
+        
+        if farmer and farmer.line_user_id:
+            target_user_id = farmer.line_user_id
+        
+        if not target_user_id:
+            print(f"No LINE user ID for farmer of item {item.id}")
+            return
+
+        token = await self.get_access_token(
+            settings.LINE_PRODUCER_CHANNEL_ID,
+            settings.LINE_PRODUCER_CHANNEL_SECRET,
+            settings.LINE_PRODUCER_CHANNEL_ACCESS_TOKEN
+        )
+
+        delivery_date_str = self.format_date(order.delivery_date)
+        
+        message = f"""【注文内容の変更（削除）のお知らせ】
+以下の日時の配送予定分から、商品が削除されました。
+
+■注文番号: {order.id}
+■配送日: {delivery_date_str}
+■削除された商品: {item.product_name}
+■数量: {item.quantity} {item.product_unit}
+
+※欠品対応等による削除です。在庫の調整をご確認ください。"""
+
+        await self.send_push_message(token, target_user_id, message)
+
 
 line_service = LineNotificationService()
