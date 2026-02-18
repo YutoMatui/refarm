@@ -58,10 +58,15 @@ async def create_restaurant(
     # Create new restaurant
     # Auto-geocode if address is provided
     if restaurant_data.address:
-        coords = await route_service.get_coordinates(restaurant_data.address)
-        if coords:
-            restaurant_data.latitude = str(coords["lat"])
-            restaurant_data.longitude = str(coords["lng"])
+        try:
+            coords = await route_service.get_coordinates(restaurant_data.address)
+            if coords:
+                restaurant_data.latitude = str(coords["lat"])
+                restaurant_data.longitude = str(coords["lng"])
+        except Exception as e:
+            # Log but don't fail the entire registration if only geocoding failed
+            import logging
+            logging.getLogger(__name__).warning(f"Geocoding failed for new restaurant: {str(e)}")
             
     # Convert empty string line_user_id to None to avoid unique constraint violation
     if restaurant_data.line_user_id == "":

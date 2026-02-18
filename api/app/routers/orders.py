@@ -596,6 +596,82 @@ async def cancel_order(order_id: int, db: AsyncSession = Depends(get_db)):
     return ResponseMessage(message="注文をキャンセルしました", success=True)
 
 
+@router.delete("/{order_id}/items/{item_id}", response_model=OrderResponse)
+async def delete_order_item(
+    order_id: int,
+    item_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """注文明細を削除し、合計金額を再計算する"""
+    from decimal import Decimal
+    from app.services.line_notify import line_service
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # 1. Fetch order with items
+    stmt = select(Order).options(
+        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
+        selectinload(Order.restaurant)
+    ).where(Order.id == order_id)
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="注文が見つかりません")
+    
+    if order.status in [OrderStatus.SHIPPED, OrderStatus.DELIVERED, OrderStatus.CANCELLED]:
+        raise HTTPException(
+            status_code=400, 
+            detail="配送中、配達完了、またはキャンセル済みの注文は変更できません"
+        )
+
+    # 2. Find the item
+    item_to_delete = None
+    for item in order.order_items:
+        if item.id == item_id:
+            item_to_delete = item
+            break
+    
+    if not item_to_delete:
+        raise HTTPException(status_code=404, detail="注文明細が見つかりません")
+
+    # Store item data for notification
+    # We must do this before deleting/committing
+    target_item_copy = item_to_delete 
+
+    # 3. Delete the item
+    await db.delete(item_to_delete)
+    await db.flush() # Reflect deletion in session
+    
+    # 4. Recalculate totals
+    # Filter out the deleted item from the local relationship list
+    remaining_items = [i for i in order.order_items if i.id != item_id]
+    
+    if not remaining_items:
+        # If no items left, maybe we should cancel the order or allow 0 total?
+        # User said "削除のみできるようにしてください", implying partial deletion.
+        # If all deleted, totals are 0 + shipping_fee.
+        pass
+
+    subtotal = sum(i.subtotal for i in remaining_items)
+    tax_amount = sum(i.tax_amount for i in remaining_items)
+    
+    order.subtotal = subtotal
+    order.tax_amount = tax_amount
+    order.total_amount = subtotal + tax_amount + Decimal(order.shipping_fee)
+    
+    await db.commit()
+    await db.refresh(order)
+    
+    # 5. Notify farmer
+    try:
+        await line_service.notify_farmer_item_deleted(order, target_item_copy)
+    except Exception as e:
+        logger.error(f"Failed to notify farmer about deleted item: {e}")
+        
+    return order
+
+
 @router.post("/{order_id}/send_invoice_line", response_model=ResponseMessage)
 async def send_invoice_line(
     order_id: int, 

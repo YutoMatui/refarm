@@ -66,8 +66,8 @@ class RestaurantResponse(RestaurantBase, TimestampSchema, BaseSchema):
     id: int
     line_user_id: Optional[str] = None
     
-    class Config:
-        json_schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "id": 1,
                 "line_user_id": "U1234567890abcdef",
@@ -76,12 +76,13 @@ class RestaurantResponse(RestaurantBase, TimestampSchema, BaseSchema):
                 "address": "兵庫県神戸市中央区○○町1-2-3",
                 "invoice_email": "billing@restaurant.com",
                 "business_hours": "11:00-14:00, 18:00-22:00",
-                "notes": "裏口から納品してください",
+                "notes": "裏口 from 納品してください",
                 "is_active": 1,
                 "created_at": "2024-01-01T00:00:00+09:00",
                 "updated_at": "2024-01-01T00:00:00+09:00"
             }
         }
+    }
 
 
 class RestaurantListResponse(BaseModel):

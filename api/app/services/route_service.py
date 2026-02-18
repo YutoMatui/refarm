@@ -14,19 +14,28 @@ class RouteService:
 
     async def get_coordinates(self, address: str) -> Optional[Dict[str, float]]:
         """Geocodes an address to get latitude and longitude."""
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{self.BASE_URL}/geocode/json",
-                params={
-                    "address": address,
-                    "key": self.API_KEY,
-                    "language": "ja"
-                }
-            )
-            data = response.json()
-            if data["status"] == "OK" and data["results"]:
-                location = data["results"][0]["geometry"]["location"]
-                return location
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    f"{self.BASE_URL}/geocode/json",
+                    params={
+                        "address": address,
+                        "key": self.API_KEY,
+                        "language": "ja"
+                    }
+                )
+                response.raise_for_status()
+                data = response.json()
+                if data["status"] == "OK" and data["results"]:
+                    location = data["results"][0]["geometry"]["location"]
+                    return location
+                return None
+        except Exception as e:
+            # Import logger here if not available globally, or just print for now if it's a service
+            # but better to handle it gracefully and return None
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Geocoding failed for address '{address}': {str(e)}")
             return None
 
     async def calculate_farmer_route(self, start_address: str, farmers: List[Dict[str, Any]]) -> Dict[str, Any]:

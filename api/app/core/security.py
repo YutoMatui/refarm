@@ -74,6 +74,25 @@ async def verify_line_id_token(id_token: str) -> dict:
 
     last_error = None
     
+    # Identifiers for channel IDs we try
+    target_channel_id = None
+    try:
+        # Decode without verification to get the 'aud' (audience) which is the Login Channel ID
+        unverified_claims = jwt.get_unverified_claims(id_token)
+        target_channel_id = unverified_claims.get("aud")
+        if target_channel_id:
+            logger.info(f"Targeting LINE Channel ID from token: {target_channel_id}")
+    except Exception as e:
+        logger.warning(f"Could not decode unverified claims from token: {e}")
+
+    # If target_channel_id is in our allowed list, prioritize it.
+    # Otherwise, try all available IDs (legacy behavior but prioritized is better).
+    if target_channel_id and target_channel_id in channel_ids:
+        # Reorder to put target first
+        channel_ids.remove(target_channel_id)
+        channel_ids.insert(0, target_channel_id)
+    
+    last_error_detail = None
     async with httpx.AsyncClient() as client:
         for channel_id in channel_ids:
             try:
