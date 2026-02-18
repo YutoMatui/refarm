@@ -57,9 +57,8 @@ async def get_current_farmer(line_user_id: str, db: AsyncSession) -> Farmer:
 
 @router.get("/dashboard/sales/invoice")
 async def download_payment_notice(
-    farmer_id: int = Query(None, description="生産者ID (省略可)"),
+    farmer_id: int = Query(..., description="生産者ID"),
     month: str = Query(..., description="対象月 (YYYY-MM)"),
-    line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -69,18 +68,11 @@ async def download_payment_notice(
     from app.services.invoice import generate_farmer_payment_notice_pdf
     
     # 1. Get Farmer
-    if farmer_id:
-        stmt = select(Farmer).where(Farmer.id == farmer_id)
-        result = await db.execute(stmt)
-        farmer = result.scalar_one_or_none()
-        if not farmer:
-            raise HTTPException(status_code=404, detail="生産者が見つかりません")
-        # Access Check
-        if farmer.line_user_id != line_user_id:
-            raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
-    else:
-        farmer = await get_current_farmer(line_user_id, db)
-        farmer_id = farmer.id
+    stmt = select(Farmer).where(Farmer.id == farmer_id)
+    result = await db.execute(stmt)
+    farmer = result.scalar_one_or_none()
+    if not farmer:
+        raise HTTPException(status_code=404, detail="生産者が見つかりません")
 
     try:
         target_month = datetime.strptime(month, "%Y-%m")
@@ -167,7 +159,8 @@ async def send_payment_notice_line(
         raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
 
     # Construct PDF URL using API endpoint
-    pdf_url = str(request.url_for("download_payment_notice")) + f"?farmer_id={farmer_id}&month={month}"
+    # Use request.url_for and add no_notify to prevent re-triggering notifications
+    pdf_url = str(request.url_for("download_payment_notice")) + f"?farmer_id={farmer_id}&month={month}&no_notify=true"
 
     # Send to LINE
     await line_service.send_payment_notice_message(farmer_id, month, pdf_url, line_user_id=farmer.line_user_id)

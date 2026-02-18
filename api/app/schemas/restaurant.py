@@ -23,14 +23,16 @@ class RestaurantBase(BaseModel):
     cuisine_type: Optional[str] = Field(None, max_length=100, description="業種")
     kodawari: Optional[str] = Field(None, max_length=1000, description="こだわり")
     closing_date: int = Field(default=99, description="締め日 (1-28, 99=末日)")
-    shipping_fee: int = Field(default=800, description="配送料 (税込)")
+    shipping_fee: Optional[int] = Field(default=800, description="配送料 (税込)")
 
-    @field_validator('invoice_email', mode='before')
+    @field_validator('invoice_email', 'shipping_fee', mode='before')
     @classmethod
-    def empty_string_to_none(cls, v):
-        """Convert empty string to None for optional email field."""
-        if v == "":
+    def handle_optional_fields(cls, v, info):
+        """Handle null/empty values for optional fields."""
+        if info.field_name == 'invoice_email' and v == "":
             return None
+        if info.field_name == 'shipping_fee' and v is None:
+            return 800
         return v
 
 
