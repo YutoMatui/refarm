@@ -246,6 +246,9 @@ export const orderApi = {
   cancel: (id: number) =>
     apiClient.delete(`/orders/${id}`),
 
+  deleteItem: (orderId: number, itemId: number) =>
+    apiClient.delete<Order>(`/orders/${orderId}/items/${itemId}`),
+
   downloadInvoice: async (id: number) => {
     const response = await apiClient.get(`/orders/${id}/invoice`, {
       responseType: 'blob',

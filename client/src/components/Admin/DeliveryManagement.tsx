@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { settingsApi, orderApi } from '@/services/api'
 import { Order, OrderStatus, DeliverySettings } from '@/types'
-import { FileText, Truck, ChevronDown, ChevronUp, Settings, Calendar, Clock } from 'lucide-react'
+import { FileText, Truck, ChevronDown, ChevronUp, Settings, Calendar, Clock, Trash2 } from 'lucide-react'
 import Loading from '@/components/Loading'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
@@ -118,6 +118,22 @@ export default function DeliveryManagement() {
         },
         onError: () => {
             alert('更新に失敗しました')
+        }
+    })
+
+    // アイテム削除
+    const deleteItemMutation = useMutation({
+        mutationFn: async ({ orderId, itemId }: { orderId: number; itemId: number }) => {
+            if (!confirm('このアイテムを削除しますか？\n削除すると担当農家にLINE通知が送信されます。')) return;
+            await orderApi.deleteItem(orderId, itemId)
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['admin-orders'] })
+            alert('アイテムを削除しました')
+        },
+        onError: (err: any) => {
+            const msg = err.response?.data?.detail || '削除に失敗しました';
+            alert(msg)
         }
     })
 
@@ -258,9 +274,18 @@ export default function DeliveryManagement() {
                                                 <div key={item.id} className="text-xs border-b border-gray-100 last:border-0 pb-2 last:pb-0">
                                                     <div className="font-medium text-gray-800">{item.product_name}</div>
                                                     <div className="flex justify-between items-center mt-1">
-                                                        <span className="text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded text-[10px]">
-                                                            {item.farmer_name || '農家不明'}
-                                                        </span>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded text-[10px]">
+                                                                {item.farmer_name || '農家不明'}
+                                                            </span>
+                                                            <button
+                                                                onClick={() => deleteItemMutation.mutate({ orderId: order.id, itemId: item.id })}
+                                                                className="text-red-400 hover:text-red-600 p-0.5"
+                                                                title="アイテムを削除"
+                                                            >
+                                                                <Trash2 className="w-3 h-3" />
+                                                            </button>
+                                                        </div>
                                                         <span className="font-medium">
                                                             ×{item.quantity}<span className="text-gray-500 font-normal">{item.product_unit}</span>
                                                         </span>

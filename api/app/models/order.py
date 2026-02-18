@@ -240,6 +240,12 @@ class OrderItem(Base, TimestampMixin):
         comment="合計金額 (税込)"
     )
     
+    wholesale_price = Column(
+        Numeric(10, 2),
+        nullable=True,
+        comment="卸値 (税抜・スナップショット)"
+    )
+    
     # Product Snapshot
     product_name = Column(
         String(200),

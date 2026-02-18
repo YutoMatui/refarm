@@ -72,26 +72,31 @@ export default function ProducerSales() {
 
 
     const handleDownloadPaymentNotice = async () => {
+        const monthStr = format(currentMonth, 'yyyy-MM');
         try {
-            const monthStr = format(currentMonth, 'yyyy-MM');
-            toast.info('支払通知書をLINEに送信しています...');
+            toast.info('支払通知書を作成中...');
 
-            // 1. Send to LINE
-            await producerApi.sendPaymentNoticeLine(farmerId, monthStr);
-            toast.success('LINEに支払通知書を送信しました');
-
-            // 2. Download
+            // 1. Download
             const blob = await producerApi.downloadPaymentNotice(farmerId, monthStr);
-            const url = window.URL.createObjectURL(new Blob([blob]));
+            const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
             link.setAttribute('download', `payment_notice_${monthStr}.pdf`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            toast.success('ダウンロードを開始しました');
+
+            // 2. Send to LINE in background
+            producerApi.sendPaymentNoticeLine(farmerId, monthStr)
+                .then(() => toast.success('LINEにも支払通知書を送信しました'))
+                .catch(err => console.warn("LINE notification failed:", err));
+
         } catch (error) {
             console.error("Download failed:", error);
-            toast.error('ダウンロード/送信に失敗しました');
+            toast.error('支払通知書の作成に失敗しました');
         }
     };
 

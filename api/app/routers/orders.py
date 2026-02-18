@@ -80,6 +80,7 @@ async def create_order(
             product_id=product.id,
             quantity=item_data.quantity,
             unit_price=product.price,
+            wholesale_price=product.cost_price,
             tax_rate=product.tax_rate.value,
             subtotal=item_subtotal,
             tax_amount=item_tax,

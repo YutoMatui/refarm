@@ -88,7 +88,7 @@ async def download_payment_notice(
         select(
             func.date(Order.delivery_date).label("date"),
             Product.name.label("product_name"),
-            func.sum(OrderItem.total_amount).label("amount")
+            func.sum(func.coalesce(OrderItem.wholesale_price, 0) * OrderItem.quantity).label("amount")
         )
         .join(OrderItem.order)
         .join(OrderItem.product)
@@ -352,7 +352,7 @@ async def get_producer_sales(
     async def get_period_sales(start, end):
         query = (
             select(
-                func.sum(OrderItem.total_amount).label("total_sales"),
+                func.sum(func.coalesce(OrderItem.wholesale_price, 0) * OrderItem.quantity).label("total_sales"),
                 func.count(func.distinct(Order.id)).label("order_count")
             )
             .join(OrderItem.order)
@@ -381,7 +381,7 @@ async def get_producer_sales(
     daily_query = (
         select(
             func.extract('day', Order.delivery_date).label("day"),
-            func.sum(OrderItem.total_amount).label("daily_total")
+            func.sum(func.coalesce(OrderItem.wholesale_price, 0) * OrderItem.quantity).label("daily_total")
         )
         .join(OrderItem.order)
         .join(OrderItem.product)
@@ -400,7 +400,7 @@ async def get_producer_sales(
     product_query = (
         select(
             Product.name,
-            func.sum(OrderItem.total_amount).label("product_sales"),
+            func.sum(func.coalesce(OrderItem.wholesale_price, 0) * OrderItem.quantity).label("product_sales"),
             func.sum(OrderItem.quantity).label("product_count")
         )
         .join(OrderItem.order)
