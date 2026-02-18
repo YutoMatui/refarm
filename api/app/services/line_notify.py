@@ -169,7 +169,7 @@ class LineNotificationService:
         delivery_time = self.format_time_slot(order.delivery_time_slot.value if hasattr(order.delivery_time_slot, 'value') else str(order.delivery_time_slot))
 
         message = f"""【ご注文ありがとうございます🌿】
-KOBE Veggie Worksをご利用いただきありがとうございます。
+ベジコベをご利用いただきありがとうございます。
 以下の内容で生産者へ手配いたしました。
 
 ■ お届け予定日
