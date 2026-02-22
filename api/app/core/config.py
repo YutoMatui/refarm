@@ -82,6 +82,9 @@ class Settings(BaseSettings):
 
     # LINE Test User ID
     LINE_TEST_USER_ID: str = "Uf84a1f7dfb47a12c704d6ac8b438f873"
+
+    # LP integration
+    LP_INTEGRATION_API_KEY: str = ""
     
     # Cloudinary
     CLOUDINARY_CLOUD_NAME: str = ""
