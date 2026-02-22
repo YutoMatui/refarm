@@ -202,7 +202,34 @@ export default function FarmerDetail() {
                 {activeTab === 'story' && (
                     <div className="space-y-6">
 
-                        {/* こだわりセクション */}
+                        {/* 紹介動画セクション（最上部） */}
+                        {videoUrls.length > 0 && (
+                            <div>
+                                <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                    <PlayCircle size={20} className="text-red-500" />
+                                    紹介動画
+                                </h2>
+                                <div className="space-y-2">
+                                    {videoUrls.map((url, idx) => (
+                                        <a
+                                            key={idx}
+                                            href={url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100 hover:bg-gray-100 transition-colors"
+                                        >
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <PlayCircle size={18} className="text-red-500 shrink-0" />
+                                                <span className="font-medium text-sm text-gray-700 truncate">
+                                                    紹介動画を見る{videoUrls.length > 1 ? ` (${idx + 1})` : ''}
+                                                </span>
+                                            </div>
+                                            <ExternalLink size={16} className="text-gray-400" />
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         <div>
                             <h2 className="text-lg font-bold text-gray-900 mb-3">こだわり</h2>
                             {farmer.kodawari ? (
@@ -232,40 +259,6 @@ export default function FarmerDetail() {
                                         </div>
                                     </div>
                                 ))}
-                            </div>
-                        )}
-
-                        {/* 動画埋め込みセクション */}
-                        {videoUrls.length > 0 && (
-                            <div>
-                                <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
-                                    <PlayCircle size={20} className="text-red-500" />
-                                    動画で見る
-                                </h2>
-                                <div className="space-y-3">
-                                    {videoUrls.map((url, idx) => (
-                                        <div key={idx} className="rounded-xl overflow-hidden bg-gray-100">
-                                            {url.includes('youtube.com') || url.includes('youtu.be') ? (
-                                                <iframe
-                                                    src={convertToYouTubeEmbed(url)}
-                                                    title={`${farmer.name} の動画 ${idx + 1}`}
-                                                    className="w-full aspect-video"
-                                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                    allowFullScreen
-                                                />
-                                            ) : (
-                                                <a
-                                                    href={url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="flex items-center justify-center py-8 text-red-600 hover:text-red-700"
-                                                >
-                                                    <PlayCircle size={48} />
-                                                </a>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
                             </div>
                         )}
 
@@ -378,26 +371,4 @@ export default function FarmerDetail() {
             </div>
         </div>
     );
-}
-
-// YouTube URLを埋め込み用URLに変換するヘルパー関数
-function convertToYouTubeEmbed(url: string): string {
-    // youtu.be/VIDEO_ID 形式
-    const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
-    if (shortMatch) {
-        return `https://www.youtube.com/embed/${shortMatch[1]}`;
-    }
-
-    // youtube.com/watch?v=VIDEO_ID 形式
-    const longMatch = url.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/);
-    if (longMatch) {
-        return `https://www.youtube.com/embed/${longMatch[1]}`;
-    }
-
-    // 既に埋め込み形式の場合はそのまま返す
-    if (url.includes('youtube.com/embed/')) {
-        return url;
-    }
-
-    return url;
 }

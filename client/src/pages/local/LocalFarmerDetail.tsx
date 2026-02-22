@@ -409,7 +409,34 @@ const LocalFarmerDetail = () => {
                 {/* TAB 2: こだわり・実績 */}
                 {activeTab === 'story' && (
                     <div className="space-y-6">
-                        {/* こだわりセクション */}
+                        {/* 紹介動画セクション（最上部） */}
+                        {videoUrls.length > 0 && (
+                            <div>
+                                <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                    <PlayCircle size={20} className="text-red-500" />
+                                    紹介動画
+                                </h2>
+                                <div className="space-y-3">
+                                    {videoUrls.map((url, idx) => (
+                                        <a
+                                            key={idx}
+                                            href={url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all"
+                                        >
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <PlayCircle size={18} className="text-red-500 shrink-0" />
+                                                <span className="font-semibold text-sm text-gray-700 truncate">
+                                                    紹介動画を見る{videoUrls.length > 1 ? ` (${idx + 1})` : ''}
+                                                </span>
+                                            </div>
+                                            <ExternalLink size={16} className="text-gray-400" />
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl p-5 border border-emerald-100">
                             <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
                                 <Leaf className="text-emerald-600" size={20} />
@@ -449,43 +476,6 @@ const LocalFarmerDetail = () => {
                                         </div>
                                     </div>
                                 ))}
-                            </div>
-                        )}
-
-                        {/* 動画セクション */}
-                        {videoUrls.length > 0 && (
-                            <div>
-                                <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
-                                    <PlayCircle size={20} className="text-red-500" />
-                                    動画で見る
-                                </h2>
-                                <div className="space-y-4">
-                                    {videoUrls.map((url, idx) => (
-                                        <div
-                                            key={idx}
-                                            className="rounded-2xl overflow-hidden bg-gray-100 shadow-md"
-                                        >
-                                            {url.includes('youtube.com') || url.includes('youtu.be') ? (
-                                                <iframe
-                                                    src={convertToYouTubeEmbed(url)}
-                                                    title={`${farmer.name} の動画 ${idx + 1}`}
-                                                    className="w-full aspect-video"
-                                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                    allowFullScreen
-                                                />
-                                            ) : (
-                                                <a
-                                                    href={url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="flex items-center justify-center py-12 text-red-600 hover:text-red-700 transition-colors"
-                                                >
-                                                    <PlayCircle size={56} />
-                                                </a>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
                             </div>
                         )}
 
@@ -574,23 +564,6 @@ const LocalFarmerDetail = () => {
     )
 }
 
-// YouTube URLを埋め込み用URLに変換
-function convertToYouTubeEmbed(url: string): string {
-    const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/)
-    if (shortMatch) {
-        return `https://www.youtube.com/embed/${shortMatch[1]}`
-    }
 
-    const longMatch = url.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/)
-    if (longMatch) {
-        return `https://www.youtube.com/embed/${longMatch[1]}`
-    }
-
-    if (url.includes('youtube.com/embed/')) {
-        return url
-    }
-
-    return url
-}
 
 export default LocalFarmerDetail
