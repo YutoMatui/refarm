@@ -206,7 +206,7 @@ export default function FarmerDetail() {
                         {videoUrls.length > 0 && (
                             <div>
                                 <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
-                                    <PlayCircle size={20} className="text-red-500" />
+                                    <PlayCircle size={20} className="text-emerald-600" />
                                     紹介動画
                                 </h2>
                                 <div className="space-y-2">
@@ -219,7 +219,7 @@ export default function FarmerDetail() {
                                             className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100 hover:bg-gray-100 transition-colors"
                                         >
                                             <div className="flex items-center gap-3 min-w-0">
-                                                <PlayCircle size={18} className="text-red-500 shrink-0" />
+                                                <PlayCircle size={18} className="text-emerald-600 shrink-0" />
                                                 <span className="font-medium text-sm text-gray-700 truncate">
                                                     紹介動画を見る{videoUrls.length > 1 ? ` (${idx + 1})` : ''}
                                                 </span>
