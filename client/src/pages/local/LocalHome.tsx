@@ -155,7 +155,7 @@ export default function LocalHome() {
                                         {/* テキスト情報 */}
                                         <div className="absolute bottom-2 left-2 right-2 text-white">
                                             <p className="font-bold text-sm truncate drop-shadow-md">{product.name}</p>
-                                            <p className="text-xs font-medium opacity-90">¥{Math.floor(Number(product.price)).toLocaleString()}</p>
+                                            <p className="text-xs font-medium opacity-90">¥{Math.round(parseFloat(String(product.price_with_tax || product.price))).toLocaleString()}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -197,7 +197,7 @@ export default function LocalHome() {
                                         {/* テキスト情報 */}
                                         <div className="absolute bottom-2 left-2 right-2 text-white">
                                             <p className="font-bold text-sm truncate drop-shadow-md">{product.name}</p>
-                                            <p className="text-xs font-medium opacity-90">¥{Math.floor(Number(product.price)).toLocaleString()}</p>
+                                            <p className="text-xs font-medium opacity-90">¥{Math.round(parseFloat(String(product.price_with_tax || product.price))).toLocaleString()}</p>
                                         </div>
                                     </div>
                                 </div>

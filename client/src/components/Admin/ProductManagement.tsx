@@ -225,7 +225,7 @@ export default function ProductManagement() {
                                     {product.stock_quantity ?? 0}
                                 </td>
                                 <td className="px-6 py-4 text-sm text-gray-900">
-                                    ¥{Number(product.price).toLocaleString()}
+                                    ¥{Math.round(parseFloat(String(product.price_with_tax || product.price))).toLocaleString()}
                                 </td>
                                 <td className="px-6 py-4 text-center text-sm">
                                     {product.farming_method === FarmingMethod.ORGANIC ?

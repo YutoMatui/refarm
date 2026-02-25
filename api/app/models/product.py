@@ -204,6 +204,8 @@ class Product(Base, TimestampMixin, SoftDeleteMixin):
     @property
     def price_with_tax(self) -> float:
         """税込価格を計算"""
+        if self.cost_price and self.cost_price > 0:
+            return round(float(self.cost_price) / 0.8)
         return float(self.price) * (1 + int(self.tax_rate.value) / 100)
     
     @property

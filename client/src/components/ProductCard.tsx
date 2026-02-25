@@ -18,6 +18,9 @@ export default function ProductCard({ product }: ProductCardProps) {
   const cartItem = cart.find(item => item.product.id === product.id)
   const isKobe = product.stock_type === StockType.KOBE
   const isFav = isFavorite(product.id)
+  const displayPrice = product.cost_price && product.cost_price > 0
+    ? Math.round(product.cost_price / 0.8)
+    : Math.round(parseFloat(String(product.price_with_tax || product.price)))
 
   const toggleFavoriteMutation = useMutation({
     mutationFn: async () => {
@@ -85,10 +88,10 @@ export default function ProductCard({ product }: ProductCardProps) {
 
           <div className="flex items-baseline gap-1 mb-3">
             <span className="text-lg font-bold text-gray-900">
-              ¥{Math.floor(Number(product.price)).toLocaleString()}
+              ¥{displayPrice.toLocaleString()}
             </span>
             <span className="text-xs text-gray-500">
-              (税抜) /{product.unit}
+              (税込8%) /{product.unit}
             </span>
           </div>
           {product.weight && (

@@ -45,6 +45,9 @@ export default function ProductDetail() {
     if (!product) return <div className="p-8 text-center">商品が見つかりません</div>;
 
     const cartItem = cart.find(item => item.product.id === product.id);
+    const displayPrice = product.cost_price && product.cost_price > 0
+        ? Math.round(product.cost_price / 0.8)
+        : Math.round(parseFloat(String(product.price_with_tax || product.price)));
 
     return (
         <div className="bg-white min-h-screen pb-24">
@@ -71,8 +74,8 @@ export default function ProductDetail() {
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 mb-2">{product.name}</h1>
                     <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-bold text-green-700">¥{Math.floor(Number(product.price)).toLocaleString()}</span>
-                        <span className="text-sm text-gray-500">(税抜) / {product.unit}</span>
+                        <span className="text-2xl font-bold text-green-700">¥{displayPrice.toLocaleString()}</span>
+                        <span className="text-sm text-gray-500">(税込8%) / {product.unit}</span>
                     </div>
                 </div>
 

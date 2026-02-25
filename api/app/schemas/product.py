@@ -2,7 +2,7 @@
 Product Pydantic schemas.
 """
 from typing import Optional
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from pydantic import BaseModel, Field, computed_field, field_validator
 from app.schemas.base import BaseSchema, TimestampSchema
 from app.models.enums import StockType, TaxRate, ProductCategory, HarvestStatus, FarmingMethod
@@ -85,6 +85,11 @@ class ProductResponse(ProductBase, TimestampSchema, BaseSchema):
     @property
     def price_with_tax(self) -> Decimal:
         """税込価格を計算"""
+        if self.cost_price and self.cost_price > 0:
+            return (Decimal(str(self.cost_price)) / Decimal("0.8")).quantize(
+                Decimal("1"),
+                rounding=ROUND_HALF_UP
+            )
         return self.price * (1 + Decimal(self.tax_rate.value) / 100)
     
     @computed_field
