@@ -73,8 +73,8 @@ export default function Cart() {
     enabled: uniqueFarmerIds.length > 0
   });
 
-  // Min date (3 days from now)
-  const minDate = format(addDays(new Date(), 3), 'yyyy-MM-dd')
+  // Min date (2 days from now)
+  const minDate = format(addDays(new Date(), 2), 'yyyy-MM-dd')
 
   const defaultTimeSlots = [
     { value: DeliveryTimeSlot.SLOT_12_14, label: '12:00 〜 14:00' },
@@ -383,7 +383,7 @@ export default function Cart() {
               minDate={minDate}
               cart={cart}
             />
-            <p className="text-xs text-gray-500 mt-2">※3日後以降の日付を選択可能（○：揃う、△：一部不可、×：不可）</p>
+            <p className="text-xs text-gray-500 mt-2">※2日後以降の日付を選択可能（○：揃う、△：一部不可、×：不可）</p>
           </div>
 
           {/* Delivery Time Slot */}

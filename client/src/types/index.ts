@@ -94,6 +94,8 @@ export interface Consumer extends TimestampFields {
   building?: string | null
   profile_image_url?: string | null
   organization_id?: number | null
+  stripe_customer_id?: string | null
+  default_stripe_payment_method_id?: string | null
 }
 
 // Chef Comment
@@ -250,6 +252,8 @@ export interface ConsumerOrder extends TimestampFields {
   delivery_notes?: string | null
   order_notes?: string | null
   payment_method: string
+  stripe_payment_method_id?: string | null
+  stripe_payment_intent_id?: string | null
   status: OrderStatus
   subtotal: string
   tax_amount: string
@@ -307,10 +311,18 @@ export interface OrderCreateRequest {
 // Consumer Order Create Request
 export interface ConsumerOrderCreateRequest {
   consumer_id: number
-  delivery_slot_id: number
+  delivery_slot_id?: number
+  delivery_date?: string
+  delivery_time_label?: string
+  delivery_type?: DeliverySlotType
   delivery_address?: string
   delivery_notes?: string
   order_notes?: string
+  payment_method?: 'cash_on_delivery' | 'card'
+  save_card_for_future?: boolean
+  stripe_customer_id?: string
+  stripe_payment_method_id?: string
+  stripe_payment_intent_id?: string
   items: Array<{
     product_id: number
     quantity: number
@@ -374,9 +386,8 @@ export interface ConsumerRegisterRequest {
   name: string
   phone_number: string
   postal_code?: string
-  address?: string
+  address: string
   building?: string
-  organization_id?: number
 }
 
 export interface ConsumerUpdateRequest {
@@ -386,7 +397,6 @@ export interface ConsumerUpdateRequest {
   address?: string
   building?: string | null
   profile_image_url?: string | null
-  organization_id?: number | null
 }
 
 export interface ConsumerAuthResponse {

@@ -1,19 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { format, parseISO } from 'date-fns'
+import { format, addDays, parseISO, isAfter } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { toast } from 'sonner'
-import { MapPin, AlertCircle } from 'lucide-react'
-import { consumerOrderApi, deliverySlotApi, farmerApi } from '@/services/api'
+import { MapPin, CreditCard, Wallet } from 'lucide-react'
+import { consumerOrderApi, farmerApi, settingsApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
-import { DeliverySlotType, type DeliverySlot, type ConsumerOrder, type ConsumerOrderCreateRequest } from '@/types'
+import { DeliveryTimeSlot, DeliverySlotType, type ConsumerOrder, type ConsumerOrderCreateRequest, type DeliverySchedule } from '@/types'
+import DeliveryCalendar from '@/components/DeliveryCalendar'
 import AvailabilityModal from '@/components/AvailabilityModal'
 
-const formatSlotLabel = (slot: DeliverySlot) => {
-    const dateText = slot.date ? format(parseISO(slot.date), 'M月d日(E)', { locale: ja }) : ''
-    return `${dateText} ${slot.time_text}`
-}
+type ConsumerPaymentMethod = 'cash_on_delivery' | 'card'
 
 const LocalCart = () => {
     const navigate = useNavigate()
@@ -22,100 +20,98 @@ const LocalCart = () => {
     const clearCart = useStore(state => state.clearCart)
 
     const [deliveryDestination, setDeliveryDestination] = useState<'UNIV' | 'HOME'>('UNIV')
-    const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null)
+    const [deliveryDate, setDeliveryDate] = useState('')
+    const [deliveryTimeSlot, setDeliveryTimeSlot] = useState<DeliveryTimeSlot | ''>('')
     const [deliveryNotes, setDeliveryNotes] = useState('')
     const [overrideAddress, setOverrideAddress] = useState('')
-    const [univLocationDetail, setUnivLocationDetail] = useState('')
+    const [availableTimeSlots, setAvailableTimeSlots] = useState<{ value: DeliveryTimeSlot; label: string }[]>([])
 
-    // Availability Modal State
-    const [isAvailModalOpen, setIsAvailModalOpen] = useState(false);
-    const [unavailableItems, setUnavailableItems] = useState<any[]>([]);
-    const [nextDateSuggestion, setNextDateSuggestion] = useState<{ date: string, label: string } | undefined>();
+    const [paymentMethod, setPaymentMethod] = useState<ConsumerPaymentMethod>('cash_on_delivery')
+    const [saveCardForFuture, setSaveCardForFuture] = useState(false)
+    const [stripeCustomerId, setStripeCustomerId] = useState('')
+    const [stripePaymentMethodId, setStripePaymentMethodId] = useState('')
+    const [stripePaymentIntentId, setStripePaymentIntentId] = useState('')
+
+    const [isAvailModalOpen, setIsAvailModalOpen] = useState(false)
+    const [unavailableItems, setUnavailableItems] = useState<any[]>([])
+    const [nextDateSuggestion, setNextDateSuggestion] = useState<{ date: string; label: string } | undefined>()
+
+    const defaultTimeSlots = [
+        { value: DeliveryTimeSlot.SLOT_12_14, label: '12:00 〜 14:00' },
+        { value: DeliveryTimeSlot.SLOT_14_16, label: '14:00 〜 16:00' },
+        { value: DeliveryTimeSlot.SLOT_16_18, label: '16:00 〜 18:00' },
+    ]
+
+    const minDate = format(addDays(new Date(), 2), 'yyyy-MM-dd')
 
     useEffect(() => {
         if (consumer && deliveryDestination === 'HOME') {
-            const baseAddress = `${consumer.address}${consumer.building ? ` ${consumer.building}` : ''}`
+            const baseAddress = `${consumer.address ?? ''}${consumer.building ? ` ${consumer.building}` : ''}`
             setOverrideAddress(baseAddress.trim())
         }
     }, [consumer, deliveryDestination])
 
-    // 配送先に応じた受取枠を取得
-    // HOME = 自宅配送用の枠、UNIV = 大学受取用の枠
-    const { data: slotData, isLoading: isSlotsLoading } = useQuery<DeliverySlot[]>({
-        queryKey: ['delivery-slots', deliveryDestination],
+    useEffect(() => {
+        if (!consumer) return
+        setStripeCustomerId(consumer.stripe_customer_id ?? '')
+        setStripePaymentMethodId(consumer.default_stripe_payment_method_id ?? '')
+    }, [consumer])
+
+    const { data: settings } = useQuery({
+        queryKey: ['delivery-settings'],
         queryFn: async () => {
-            const slotType = deliveryDestination === 'UNIV' ? DeliverySlotType.UNIVERSITY : DeliverySlotType.HOME
-            const response = await deliverySlotApi.list({ slot_type: slotType })
-            return response.data as DeliverySlot[]
+            try {
+                const res = await settingsApi.getDeliverySettings()
+                return res.data
+            } catch {
+                return {
+                    allowed_days: [0, 1, 2, 3, 4, 5, 6],
+                    closed_dates: [],
+                    time_slots: [
+                        { id: '12-14', label: '12:00 〜 14:00', enabled: true },
+                        { id: '14-16', label: '14:00 〜 16:00', enabled: true },
+                        { id: '16-18', label: '16:00 〜 18:00', enabled: true },
+                    ],
+                }
+            }
         },
     })
 
-    const slots = useMemo<DeliverySlot[]>(() => slotData ?? [], [slotData])
-
     useEffect(() => {
-        if (slots.length > 0) {
-            setSelectedSlotId(slots[0].id)
-        } else {
-            setSelectedSlotId(null)
+        if (settings) {
+            const slots = settings.time_slots?.filter(s => s.enabled).map(s => ({
+                value: s.id as DeliveryTimeSlot,
+                label: s.label,
+            })) || defaultTimeSlots
+            setAvailableTimeSlots(slots)
+            return
         }
-    }, [slots])
+        setAvailableTimeSlots(defaultTimeSlots)
+    }, [settings])
 
-    // --- Bulk Farmer Availability ---
     const uniqueFarmerIds = useMemo(() => {
         return Array.from(new Set(
             cart
                 .map(item => item.product.farmer_id)
                 .filter(id => id !== undefined && id !== null && id !== 0)
-        )) as number[];
-    }, [cart]);
-
-    const { data: bulkAvailability } = useQuery({
-        queryKey: ['farmer-availability-bulk-local', uniqueFarmerIds, slots],
-        queryFn: async () => {
-            if (uniqueFarmerIds.length === 0 || slots.length === 0) return null;
-            const dates = slots.map(s => s.date).filter((d): d is string => !!d);
-            if (dates.length === 0) return null;
-
-            const startStr = dates.sort()[0];
-            const endStr = dates.sort()[dates.length - 1];
-
-            const res = await farmerApi.checkAvailabilityBulk({
-                farmer_ids: uniqueFarmerIds,
-                start_date: startStr,
-                end_date: endStr
-            });
-            return res.data;
-        },
-        enabled: uniqueFarmerIds.length > 0 && slots.length > 0
-    });
-    // --------------------------------
-
-    // 税抜き小計と消費税を計算
-    const { subtotal, taxAmount, productTotal } = useMemo(() => {
-        let subtotal = 0
-        let taxAmount = 0
-
-        cart.forEach(item => {
-            const price = parseFloat(String(item.product.price))
-            const quantity = Number(item.quantity)
-            const taxRate = item.product.tax_rate
-
-            const itemSubtotal = price * quantity
-            const itemTax = Math.round(itemSubtotal * (taxRate / 100))
-
-            subtotal += itemSubtotal
-            taxAmount += itemTax
-        })
-
-        return {
-            subtotal: Math.round(subtotal),
-            taxAmount: Math.round(taxAmount),
-            productTotal: Math.round(subtotal + taxAmount)
-        }
+        )) as number[]
     }, [cart])
 
-    const shippingFee = deliveryDestination === 'HOME' ? 400 : 0
-    const grandTotal = productTotal + shippingFee
+    const { data: bulkAvailability } = useQuery({
+        queryKey: ['farmer-availability-bulk-local', format(new Date(), 'yyyy-MM'), uniqueFarmerIds],
+        queryFn: async () => {
+            if (uniqueFarmerIds.length === 0) return null
+            const start = format(new Date(), 'yyyy-MM-dd')
+            const end = format(addDays(new Date(), 30), 'yyyy-MM-dd')
+            const res = await farmerApi.checkAvailabilityBulk({
+                farmer_ids: uniqueFarmerIds,
+                start_date: start,
+                end_date: end,
+            })
+            return res.data
+        },
+        enabled: uniqueFarmerIds.length > 0,
+    })
 
     const mutation = useMutation<ConsumerOrder, unknown, ConsumerOrderCreateRequest>({
         mutationFn: async (payload: ConsumerOrderCreateRequest) => {
@@ -131,146 +127,210 @@ const LocalCart = () => {
             console.error('Consumer order failed', error)
             const message = (error as any)?.response?.data?.detail ?? '注文の確定に失敗しました'
             toast.error(message)
-        }
+        },
     })
 
-    const handleSlotSelect = async (slotId: number) => {
-        setSelectedSlotId(slotId);
-        const slot = slots.find(s => s.id === slotId);
-        if (slot?.date && uniqueFarmerIds.length > 0) {
-            const badItems: any[] = [];
+    const handleDateSelect = async (date: string, schedule?: DeliverySchedule) => {
+        setDeliveryDate(date)
+        setDeliveryTimeSlot('')
+
+        if (uniqueFarmerIds.length > 0) {
+            const badItems: any[] = []
             for (const farmerId of uniqueFarmerIds) {
                 try {
-                    const res = await farmerApi.checkAvailability(farmerId, slot.date);
+                    const res = await farmerApi.checkAvailability(farmerId, date)
                     if (!res.data.is_available) {
-                        const product = cart.find(item => item.product.farmer_id === farmerId)?.product;
+                        const product = cart.find(item => item.product.farmer_id === farmerId)?.product
                         badItems.push({
-                            productName: product?.name || "商品",
-                            farmerName: product?.farmer?.name || "農家",
-                            reason: res.data.reason || "出荷不可",
+                            productName: product?.name || '商品',
+                            farmerName: product?.farmer?.name || '農家',
+                            reason: res.data.reason || '出荷不可',
                             productId: product?.id,
-                            farmerId: farmerId
-                        });
+                            farmerId,
+                        })
                     }
                 } catch (e) {
-                    console.error("Slot selection check failed", e);
+                    console.error('Selection check failed', e)
                 }
             }
 
             if (badItems.length > 0) {
-                setUnavailableItems(badItems);
+                setUnavailableItems(badItems)
                 if (bulkAvailability) {
-                    const dates = Object.keys(bulkAvailability).sort();
-                    const nextComplete = dates.find(d => bulkAvailability[d].all_available);
+                    const today = new Date()
+                    const dates = Object.keys(bulkAvailability).sort()
+                    const nextComplete = dates.find(d => {
+                        const dObj = new Date(d)
+                        return isAfter(dObj, today) && bulkAvailability[d].all_available
+                    })
                     if (nextComplete) {
                         setNextDateSuggestion({
                             date: nextComplete,
-                            label: format(parseISO(nextComplete), 'M月d日(E)', { locale: ja })
-                        });
+                            label: format(parseISO(nextComplete), 'M月d日(E)', { locale: ja }),
+                        })
                     }
                 }
-                setIsAvailModalOpen(true);
+                setIsAvailModalOpen(true)
             }
         }
-    };
+
+        if (schedule && schedule.time_slot) {
+            const slotsStr = schedule.time_slot.split(',')
+            const validSlots: { value: DeliveryTimeSlot; label: string }[] = []
+
+            slotsStr.forEach(slotStr => {
+                let mappedSlot: DeliveryTimeSlot | null = null
+                if (slotStr.includes('12') && slotStr.includes('14')) mappedSlot = DeliveryTimeSlot.SLOT_12_14
+                else if (slotStr.includes('14') && slotStr.includes('16')) mappedSlot = DeliveryTimeSlot.SLOT_14_16
+                else if (slotStr.includes('16') && slotStr.includes('18')) mappedSlot = DeliveryTimeSlot.SLOT_16_18
+
+                if (mappedSlot && !validSlots.some(s => s.value === mappedSlot)) {
+                    validSlots.push({ value: mappedSlot, label: slotStr.trim() })
+                }
+            })
+
+            if (validSlots.length > 0) {
+                setAvailableTimeSlots(validSlots)
+                return
+            }
+        }
+
+        const slots = settings?.time_slots?.filter(s => s.enabled).map(s => ({
+            value: s.id as DeliveryTimeSlot,
+            label: s.label,
+        })) || defaultTimeSlots
+        setAvailableTimeSlots(slots)
+    }
 
     const handleSubmit = async () => {
         if (!consumer) {
             toast.error('会員情報が取得できませんでした')
             return
         }
-
         if (cart.length === 0) {
             toast.error('カートに商品がありません')
             return
         }
-
-        if (!selectedSlotId) {
-            toast.error('受取枠を選択してください')
+        if (!deliveryDate || !deliveryTimeSlot) {
+            toast.error('受取日と時間帯を選択してください')
+            return
+        }
+        if (deliveryDestination === 'HOME' && !overrideAddress.trim()) {
+            toast.error('配送先住所を入力してください')
+            return
+        }
+        if (paymentMethod === 'card' && !stripePaymentMethodId.trim()) {
+            toast.error('カード決済にはStripe PaymentMethod IDが必要です')
+            return
+        }
+        if (paymentMethod === 'card' && saveCardForFuture && !stripeCustomerId.trim()) {
+            toast.error('カード保存にはStripe Customer IDが必要です')
             return
         }
 
-        // --- Validation: Check Farmer Availability ---
-        const selectedSlot = slots.find(s => s.id === selectedSlotId);
-        if (selectedSlot?.date) {
-            const badItems: any[] = [];
-
+        if (uniqueFarmerIds.length > 0) {
+            const badItems: any[] = []
             for (const farmerId of uniqueFarmerIds) {
                 try {
-                    const res = await farmerApi.checkAvailability(farmerId, selectedSlot.date);
+                    const res = await farmerApi.checkAvailability(farmerId, deliveryDate)
                     if (!res.data.is_available) {
-                        const product = cart.find(item => item.product.farmer_id === farmerId)?.product;
+                        const product = cart.find(item => item.product.farmer_id === farmerId)?.product
                         badItems.push({
-                            productName: product?.name || "商品",
-                            farmerName: product?.farmer?.name || "農家",
-                            reason: res.data.reason || "出荷不可",
+                            productName: product?.name || '商品',
+                            farmerName: product?.farmer?.name || '農家',
+                            reason: res.data.reason || '出荷不可',
                             productId: product?.id,
-                            farmerId: farmerId
-                        });
+                            farmerId,
+                        })
                     }
-                } catch (e: any) {
-                    console.error("Availability check failed", e);
-                    toast.error(`出荷状況を確認できませんでした。`);
-                    return;
+                } catch (e) {
+                    console.error('Availability check failed', e)
+                    toast.error('出荷状況を確認できませんでした')
+                    return
                 }
             }
 
             if (badItems.length > 0) {
-                setUnavailableItems(badItems);
-
-                // Find next candidate date where all are available
+                setUnavailableItems(badItems)
                 if (bulkAvailability) {
-                    const dates = Object.keys(bulkAvailability).sort();
-                    const nextComplete = dates.find(d => bulkAvailability[d].all_available);
+                    const today = new Date()
+                    const dates = Object.keys(bulkAvailability).sort()
+                    const nextComplete = dates.find(d => {
+                        const dObj = new Date(d)
+                        return isAfter(dObj, today) && bulkAvailability[d].all_available
+                    })
 
                     if (nextComplete) {
                         setNextDateSuggestion({
                             date: nextComplete,
-                            label: format(parseISO(nextComplete), 'M月d日(E)', { locale: ja })
-                        });
+                            label: format(parseISO(nextComplete), 'M月d日(E)', { locale: ja }),
+                        })
                     }
                 }
-
-                setIsAvailModalOpen(true);
-                return; // Block submission
+                setIsAvailModalOpen(true)
+                return
             }
         }
-        // ---------------------------------------------
 
+        const selectedTimeLabel = availableTimeSlots.find(slot => slot.value === deliveryTimeSlot)?.label ?? String(deliveryTimeSlot)
         const items = cart.map(item => ({
             product_id: item.product.id,
             quantity: Number(item.quantity),
         }))
 
-        // 配送メモに受け取り場所詳細を含める
-        let finalDeliveryNotes = deliveryNotes
-        if (deliveryDestination === 'UNIV' && univLocationDetail.trim()) {
-            finalDeliveryNotes = univLocationDetail.trim() + (deliveryNotes ? `\n${deliveryNotes}` : '')
-        }
-
         mutation.mutate({
             consumer_id: consumer.id,
-            delivery_slot_id: selectedSlotId,
+            delivery_date: deliveryDate,
+            delivery_time_label: selectedTimeLabel,
+            delivery_type: deliveryDestination === 'HOME' ? DeliverySlotType.HOME : DeliverySlotType.UNIVERSITY,
             delivery_address: deliveryDestination === 'HOME' ? overrideAddress.trim() : undefined,
-            delivery_notes: finalDeliveryNotes || undefined,
+            delivery_notes: deliveryNotes || undefined,
+            payment_method: paymentMethod,
+            save_card_for_future: paymentMethod === 'card' ? saveCardForFuture : false,
+            stripe_customer_id: paymentMethod === 'card' && stripeCustomerId.trim() ? stripeCustomerId.trim() : undefined,
+            stripe_payment_method_id: paymentMethod === 'card' ? stripePaymentMethodId.trim() : undefined,
+            stripe_payment_intent_id: paymentMethod === 'card' && stripePaymentIntentId.trim() ? stripePaymentIntentId.trim() : undefined,
             items,
         })
     }
 
     const handleConsolidate = (date: string) => {
-        const targetSlot = slots.find(s => s.date === date);
-        if (targetSlot) {
-            setSelectedSlotId(targetSlot.id);
-        }
-        setIsAvailModalOpen(false);
-    };
+        setDeliveryDate(date)
+        setIsAvailModalOpen(false)
+    }
 
     const handleRemoveUnavailable = () => {
-        const removeFromCart = useStore.getState().removeFromCart;
-        const idsToRemove = unavailableItems.map(item => item.productId);
-        idsToRemove.forEach(id => removeFromCart(id));
-        setIsAvailModalOpen(false);
-    };
+        const removeFromCart = useStore.getState().removeFromCart
+        const idsToRemove = unavailableItems.map(item => item.productId)
+        idsToRemove.forEach(id => removeFromCart(id))
+        setIsAvailModalOpen(false)
+    }
+
+    const { subtotal, taxAmount, productTotal } = useMemo(() => {
+        let currentSubtotal = 0
+        let currentTax = 0
+
+        cart.forEach(item => {
+            const price = parseFloat(String(item.product.price))
+            const quantity = Number(item.quantity)
+            const taxRate = item.product.tax_rate
+
+            const itemSubtotal = price * quantity
+            const itemTax = Math.round(itemSubtotal * (taxRate / 100))
+
+            currentSubtotal += itemSubtotal
+            currentTax += itemTax
+        })
+
+        return {
+            subtotal: Math.round(currentSubtotal),
+            taxAmount: Math.round(currentTax),
+            productTotal: Math.round(currentSubtotal + currentTax),
+        }
+    }, [cart])
+
+    const shippingFee = deliveryDestination === 'HOME' ? 500 : 0
+    const grandTotal = productTotal + shippingFee
 
     if (!consumer) {
         return (
@@ -301,11 +361,10 @@ const LocalCart = () => {
 
     return (
         <div className="max-w-4xl mx-auto px-4 py-6 pb-24 space-y-6">
-            {/* 受取方法 */}
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                     <MapPin className="text-emerald-600" size={20} />
-                    受取場所を選択
+                    受取方法を選択
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <button
@@ -316,14 +375,8 @@ const LocalCart = () => {
                             : 'border-gray-200 hover:border-emerald-200'
                             }`}
                     >
-                        <p className="font-bold text-gray-900">🏫 兵庫県立大学 受取</p>
-                        <p className="text-sm text-gray-600">送料無料 / 指定時刻にお受け取り</p>
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mt-2">
-                            <p className="text-xs text-blue-700 leading-relaxed">
-                                <span className="font-semibold">学校関係者:</span> 校内受け取り（教室等）<br />
-                                <span className="font-semibold">地域住民:</span> 正門前受け取り
-                            </p>
-                        </div>
+                        <p className="font-bold text-gray-900">📍 ピックアップステーション受取</p>
+                        <p className="text-sm text-gray-600">受取場所: 正門前 / 送料0円</p>
                     </button>
                     <button
                         type="button"
@@ -334,123 +387,60 @@ const LocalCart = () => {
                             }`}
                     >
                         <p className="font-bold text-gray-900">🏠 自宅へ配送</p>
-                        <p className="text-sm text-gray-600">送料400円 / 指定時間帯にお届け</p>
+                        <p className="text-sm text-gray-600">送料500円 / 指定時間帯にお届け</p>
                     </button>
                 </div>
             </section>
 
-            {/* 受取日時 */}
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-                <h2 className="text-lg font-bold text-gray-900">受取日時を選択</h2>
-                <p className="text-sm text-gray-600">
-                    選択した受取場所（{deliveryDestination === 'UNIV' ? '🏫 大学受取' : '🏠 自宅配送'}）でご利用いただけます
-                </p>
-                {isSlotsLoading && <p className="text-sm text-gray-600">受取枠を読み込み中です...</p>}
-                {!isSlotsLoading && slots.length === 0 && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-                        <AlertCircle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
-                        <p className="text-sm text-red-700">
-                            現在選択可能な受取枠がありません。時間をおいて再度お試しください。
-                        </p>
-                    </div>
-                )}
-                <div className="space-y-3">
-                    {slots.map((slot) => (
+                <h2 className="text-lg font-bold text-gray-900">お届け日を選択</h2>
+                <p className="text-sm text-gray-600">飲食店向けと同じ配達可能日・時間ロジックで表示しています。</p>
+                <DeliveryCalendar
+                    selectedDate={deliveryDate}
+                    onSelect={handleDateSelect}
+                    minDate={minDate}
+                    cart={cart}
+                />
+                <p className="text-xs text-gray-500">※2日後以降の日付を選択可能（○：揃う、△：一部不可、×：不可）</p>
+            </section>
+
+            <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+                <h2 className="text-lg font-bold text-gray-900">時間帯を選択</h2>
+                <div className="grid grid-cols-1 gap-2">
+                    {availableTimeSlots.map((slot) => (
                         <label
-                            key={slot.id}
-                            className={`flex items-start space-x-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedSlotId === slot.id
-                                ? 'border-emerald-500 bg-emerald-50'
-                                : 'border-gray-200 hover:border-emerald-300'
+                            key={slot.value}
+                            className={`flex items-center p-3 border rounded-xl cursor-pointer transition-all ${deliveryTimeSlot === slot.value
+                                ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500'
+                                : 'border-gray-200 hover:bg-gray-50'
                                 }`}
                         >
                             <input
                                 type="radio"
-                                name="delivery_slot"
-                                value={slot.id}
-                                checked={selectedSlotId === slot.id}
-                                onChange={() => handleSlotSelect(slot.id)}
-                                className="mt-1 h-4 w-4 text-emerald-600"
+                                name="timeSlot"
+                                value={slot.value}
+                                checked={deliveryTimeSlot === slot.value}
+                                onChange={(e) => setDeliveryTimeSlot(e.target.value as DeliveryTimeSlot)}
+                                className="w-4 h-4 text-emerald-600 border-gray-300"
                             />
-                            <div className="flex-1 flex items-center justify-between">
-                                <p className="font-bold text-gray-900">{formatSlotLabel(slot)}</p>
-                                {/* Availability Icon */}
-                                {slot.date && bulkAvailability?.[slot.date] && (
-                                    <div className="flex items-center gap-1">
-                                        {bulkAvailability[slot.date].all_available ? (
-                                            <span className="text-xs text-green-600 font-bold border border-green-200 px-2 py-0.5 rounded-full bg-green-50">○ すべて揃う</span>
-                                        ) : bulkAvailability[slot.date].available.length > 0 ? (
-                                            <span className="text-xs text-orange-500 font-bold border border-orange-200 px-2 py-0.5 rounded-full bg-orange-50">△ 一部不可</span>
-                                        ) : (
-                                            <span className="text-xs text-red-500 font-bold border border-red-200 px-2 py-0.5 rounded-full bg-red-50">× 揃わない</span>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                            {slot.note && (
-                                <p className="text-xs text-gray-500 mt-2 bg-gray-50 px-2 py-1 rounded">
-                                    {slot.note}
-                                </p>
-                            )}
+                            <span className="ml-3 font-medium text-gray-900">{slot.label}</span>
                         </label>
                     ))}
                 </div>
             </section>
 
-            {/* 兵庫県立大学受け取り - 詳細指定 */}
-            {
-                deliveryDestination === 'UNIV' && (
-                    <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-                        <h2 className="text-lg font-bold text-gray-900">受け取り場所の詳細（任意）</h2>
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
-                            <p className="text-sm text-blue-800 font-semibold flex items-center gap-2">
-                                <AlertCircle size={16} />
-                                学校関係者の方へ
-                            </p>
-                            <p className="text-xs text-blue-700 leading-relaxed">
-                                校内受け取りをご希望の場合は、建物名・階数・教室番号などを記入してください。<br />
-                                例: 社会情報科学棟4階資料準備室、本部棟1階事務室 など
-                            </p>
-                        </div>
-                        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-2">
-                            <p className="text-sm text-emerald-800 font-semibold flex items-center gap-2">
-                                <MapPin size={16} />
-                                地域住民の方へ
-                            </p>
-                            <p className="text-xs text-emerald-700 leading-relaxed">
-                                正門前での受け取りをご希望の場合は、空欄のままで結構です。<br />
-                                または「正門前」とご記入ください。
-                            </p>
-                        </div>
-                        <textarea
-                            value={univLocationDetail}
-                            onChange={(e) => setUnivLocationDetail(e.target.value)}
-                            placeholder="例: 社会情報科学棟4階資料準備室"
-                            rows={2}
-                            className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                        />
-                    </section>
-                )
-            }
+            {deliveryDestination === 'HOME' && (
+                <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+                    <h2 className="text-lg font-bold text-gray-900">配送先住所</h2>
+                    <textarea
+                        value={overrideAddress}
+                        onChange={(e) => setOverrideAddress(e.target.value)}
+                        rows={3}
+                        className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                </section>
+            )}
 
-            {/* 自宅配送 - 配送先住所 */}
-            {
-                deliveryDestination === 'HOME' && (
-                    <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-                        <h2 className="text-lg font-bold text-gray-900">配送先住所</h2>
-                        <p className="text-xs text-gray-500">
-                            建物名・部屋番号が無い場合は「なし」とご記入ください。必要に応じて住所を修正できます。
-                        </p>
-                        <textarea
-                            value={overrideAddress}
-                            onChange={(e) => setOverrideAddress(e.target.value)}
-                            rows={3}
-                            className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                        />
-                    </section>
-                )
-            }
-
-            {/* ご要望など */}
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
                 <h2 className="text-lg font-bold text-gray-900">ご要望など（任意）</h2>
                 <textarea
@@ -462,7 +452,78 @@ const LocalCart = () => {
                 />
             </section>
 
-            {/* 注文内容の確認 */}
+            <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+                <h2 className="text-lg font-bold text-gray-900">お支払い方法</h2>
+                <p className="text-sm text-gray-600">カード情報の実データはStripeで管理し、当サービスでは保持しません。</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                        type="button"
+                        onClick={() => setPaymentMethod('cash_on_delivery')}
+                        className={`rounded-xl border-2 p-4 text-left transition-all ${paymentMethod === 'cash_on_delivery'
+                            ? 'border-amber-500 bg-amber-50'
+                            : 'border-gray-200 hover:border-amber-200'
+                            }`}
+                    >
+                        <p className="font-semibold text-gray-900 flex items-center gap-2"><Wallet size={18} />受取時に現金</p>
+                        <p className="text-xs text-gray-600 mt-1">これまで通りの現金決済です。</p>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setPaymentMethod('card')}
+                        className={`rounded-xl border-2 p-4 text-left transition-all ${paymentMethod === 'card'
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-blue-200'
+                            }`}
+                    >
+                        <p className="font-semibold text-gray-900 flex items-center gap-2"><CreditCard size={18} />クレジットカード</p>
+                        <p className="text-xs text-gray-600 mt-1">Stripe連携で安全に決済します。</p>
+                    </button>
+                </div>
+
+                {paymentMethod === 'card' && (
+                    <div className="space-y-3">
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
+                            本番ではこの領域に Stripe Elements（カード番号・有効期限・CVC）を配置します。
+                        </div>
+                        <label className="flex items-center gap-2 text-sm text-gray-700">
+                            <input
+                                type="checkbox"
+                                checked={saveCardForFuture}
+                                onChange={(e) => setSaveCardForFuture(e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300 text-emerald-600"
+                            />
+                            次回以降のためにカードを保存する（Stripe上）
+                        </label>
+                        <details className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                            <summary className="cursor-pointer text-sm font-semibold text-gray-800">開発用: Stripe ID入力（本番はElementsで自動化）</summary>
+                            <div className="mt-3 space-y-2">
+                                <input
+                                    type="text"
+                                    value={stripeCustomerId}
+                                    onChange={(e) => setStripeCustomerId(e.target.value)}
+                                    placeholder="cus_xxx（任意 / 保存時は必須）"
+                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                                />
+                                <input
+                                    type="text"
+                                    value={stripePaymentMethodId}
+                                    onChange={(e) => setStripePaymentMethodId(e.target.value)}
+                                    placeholder="pm_xxx（カード決済時は必須）"
+                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                                />
+                                <input
+                                    type="text"
+                                    value={stripePaymentIntentId}
+                                    onChange={(e) => setStripePaymentIntentId(e.target.value)}
+                                    placeholder="pi_xxx（任意）"
+                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                                />
+                            </div>
+                        </details>
+                    </div>
+                )}
+            </section>
+
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
                 <h2 className="text-lg font-bold text-gray-900">注文内容の確認</h2>
                 <div className="space-y-2">
@@ -506,14 +567,21 @@ const LocalCart = () => {
                         <span className="text-emerald-600">¥{grandTotal.toLocaleString()}</span>
                     </div>
                 </div>
-                <div className="bg-yellow-50 border-2 border-yellow-300 text-yellow-800 text-sm rounded-xl p-4">
-                    <p className="font-semibold mb-1">💰 お支払いについて</p>
-                    <p>お支払いは受取時の現金のみです。お釣りが出ないよう小銭をご準備ください。</p>
-                </div>
+                {paymentMethod === 'cash_on_delivery' ? (
+                    <div className="bg-yellow-50 border-2 border-yellow-300 text-yellow-800 text-sm rounded-xl p-4">
+                        <p className="font-semibold mb-1">💰 お支払いについて</p>
+                        <p>お支払いは受取時の現金です。お釣りが出ないようご準備をお願いします。</p>
+                    </div>
+                ) : (
+                    <div className="bg-blue-50 border-2 border-blue-200 text-blue-900 text-sm rounded-xl p-4">
+                        <p className="font-semibold mb-1">💳 カード決済について</p>
+                        <p>カード情報はStripeで安全に処理され、当サービスでは保持しません。</p>
+                    </div>
+                )}
                 <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={mutation.isPending || !selectedSlotId || (deliveryDestination === 'HOME' && !overrideAddress.trim())}
+                    disabled={mutation.isPending || !deliveryDate || !deliveryTimeSlot || (deliveryDestination === 'HOME' && !overrideAddress.trim())}
                     className="w-full py-4 bg-emerald-600 text-white font-bold text-lg rounded-xl hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
                 >
                     {mutation.isPending ? '注文処理中...' : '注文を確定する'}

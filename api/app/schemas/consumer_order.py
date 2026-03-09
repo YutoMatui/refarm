@@ -54,10 +54,18 @@ class ConsumerOrderItemCreate(BaseModel):
 
 class ConsumerOrderCreate(BaseModel):
     consumer_id: Optional[int] = None
-    delivery_slot_id: int
+    delivery_slot_id: Optional[int] = None
+    delivery_date: Optional[date] = None
+    delivery_time_label: Optional[str] = None
+    delivery_type: Optional[DeliverySlotType] = None
     delivery_address: Optional[str] = None
     delivery_notes: Optional[str] = None
     order_notes: Optional[str] = None
+    payment_method: str = Field("cash_on_delivery", description="cash_on_delivery | card")
+    save_card_for_future: bool = Field(False, description="カード情報をStripe上で保存するか")
+    stripe_customer_id: Optional[str] = Field(None, description="Stripe Customer ID")
+    stripe_payment_method_id: Optional[str] = Field(None, description="Stripe PaymentMethod ID")
+    stripe_payment_intent_id: Optional[str] = Field(None, description="Stripe PaymentIntent ID")
     items: List[ConsumerOrderItemCreate]
 
 
@@ -108,6 +116,8 @@ class ConsumerOrderResponse(TimestampSchema, BaseSchema):
     delivery_notes: Optional[str]
     order_notes: Optional[str]
     payment_method: str
+    stripe_payment_method_id: Optional[str]
+    stripe_payment_intent_id: Optional[str]
     status: OrderStatus
     subtotal: Decimal
     tax_amount: Decimal

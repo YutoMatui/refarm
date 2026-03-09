@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { consumerApi } from '@/services/api'
 import type { Consumer } from '@/types'
-import Loading from '@/components/Loading'
 
 interface ConsumerRegisterFormProps {
     idToken: string | null
@@ -10,63 +9,78 @@ interface ConsumerRegisterFormProps {
     onRetry?: () => void
 }
 
-interface Organization {
-    id: number
-    name: string
-    address: string
-    phone_number: string
-}
+const sanitizePostalCode = (value: string) => value.replace(/[^0-9]/g, '')
 
 const ConsumerRegisterForm = ({ idToken, onSuccess, onRetry }: ConsumerRegisterFormProps) => {
     const [name, setName] = useState('')
     const [phoneNumber, setPhoneNumber] = useState('')
-    const [selectedOrgId, setSelectedOrgId] = useState<number | ''>('')
-    const [organizations, setOrganizations] = useState<Organization[]>([])
-    const [isLoadingOrgs, setIsLoadingOrgs] = useState(true)
+    const [postalCode, setPostalCode] = useState('')
+    const [address, setAddress] = useState('')
+    const [building, setBuilding] = useState('')
+    const [isLookupLoading, setIsLookupLoading] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const lastLookupPostal = useRef<string>('')
 
-    useEffect(() => {
-        const fetchOrganizations = async () => {
-            try {
-                const response = await consumerApi.getOrganizations()
-                setOrganizations(response.data.items)
-                // デフォルトで最初の組織を選択してもよいが、明示的に選択させる
-            } catch (error) {
-                console.error("Failed to fetch organizations", error)
-                toast.error("組織情報の取得に失敗しました")
-            } finally {
-                setIsLoadingOrgs(false)
-            }
+    const handlePostalLookup = async () => {
+        const sanitized = sanitizePostalCode(postalCode)
+        if (sanitized.length !== 7) {
+            toast.error('郵便番号は7桁で入力してください')
+            return
         }
-        fetchOrganizations()
-    }, [])
+
+        if (sanitized === lastLookupPostal.current) {
+            return
+        }
+
+        try {
+            setIsLookupLoading(true)
+            const response = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${sanitized}`)
+            const data = await response.json()
+
+            if (data?.status === 200 && Array.isArray(data.results) && data.results.length > 0) {
+                const result = data.results[0]
+                const composed = `${result.address1}${result.address2}${result.address3}`
+                setAddress(composed)
+                lastLookupPostal.current = sanitized
+                toast.success('住所を自動入力しました')
+            } else {
+                toast.error('住所が見つかりませんでした。番地まで入力してください')
+            }
+        } catch (error) {
+            console.error('Postal lookup error', error)
+            toast.error('住所の自動入力に失敗しました')
+        } finally {
+            setIsLookupLoading(false)
+        }
+    }
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
 
-        if (!name || !phoneNumber || !selectedOrgId) {
-            toast.error('全ての必須項目を入力してください')
+        if (!name || !phoneNumber || !address) {
+            toast.error('氏名・電話番号・住所は必須です')
             return
         }
 
         setIsSubmitting(true)
         try {
-            // 【開発用】idTokenがdev-tokenの場合はダミーデータで成功させる
             if (idToken === 'dev-token') {
-                console.log('🔧 開発モード: ダミー登録データで進めます')
                 const dummyConsumer: Consumer = {
                     id: 9999,
                     line_user_id: 'dev-user-id',
                     name,
                     phone_number: phoneNumber,
-                    postal_code: null,
-                    address: null,
-                    building: null,
+                    postal_code: sanitizePostalCode(postalCode) || null,
+                    address,
+                    building: building || null,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
-                    organization_id: Number(selectedOrgId)
+                    profile_image_url: null,
+                    organization_id: null,
+                    stripe_customer_id: null,
+                    default_stripe_payment_method_id: null,
                 }
-                await new Promise(resolve => setTimeout(resolve, 500)) // 少し待機
+                await new Promise(resolve => setTimeout(resolve, 500))
                 toast.success('会員登録が完了しました（開発モード）')
                 onSuccess(dummyConsumer)
                 return
@@ -82,33 +96,28 @@ const ConsumerRegisterForm = ({ idToken, onSuccess, onRetry }: ConsumerRegisterF
                 id_token: idToken,
                 name,
                 phone_number: phoneNumber,
-                postal_code: undefined,
-                address: undefined,
-                building: undefined,
-                organization_id: Number(selectedOrgId)
+                postal_code: sanitizePostalCode(postalCode) || undefined,
+                address,
+                building: building || undefined,
             })
 
             toast.success('会員登録が完了しました')
             onSuccess(response.data)
         } catch (error: any) {
             console.error('Consumer registration failed', error)
-            const message = error?.response?.data?.message ?? '登録に失敗しました'
+            const message = error?.response?.data?.detail ?? '登録に失敗しました'
             toast.error(message)
         } finally {
             setIsSubmitting(false)
         }
     }
 
-    if (isLoadingOrgs) return <Loading message="読み込み中..." />
-
     return (
         <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white flex items-center justify-center px-4 py-12">
             <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl p-8 space-y-6">
                 <div className="space-y-2 text-center">
                     <h1 className="text-2xl font-bold text-gray-900">ベジコベ 会員登録</h1>
-                    <p className="text-sm text-gray-600">
-                        サービスを利用するために必要な情報を入力してください。
-                    </p>
+                    <p className="text-sm text-gray-600">氏名・電話番号・住所を登録してください。</p>
                 </div>
 
                 <form className="space-y-5" onSubmit={handleSubmit}>
@@ -125,7 +134,7 @@ const ConsumerRegisterForm = ({ idToken, onSuccess, onRetry }: ConsumerRegisterF
                     </div>
 
                     <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">電話番号（緊急連絡先） <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-medium text-gray-700">電話番号 <span className="text-red-500">*</span></label>
                         <input
                             type="tel"
                             value={phoneNumber}
@@ -137,23 +146,46 @@ const ConsumerRegisterForm = ({ idToken, onSuccess, onRetry }: ConsumerRegisterF
                     </div>
 
                     <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">所属組織・受取場所 <span className="text-red-500">*</span></label>
-                        <select
-                            value={selectedOrgId}
-                            onChange={(e) => setSelectedOrgId(Number(e.target.value))}
+                        <label className="block text-sm font-medium text-gray-700">郵便番号</label>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={postalCode}
+                                onChange={(e) => setPostalCode(e.target.value)}
+                                placeholder="例）6500001"
+                                className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            />
+                            <button
+                                type="button"
+                                onClick={handlePostalLookup}
+                                disabled={isLookupLoading}
+                                className="px-4 py-2 rounded-md bg-emerald-600 text-white font-semibold hover:bg-emerald-700 disabled:opacity-60"
+                            >
+                                {isLookupLoading ? '検索中...' : '住所検索'}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">住所 <span className="text-red-500">*</span></label>
+                        <textarea
+                            value={address}
+                            onChange={(e) => setAddress(e.target.value)}
+                            rows={2}
                             required
                             className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        >
-                            <option value="">選択してください</option>
-                            {organizations.map(org => (
-                                <option key={org.id} value={org.id}>
-                                    {org.name}
-                                </option>
-                            ))}
-                        </select>
-                        <p className="text-xs text-gray-500">
-                            商品を受け取る組織（キャンパス等）を選択してください。
-                        </p>
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">建物名・部屋番号（任意）</label>
+                        <input
+                            type="text"
+                            value={building}
+                            onChange={(e) => setBuilding(e.target.value)}
+                            placeholder="例）リファームビル 101号室"
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
                     </div>
 
                     <button

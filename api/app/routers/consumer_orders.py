@@ -2,6 +2,7 @@
 Consumer Orders Router - B2C注文管理
 """
 from decimal import Decimal
+from datetime import time
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
@@ -22,12 +23,13 @@ from app.services.line_notify import line_service
 
 router = APIRouter()
 
-SHIPPING_FEE_HOME = Decimal(400)
+SHIPPING_FEE_HOME = Decimal(500)
 SHIPPING_FEE_UNIV = Decimal(0)
 DELIVERY_LABEL_MAP = {
     DeliverySlotType.HOME: "自宅へ配送",
-    DeliverySlotType.UNIVERSITY: "兵庫県立大学 正門受取",
+    DeliverySlotType.UNIVERSITY: "ピックアップステーション受取",
 }
+SUPPORTED_PAYMENT_METHODS = {"cash_on_delivery", "card"}
 
 
 async def _ensure_slot_available(slot: DeliverySlot | None) -> DeliverySlot:
@@ -41,10 +43,70 @@ async def _ensure_slot_available(slot: DeliverySlot | None) -> DeliverySlot:
 def _build_delivery_address(consumer: Consumer, override_address: Optional[str]) -> Optional[str]:
     if override_address:
         return override_address
-    base_address = consumer.address
+    base_address = consumer.address or ""
     if consumer.building:
-        return f"{base_address} {consumer.building}"
-    return base_address
+        value = f"{base_address} {consumer.building}".strip()
+        return value or None
+    return base_address or None
+
+
+def _parse_times_from_label(label: str) -> tuple[time | None, time | None]:
+    normalized = label.replace('〜', '-').replace('~', '-').replace(' ', '')
+    parts = normalized.split('-')
+    if len(parts) != 2:
+        return None, None
+    try:
+        start_raw, end_raw = parts[0], parts[1]
+        if ':' in start_raw:
+            start_h, start_m = start_raw.split(':')
+        else:
+            start_h, start_m = start_raw, "00"
+        if ':' in end_raw:
+            end_h, end_m = end_raw.split(':')
+        else:
+            end_h, end_m = end_raw, "00"
+        return time(int(start_h), int(start_m)), time(int(end_h), int(end_m))
+    except Exception:
+        return None, None
+
+
+async def _resolve_delivery_slot(order_data: ConsumerOrderCreate, db: AsyncSession) -> DeliverySlot:
+    if order_data.delivery_slot_id:
+        stmt_slot = select(DeliverySlot).where(DeliverySlot.id == order_data.delivery_slot_id)
+        slot_result = await db.execute(stmt_slot)
+        return await _ensure_slot_available(slot_result.scalar_one_or_none())
+
+    if not (order_data.delivery_date and order_data.delivery_type and order_data.delivery_time_label):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="受取枠IDがない場合は delivery_date / delivery_type / delivery_time_label が必要です",
+        )
+
+    stmt_existing = select(DeliverySlot).where(
+        DeliverySlot.date == order_data.delivery_date,
+        DeliverySlot.slot_type == order_data.delivery_type,
+        DeliverySlot.time_text == order_data.delivery_time_label,
+    ).order_by(DeliverySlot.id.asc())
+    existing = (await db.execute(stmt_existing)).scalar_one_or_none()
+    if existing:
+        if not existing.is_active:
+            existing.is_active = True
+            await db.flush()
+        return existing
+
+    start_time, end_time = _parse_times_from_label(order_data.delivery_time_label)
+    generated_slot = DeliverySlot(
+        date=order_data.delivery_date,
+        slot_type=order_data.delivery_type,
+        start_time=start_time,
+        end_time=end_time,
+        time_text=order_data.delivery_time_label,
+        is_active=True,
+        note="auto-generated from consumer checkout",
+    )
+    db.add(generated_slot)
+    await db.flush()
+    return generated_slot
 
 
 @router.post("/", response_model=ConsumerOrderResponse, status_code=status.HTTP_201_CREATED)
@@ -57,11 +119,16 @@ async def create_consumer_order(
     """Create a new consumer order."""
     if order_data.consumer_id and order_data.consumer_id != consumer.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="本人の注文のみ作成できます")
+    if order_data.payment_method not in SUPPORTED_PAYMENT_METHODS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="未対応の支払い方法です")
+    if order_data.payment_method == "card" and not order_data.stripe_payment_method_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="カード決済にはStripe PaymentMethod IDが必要です")
+    if order_data.save_card_for_future and not order_data.stripe_payment_method_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="カード保存にはStripe PaymentMethod IDが必要です")
+    if order_data.save_card_for_future and not (order_data.stripe_customer_id or consumer.stripe_customer_id):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="カード保存にはStripe Customer IDが必要です")
 
-    # Fetch slot
-    stmt_slot = select(DeliverySlot).where(DeliverySlot.id == order_data.delivery_slot_id)
-    slot_result = await db.execute(stmt_slot)
-    slot = await _ensure_slot_available(slot_result.scalar_one_or_none())
+    slot = await _resolve_delivery_slot(order_data, db)
 
     shipping_fee = SHIPPING_FEE_HOME if slot.slot_type == DeliverySlotType.HOME else SHIPPING_FEE_UNIV
     delivery_label = DELIVERY_LABEL_MAP.get(slot.slot_type, "受取")
@@ -79,7 +146,9 @@ async def create_consumer_order(
         delivery_address=delivery_address,
         delivery_notes=order_data.delivery_notes,
         order_notes=order_data.order_notes,
-        payment_method="cash_on_delivery",
+        payment_method=order_data.payment_method,
+        stripe_payment_method_id=order_data.stripe_payment_method_id,
+        stripe_payment_intent_id=order_data.stripe_payment_intent_id,
         status=OrderStatus.PENDING,
         shipping_fee=int(shipping_fee),
     )
@@ -124,6 +193,13 @@ async def create_consumer_order(
     db_order.subtotal = subtotal
     db_order.tax_amount = tax_amount
     db_order.total_amount = subtotal + tax_amount + shipping_fee
+
+    if order_data.stripe_customer_id and not consumer.stripe_customer_id:
+        consumer.stripe_customer_id = order_data.stripe_customer_id
+    if order_data.save_card_for_future and order_data.stripe_payment_method_id:
+        if order_data.stripe_customer_id:
+            consumer.stripe_customer_id = order_data.stripe_customer_id
+        consumer.default_stripe_payment_method_id = order_data.stripe_payment_method_id
 
     await db.commit()
 

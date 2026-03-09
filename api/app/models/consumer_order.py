@@ -85,6 +85,18 @@ class ConsumerOrder(Base, TimestampMixin):
         comment="支払い方法"
     )
 
+    stripe_payment_method_id = Column(
+        String(255),
+        nullable=True,
+        comment="Stripe PaymentMethod ID（カード情報本体はStripeで管理）"
+    )
+
+    stripe_payment_intent_id = Column(
+        String(255),
+        nullable=True,
+        comment="Stripe PaymentIntent ID"
+    )
+
     order_notes = Column(
         Text,
         nullable=True,

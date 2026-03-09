@@ -47,6 +47,7 @@ const LocalOrderComplete = () => {
     const pickupDate = data.delivery_slot?.date
         ? format(parseISO(data.delivery_slot.date), 'M月d日(E)', { locale: ja })
         : data.delivery_time_label
+    const isCardPayment = data.payment_method === 'card'
 
     return (
         <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
@@ -54,7 +55,7 @@ const LocalOrderComplete = () => {
                 <h1 className="text-2xl font-bold text-emerald-700">ご注文ありがとうございました！</h1>
                 <p className="text-gray-600">ご注文番号: {data.id.toString().padStart(6, '0')}</p>
                 <p className="text-gray-700">
-                    ご注文内容の詳細はLINEにてお送りしました。受取日時・場所をご確認の上、お釣りのないようご準備をお願いいたします。
+                    ご注文内容の詳細はLINEにてお送りしました。受取日時・場所をご確認ください。
                 </p>
             </div>
 
@@ -63,6 +64,7 @@ const LocalOrderComplete = () => {
                 <div className="space-y-1 text-sm text-gray-700">
                     <p><span className="font-semibold">日時：</span>{pickupDate}{data.delivery_slot?.date ? ` ${data.delivery_time_label}` : ''}</p>
                     <p><span className="font-semibold">場所：</span>{data.delivery_type === 'HOME' ? 'ご自宅' : data.delivery_label}</p>
+                    <p><span className="font-semibold">支払い方法：</span>{isCardPayment ? 'クレジットカード' : '受取時現金'}</p>
                     {data.delivery_address && (
                         <p><span className="font-semibold">住所：</span>{data.delivery_address}</p>
                     )}
@@ -95,10 +97,17 @@ const LocalOrderComplete = () => {
                 </div>
             </section>
 
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-sm text-yellow-900 space-y-2">
-                <p>お支払いは【商品受取時に現金】でお願いいたします。お釣りが出ないようご協力をお願いいたします。</p>
-                <p>ご不明点がございましたら、LINEのメッセージからお問い合わせください。</p>
-            </div>
+            {isCardPayment ? (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-sm text-blue-900 space-y-2">
+                    <p>カード決済の明細はStripe側の処理結果をご確認ください。</p>
+                    <p>ご不明点がございましたら、LINEのメッセージからお問い合わせください。</p>
+                </div>
+            ) : (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-sm text-yellow-900 space-y-2">
+                    <p>お支払いは【商品受取時に現金】でお願いいたします。お釣りが出ないようご協力をお願いいたします。</p>
+                    <p>ご不明点がございましたら、LINEのメッセージからお問い合わせください。</p>
+                </div>
+            )}
 
             <div className="flex flex-col sm:flex-row sm:justify-between gap-3">
                 <Link

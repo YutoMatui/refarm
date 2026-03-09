@@ -100,7 +100,6 @@ async def register_consumer(
         postal_code=register_request.postal_code,
         address=register_request.address,
         building=building,
-        organization_id=register_request.organization_id,
     )
     db.add(consumer)
     await db.commit()

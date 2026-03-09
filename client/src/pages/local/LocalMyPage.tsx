@@ -118,7 +118,7 @@ const LocalMyPage = () => {
         if (deliveryType === 'HOME') {
             return `自宅配送 (${order.delivery_time_label || ''})`
         } else if (deliveryType === 'UNIVERSITY') {
-            return `大学受取 (${order.delivery_time_label || ''})`
+            return `ピックアップステーション受取 (${order.delivery_time_label || ''})`
         } else {
             return `${order.delivery_label || '受取'} (${order.delivery_time_label || ''})`
         }

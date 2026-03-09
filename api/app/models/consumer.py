@@ -64,6 +64,18 @@ class Consumer(Base, TimestampMixin):
         comment="プロフィール画像URL"
     )
 
+    stripe_customer_id = Column(
+        String(255),
+        nullable=True,
+        comment="Stripe Customer ID"
+    )
+
+    default_stripe_payment_method_id = Column(
+        String(255),
+        nullable=True,
+        comment="デフォルトStripe PaymentMethod ID"
+    )
+
     organization_id = Column(
         Integer,
         ForeignKey("organizations.id"),

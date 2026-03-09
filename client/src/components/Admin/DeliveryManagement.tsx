@@ -249,6 +249,7 @@ export default function DeliveryManagement() {
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">注文ID</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">配送日・時間</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">注文日時</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">飲食店名</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">注文内容</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">金額</th>
@@ -263,6 +264,10 @@ export default function DeliveryManagement() {
                                     <td className="px-6 py-4 text-sm text-gray-900">
                                         <div>{format(new Date(order.delivery_date), 'MM/dd(E)', { locale: ja })}</div>
                                         <div className="text-gray-500 text-xs">{order.delivery_time_slot}</div>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-900">
+                                        <div>{format(new Date(order.created_at), 'yyyy/MM/dd', { locale: ja })}</div>
+                                        <div className="text-gray-500 text-xs">{format(new Date(order.created_at), 'HH:mm', { locale: ja })}</div>
                                     </td>
                                     <td className="px-6 py-4 text-sm text-gray-900">
                                         <div className="font-medium">{order.restaurant?.name || `Restaurant #${order.restaurant_id}`}</div>
