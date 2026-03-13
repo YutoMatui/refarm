@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { productApi } from '../services/api';
 import { Product } from '../types';
 import { useStore } from '../store/useStore';
-import { ArrowLeft, Minus, Plus, Loader2, Salad, User, MapPin, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, Loader2, Salad, User, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function ProductDetail() {
@@ -126,10 +126,6 @@ export default function ProductDetail() {
                                 )}
                                 <div>
                                     <p className="font-bold text-gray-900 group-hover:text-green-800">{product.farmer.name}</p>
-                                    <div className="flex items-center gap-1 text-green-700 text-xs">
-                                        <MapPin size={12} />
-                                        <span>{product.farmer.address || '兵庫県神戸市'}</span>
-                                    </div>
                                 </div>
                             </div>
                             <ChevronRight size={20} className="text-green-400 group-hover:text-green-600" />
@@ -137,10 +133,6 @@ export default function ProductDetail() {
                     ) : (
                         <div className="text-sm text-green-800">
                             <p className="font-medium mb-1">生産者ID: {product.farmer_id}</p>
-                            <div className="flex items-center gap-1 text-green-700 text-xs mt-2">
-                                <MapPin size={12} />
-                                <span>兵庫県神戸市</span>
-                            </div>
                         </div>
                     )}
                 </div>

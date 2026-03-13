@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { productApi } from '@/services/api'
 import type { Product } from '@/types'
 import { useStore } from '@/store/useStore'
-import { ArrowLeft, Minus, Plus, Loader2, Salad, User, MapPin, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Minus, Plus, Loader2, Salad, User, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 
 const LocalProductDetail = () => {
@@ -160,12 +160,6 @@ const LocalProductDetail = () => {
                                     <p className="font-bold text-gray-900 group-hover:text-emerald-800">
                                         {product.farmer.name}
                                     </p>
-                                    {product.farmer.address && (
-                                        <div className="flex items-center gap-1 text-emerald-700 text-xs mt-1">
-                                            <MapPin size={12} />
-                                            <span>{product.farmer.address}</span>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                             <ChevronRight size={20} className="text-emerald-400 group-hover:text-emerald-600" />
