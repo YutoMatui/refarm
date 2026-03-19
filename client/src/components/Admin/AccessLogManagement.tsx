@@ -32,8 +32,7 @@ export default function AccessLogManagement() {
     const keyword = searchText.trim()
     if (!keyword) return logs
     return logs.filter((log: AccessLog) =>
-      (log.actor_name || '').includes(keyword) ||
-      (log.line_user_id || '').includes(keyword)
+      (log.actor_name || '').includes(keyword)
     )
   }, [logs, searchText])
 
@@ -61,7 +60,7 @@ export default function AccessLogManagement() {
           </select>
           <input
             type="text"
-            placeholder="名前 or LINE IDで検索..."
+            placeholder="名前で検索..."
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
@@ -76,9 +75,7 @@ export default function AccessLogManagement() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">種別</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">名前</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">LINE ID</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">アクセス日時</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">IP</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User-Agent</th>
             </tr>
           </thead>
@@ -90,17 +87,15 @@ export default function AccessLogManagement() {
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-900">{log.actor_name || '-'}</td>
                 <td className="px-6 py-4 text-sm text-gray-900">{log.actor_id ? `#${log.actor_id}` : '-'}</td>
-                <td className="px-6 py-4 text-xs text-gray-500">{log.line_user_id || '-'}</td>
                 <td className="px-6 py-4 text-sm text-gray-900">
                   {format(new Date(log.created_at), 'yyyy/MM/dd HH:mm', { locale: ja })}
                 </td>
-                <td className="px-6 py-4 text-xs text-gray-500">{log.ip_address || '-'}</td>
                 <td className="px-6 py-4 text-xs text-gray-500 max-w-[240px] truncate">{log.user_agent || '-'}</td>
               </tr>
             ))}
             {filteredLogs.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-6 py-6 text-center text-sm text-gray-500">
+                <td colSpan={5} className="px-6 py-6 text-center text-sm text-gray-500">
                   表示できるアクセス履歴がありません
                 </td>
               </tr>
