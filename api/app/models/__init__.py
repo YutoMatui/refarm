@@ -22,7 +22,7 @@ from app.models.delivery_schedule import DeliverySchedule
 from app.models.delivery_slot import DeliverySlot
 from app.models.support_message import SupportMessage
 from app.models.guest import GuestVisit, GuestInteraction
-from app.models.analytics import FarmerFollow
+from app.models.analytics import FarmerFollow, AccessLog
 from app.models.farmer_schedule import FarmerSchedule
 from app.models.organization import Organization
 
@@ -52,5 +52,6 @@ __all__ = [
     "GuestVisit",
     "GuestInteraction",
     "FarmerFollow",
+    "AccessLog",
     "FarmerSchedule",
 ]

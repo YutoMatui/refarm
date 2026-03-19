@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     @validator("DATABASE_URL", pre=True)
     def validate_database_url(cls, v: str) -> str:
         """Ensure DATABASE_URL starts with postgresql+asyncpg://"""
+        if isinstance(v, str):
+            v = v.strip()
         if v and v.startswith("postgres://"):
             return v.replace("postgres://", "postgresql+asyncpg://", 1)
         if v and v.startswith("postgresql://") and "+asyncpg" not in v:
@@ -83,6 +85,12 @@ class Settings(BaseSettings):
     # LINE Test User ID
     LINE_TEST_USER_ID: str = "Uf84a1f7dfb47a12c704d6ac8b438f873"
 
+    # LINE Messaging API (Admin)
+    LINE_ADMIN_CHANNEL_ID: str = ""
+    LINE_ADMIN_CHANNEL_SECRET: str = ""
+    LINE_ADMIN_CHANNEL_ACCESS_TOKEN: str = ""
+    LINE_ADMIN_USER_IDS: str = ""  # Comma-separated LINE user IDs
+
     # LP integration
     LP_INTEGRATION_API_KEY: str = ""
     
@@ -90,7 +98,16 @@ class Settings(BaseSettings):
     CLOUDINARY_CLOUD_NAME: str = ""
     CLOUDINARY_API_KEY: str = ""
     CLOUDINARY_API_SECRET: str = ""
-    
+
+    # Email (order notifications)
+    EMAIL_SMTP_HOST: str = ""
+    EMAIL_SMTP_PORT: int = 587
+    EMAIL_SMTP_USER: str = ""
+    EMAIL_SMTP_PASSWORD: str = ""
+    EMAIL_FROM: str = ""
+    EMAIL_TO: str = "refarmkobe@gmail.com"
+    EMAIL_USE_TLS: bool = True
+
     # Timezone
     TZ: str = "Asia/Tokyo"
     

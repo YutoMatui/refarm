@@ -32,6 +32,7 @@ import type {
   DeliverySlot,
   DeliverySlotCreateRequest,
   DeliverySlotUpdateRequest,
+  AccessLog,
 } from '@/types'
 import { DeliverySlotType } from '@/types'
 
@@ -531,7 +532,11 @@ export const adminApi = {
     apiClient.delete(`/admin/guest/interactions/${interactionId}`),
 
   bulkDeleteVisits: (visitorIds?: string[], beforeDate?: string) =>
-    apiClient.post('/admin/guest/visits/bulk-delete', { visitor_ids: visitorIds, before_date: beforeDate })
+    apiClient.post('/admin/guest/visits/bulk-delete', { visitor_ids: visitorIds, before_date: beforeDate }),
+
+  // Access Logs
+  getAccessLogs: (params?: { skip?: number; limit?: number; actor_type?: string; actor_id?: number }) =>
+    apiClient.get<PaginatedResponse<AccessLog>>('/admin/access-logs', { params }),
 }
 
 // Guest API

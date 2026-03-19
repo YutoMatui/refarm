@@ -125,6 +125,7 @@ async def create_order(
     # Send LINE Notifications
     background_tasks.add_task(line_service.notify_restaurant, db_order)
     background_tasks.add_task(line_service.notify_farmers, db_order)
+    background_tasks.add_task(line_service.notify_admin_order, db_order)
     
     return db_order
 
@@ -538,6 +539,7 @@ async def update_order(
 async def update_order_status(
     order_id: int,
     status_update: OrderStatusUpdate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
     """注文ステータスを更新"""
@@ -549,6 +551,7 @@ async def update_order_status(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
     
     # Update status and timestamp
+    was_cancelled = order.status == OrderStatus.CANCELLED
     order.status = status_update.status
     
     now = datetime.now()
@@ -570,12 +573,20 @@ async def update_order_status(
     ).where(Order.id == order.id)
     result = await db.execute(stmt)
     order = result.scalar_one()
+
+    if status_update.status == OrderStatus.CANCELLED and not was_cancelled:
+        background_tasks.add_task(line_service.notify_farmers_order_cancelled, order)
+        background_tasks.add_task(line_service.notify_admin_order_cancelled, order)
     
     return order
 
 
 @router.delete("/{order_id}", response_model=ResponseMessage)
-async def cancel_order(order_id: int, db: AsyncSession = Depends(get_db)):
+async def cancel_order(
+    order_id: int,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
     """注文をキャンセル"""
     stmt = select(Order).where(Order.id == order_id)
     result = await db.execute(stmt)
@@ -593,6 +604,17 @@ async def cancel_order(order_id: int, db: AsyncSession = Depends(get_db)):
     order.status = OrderStatus.CANCELLED
     order.cancelled_at = datetime.now()
     await db.commit()
+
+    # Reload order with items for notifications
+    stmt = select(Order).options(
+        selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
+        selectinload(Order.restaurant)
+    ).where(Order.id == order.id)
+    result = await db.execute(stmt)
+    order = result.scalar_one()
+
+    background_tasks.add_task(line_service.notify_farmers_order_cancelled, order)
+    background_tasks.add_task(line_service.notify_admin_order_cancelled, order)
     
     return ResponseMessage(message="注文をキャンセルしました", success=True)
 

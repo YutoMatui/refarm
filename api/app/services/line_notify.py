@@ -124,6 +124,87 @@ class LineNotificationService:
             return f"{parts[0]}:00～{parts[1]}:00"
         return slot_value
 
+    def _get_admin_user_ids(self) -> List[str]:
+        raw = (settings.LINE_ADMIN_USER_IDS or "").strip()
+        if not raw:
+            return []
+        return [value.strip() for value in raw.split(",") if value.strip()]
+
+    async def notify_admin_order(self, order: Order):
+        """Send order notification to admin LINE."""
+        admin_user_ids = self._get_admin_user_ids()
+        if not admin_user_ids:
+            print("No LINE admin user IDs configured")
+            return
+
+        token = await self.get_access_token(
+            settings.LINE_ADMIN_CHANNEL_ID,
+            settings.LINE_ADMIN_CHANNEL_SECRET,
+            settings.LINE_ADMIN_CHANNEL_ACCESS_TOKEN
+        )
+
+        restaurant_name = order.restaurant.name if order.restaurant else f"Restaurant #{order.restaurant_id}"
+        delivery_date_str = self.format_date(order.delivery_date)
+        delivery_time = self.format_time_slot(
+            order.delivery_time_slot.value if hasattr(order.delivery_time_slot, 'value') else str(order.delivery_time_slot)
+        )
+
+        items_text = ""
+        for item in order.order_items:
+            items_text += f"・{item.product_name} × {item.quantity}{item.product_unit}\n"
+        if not items_text:
+            items_text = "・（商品情報が取得できませんでした）\n"
+
+        message = f"""【管理通知】新規注文（飲食店）
+注文番号: {order.id}
+飲食店: {restaurant_name}
+配送予定: {delivery_date_str} {delivery_time}
+
+ご注文内容:
+{items_text}合計: {self.format_currency(order.total_amount)}"""
+
+        for user_id in admin_user_ids:
+            await self.send_push_message(token, user_id, message)
+
+    async def notify_admin_consumer_order(self, order: ConsumerOrder):
+        """Send consumer order notification to admin LINE."""
+        admin_user_ids = self._get_admin_user_ids()
+        if not admin_user_ids:
+            print("No LINE admin user IDs configured")
+            return
+
+        token = await self.get_access_token(
+            settings.LINE_ADMIN_CHANNEL_ID,
+            settings.LINE_ADMIN_CHANNEL_SECRET,
+            settings.LINE_ADMIN_CHANNEL_ACCESS_TOKEN
+        )
+
+        consumer_name = "一般消費者"
+        if getattr(order, "consumer", None) and order.consumer.name:
+            consumer_name = order.consumer.name
+
+        items_text = ""
+        for item in order.order_items:
+            items_text += f"・{item.product_name} × {item.quantity}{item.product_unit}\n"
+        if not items_text:
+            items_text = "・（商品情報が取得できませんでした）\n"
+
+        delivery_date_str = ""
+        if order.delivery_slot and order.delivery_slot.date:
+            delivery_date_str = self.format_date(order.delivery_slot.date)
+        time_label = order.delivery_time_label or (order.delivery_slot.time_text if order.delivery_slot else "")
+
+        message = f"""【管理通知】新規注文（消費者）
+注文番号: {order.id}
+注文者: {consumer_name}
+受取予定: {delivery_date_str} {time_label}
+
+ご注文内容:
+{items_text}合計: {self.format_currency(order.total_amount)}"""
+
+        for user_id in admin_user_ids:
+            await self.send_push_message(token, user_id, message)
+
     async def notify_restaurant(self, order: Order):
         """Send notification to restaurant"""
         target_user_id = None
@@ -250,6 +331,98 @@ No. {order.id}
 お野菜のご準備、よろしくお願いいたします！🚛"""
 
             await self.send_push_message(token, target_user_id, message)
+
+    async def notify_farmers_order_cancelled(self, order: Order):
+        """Notify farmers when an order is cancelled."""
+        token = await self.get_access_token(
+            settings.LINE_PRODUCER_CHANNEL_ID,
+            settings.LINE_PRODUCER_CHANNEL_SECRET,
+            settings.LINE_PRODUCER_CHANNEL_ACCESS_TOKEN
+        )
+
+        if not token:
+            return
+
+        farmers_items: Dict[int, Dict[str, Any]] = {}
+        for item in order.order_items:
+            if not item.product or not item.product.farmer:
+                continue
+
+            farmer = item.product.farmer
+            if not farmer.line_user_id:
+                continue
+
+            farmer_id = farmer.id
+            if farmer_id not in farmers_items:
+                farmers_items[farmer_id] = {
+                    "farmer_name": farmer.name,
+                    "line_user_id": farmer.line_user_id,
+                    "items": [],
+                }
+            farmers_items[farmer_id]["items"].append(item)
+
+        if not farmers_items:
+            return
+
+        restaurant_name = order.restaurant.name if order.restaurant else f"Restaurant #{order.restaurant_id}"
+        delivery_date_str = self.format_date(order.delivery_date)
+        delivery_time = self.format_time_slot(
+            order.delivery_time_slot.value if hasattr(order.delivery_time_slot, 'value') else str(order.delivery_time_slot)
+        )
+
+        for farmer_id, data in farmers_items.items():
+            items_text = ""
+            for item in data["items"]:
+                items_text += f"・{item.product_name} × {item.quantity}{item.product_unit}\n"
+
+            message = f"""【注文キャンセルのお知らせ】
+{data['farmer_name']}さん
+飲食店からの注文がキャンセルされました。
+
+注文番号: {order.id}
+飲食店: {restaurant_name}
+配送予定: {delivery_date_str} {delivery_time}
+
+キャンセル内容:
+{items_text}"""
+
+            await self.send_push_message(token, data["line_user_id"], message)
+
+    async def notify_admin_order_cancelled(self, order: Order):
+        """Send cancellation notification to admin LINE."""
+        admin_user_ids = self._get_admin_user_ids()
+        if not admin_user_ids:
+            print("No LINE admin user IDs configured")
+            return
+
+        token = await self.get_access_token(
+            settings.LINE_ADMIN_CHANNEL_ID,
+            settings.LINE_ADMIN_CHANNEL_SECRET,
+            settings.LINE_ADMIN_CHANNEL_ACCESS_TOKEN
+        )
+
+        restaurant_name = order.restaurant.name if order.restaurant else f"Restaurant #{order.restaurant_id}"
+        delivery_date_str = self.format_date(order.delivery_date)
+        delivery_time = self.format_time_slot(
+            order.delivery_time_slot.value if hasattr(order.delivery_time_slot, 'value') else str(order.delivery_time_slot)
+        )
+
+        items_text = ""
+        for item in order.order_items:
+            items_text += f"・{item.product_name} × {item.quantity}{item.product_unit}\n"
+        if not items_text:
+            items_text = "・（商品情報が取得できませんでした）\n"
+
+        message = f"""【管理通知】注文キャンセル
+注文番号: {order.id}
+飲食店: {restaurant_name}
+配送予定: {delivery_date_str} {delivery_time}
+
+キャンセル内容:
+{items_text}"""
+
+        for user_id in admin_user_ids:
+            await self.send_push_message(token, user_id, message)
 
     async def notify_consumer_order(self, order: ConsumerOrder):
         """Send confirmation message to consumer."""

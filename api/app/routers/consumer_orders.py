@@ -217,6 +217,7 @@ async def create_consumer_order(
     # Notify via LINE (consumer + farmers)
     background_tasks.add_task(line_service.notify_consumer_order, db_order)
     background_tasks.add_task(line_service.notify_farmers_consumer_order, db_order)
+    background_tasks.add_task(line_service.notify_admin_consumer_order, db_order)
 
     return db_order
 

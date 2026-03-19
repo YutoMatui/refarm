@@ -78,6 +78,10 @@ from app.schemas.organization import (
     OrganizationResponse,
     OrganizationList
 )
+from app.schemas.access_log import (
+    AccessLogResponse,
+    AccessLogListResponse,
+)
 
 # Forward reference resolution for circular dependencies
 FavoriteWithProductResponse.model_rebuild()
@@ -149,4 +153,7 @@ __all__ = [
     "SupportMessageCreate",
     "SupportMessage",
     "SupportMessageResponse",
+    # Access Logs
+    "AccessLogResponse",
+    "AccessLogListResponse",
 ]

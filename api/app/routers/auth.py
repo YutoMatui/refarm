@@ -1,7 +1,7 @@
 """
 Authentication API Router - LINE LIFF認証
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.core.dependencies import get_line_user_id
 from app.models import Restaurant, Farmer
 from app.schemas import RestaurantResponse, FarmerResponse
+from app.services.access_log import log_access
 from typing import Optional
 
 router = APIRouter()
@@ -203,6 +204,7 @@ async def register_restaurant(
 @router.post("/verify", response_model=AuthResponse, summary="LINE ID Token検証")
 async def verify_line_token(
     auth_request: AuthRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -315,6 +317,20 @@ async def verify_line_token(
         )
     
     if restaurant:
+        try:
+            await log_access(
+                db=db,
+                actor_type="restaurant",
+                actor_id=restaurant.id,
+                actor_name=restaurant.name,
+                line_user_id=line_user_id,
+                action="verify",
+                path=str(request.url.path),
+                ip_address=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent"),
+            )
+        except Exception as e:
+            print(f"Failed to log restaurant access: {e}")
         return AuthResponse(
             line_user_id=line_user_id,
             restaurant=restaurant,
@@ -323,6 +339,20 @@ async def verify_line_token(
             message="認証成功: 飲食店情報が見つかりました"
         )
     elif farmer:
+        try:
+            await log_access(
+                db=db,
+                actor_type="farmer",
+                actor_id=farmer.id,
+                actor_name=farmer.name,
+                line_user_id=line_user_id,
+                action="verify",
+                path=str(request.url.path),
+                ip_address=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent"),
+            )
+        except Exception as e:
+            print(f"Failed to log farmer access: {e}")
         return AuthResponse(
             line_user_id=line_user_id,
             restaurant=None,

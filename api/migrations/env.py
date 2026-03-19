@@ -19,8 +19,9 @@ import app.models  # noqa - Import to register all models
 # access to the values within the .ini file in use.
 config = context.config
 
-# Override sqlalchemy.url with environment variable
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Override sqlalchemy.url with environment variable (trim whitespace)
+db_url = settings.DATABASE_URL.strip() if isinstance(settings.DATABASE_URL, str) else settings.DATABASE_URL
+config.set_main_option("sqlalchemy.url", db_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

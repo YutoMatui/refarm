@@ -61,6 +61,18 @@ export interface TimestampFields {
   updated_at: string
 }
 
+export interface AccessLog extends TimestampFields {
+  id: number
+  actor_type: 'restaurant' | 'farmer'
+  actor_id?: number | null
+  actor_name?: string | null
+  line_user_id?: string | null
+  action?: string | null
+  path?: string | null
+  ip_address?: string | null
+  user_agent?: string | null
+}
+
 // Restaurant
 export interface Restaurant extends TimestampFields {
   id: number

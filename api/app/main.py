@@ -197,6 +197,7 @@ from app.routers import (
     support_messages,
     admin_consumers,
     admin_organizations,
+    admin_access_logs,
     integrations_lp,
 )
 
@@ -207,6 +208,7 @@ app.include_router(admin_organizations.router, prefix="/api/admin", tags=["Admin
 app.include_router(admin_consumers.router, prefix="/api/admin", tags=["Admin Consumer Management"])
 app.include_router(admin_users.router, prefix="/api/admin/users", tags=["Admin Users"])
 app.include_router(admin_delivery_slots_router.router, prefix="/api/admin/delivery-slots", tags=["Admin Delivery Slots"])
+app.include_router(admin_access_logs.router, prefix="/api/admin", tags=["Admin Access Logs"])
 app.include_router(delivery_schedules.router, prefix="/api/delivery-schedules", tags=["Delivery Schedules"])
 app.include_router(delivery_slot_router.router, prefix="/api/delivery-slots", tags=["Delivery Slots"])
 app.include_router(logistics.router, prefix="/api/logistics", tags=["Logistics"])

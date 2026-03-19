@@ -21,6 +21,7 @@ from . import (
     delivery_slot,
     guest,
     admin_guest,
+    admin_access_logs,
     integrations_lp,
 )
 
@@ -44,5 +45,6 @@ __all__ = [
     "delivery_slot",
     "guest",
     "admin_guest",
+    "admin_access_logs",
     "integrations_lp",
 ]
