@@ -282,16 +282,7 @@ export default function Cart() {
     // UI will update and user can click submit again
   };
 
-  const subtotalExTax = cart.reduce((sum, item) => {
-    // Ensure price is treated as a number, defaulting to 0 if invalid
-    const price = parseFloat(String(item.product.price))
-    const qty = Number(item.quantity)
-    return sum + (isNaN(price) ? 0 : price) * qty
-  }, 0)
-
-  const subtotalExTaxRounded = Math.round(subtotalExTax)
   const totalWithTax = getCartTotal()
-  const taxAmount = Math.max(totalWithTax - subtotalExTaxRounded, 0)
 
   if (cart.length === 0) {
     return (
@@ -456,16 +447,12 @@ export default function Cart() {
         <div className="bg-white p-5 rounded-xl shadow-sm space-y-4">
           <div className="space-y-2">
             <div className="flex justify-between text-sm text-gray-600">
-              <span>小計 (税込)</span>
+              <span>小計 (8%税込)</span>
               <span>¥{totalWithTax.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between text-sm text-gray-600">
-              <span>消費税</span>
-              <span>¥{taxAmount.toLocaleString()}</span>
             </div>
             {restaurant?.shipping_fee ? (
               <div className="flex justify-between text-sm text-gray-600">
-                <span>配送料</span>
+                <span>配送料 (10%税込)</span>
                 <span>¥{restaurant.shipping_fee.toLocaleString()}</span>
               </div>
             ) : null}
