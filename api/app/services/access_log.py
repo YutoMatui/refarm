@@ -1,4 +1,5 @@
 from typing import Optional
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import AccessLog
 
@@ -14,6 +15,7 @@ async def log_access(
     ip_address: Optional[str] = None,
     user_agent: Optional[str] = None,
 ) -> None:
+    now = datetime.now(timezone.utc)
     log = AccessLog(
         actor_type=actor_type,
         actor_id=actor_id,
@@ -23,6 +25,8 @@ async def log_access(
         path=path,
         ip_address=ip_address,
         user_agent=user_agent,
+        created_at=now,
+        updated_at=now,
     )
     db.add(log)
     await db.commit()
