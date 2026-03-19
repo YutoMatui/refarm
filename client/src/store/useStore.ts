@@ -93,7 +93,9 @@ export const useStore = create<AppState>()(
 
       getCartTotal: () => {
         const total = get().cart.reduce((total, item) => {
-          const priceWithTax = parseFloat(item.product.price_with_tax)
+          const rawPrice = item.product.price_with_tax ?? item.product.price
+          const priceWithTax = parseFloat(String(rawPrice))
+          if (Number.isNaN(priceWithTax)) return total
           return total + priceWithTax * Number(item.quantity)
         }, 0)
         return Math.round(total)

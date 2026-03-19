@@ -8,7 +8,12 @@ export default function FloatingCartButton() {
 
     // Calculate total items and price - ensure numeric conversion
     const totalItems = cart.reduce((sum, item) => sum + Number(item.quantity), 0);
-    const totalPrice = cart.reduce((sum, item) => sum + parseFloat(String(item.product.price)) * Number(item.quantity), 0);
+    const totalPrice = cart.reduce((sum, item) => {
+        const rawPrice = item.product.price_with_tax ?? item.product.price
+        const price = parseFloat(String(rawPrice))
+        if (Number.isNaN(price)) return sum
+        return sum + price * Number(item.quantity)
+    }, 0);
 
     // Don't show if cart is empty
     if (totalItems === 0) return null;

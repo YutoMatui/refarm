@@ -282,15 +282,16 @@ export default function Cart() {
     // UI will update and user can click submit again
   };
 
-  const subtotal = cart.reduce((sum, item) => {
+  const subtotalExTax = cart.reduce((sum, item) => {
     // Ensure price is treated as a number, defaulting to 0 if invalid
-    const price = parseFloat(String(item.product.price));
-    const qty = Number(item.quantity);
-    return sum + (isNaN(price) ? 0 : price) * qty;
+    const price = parseFloat(String(item.product.price))
+    const qty = Number(item.quantity)
+    return sum + (isNaN(price) ? 0 : price) * qty
   }, 0)
 
+  const subtotalExTaxRounded = Math.round(subtotalExTax)
   const totalWithTax = getCartTotal()
-  const taxAmount = totalWithTax - subtotal;
+  const taxAmount = Math.max(totalWithTax - subtotalExTaxRounded, 0)
 
   if (cart.length === 0) {
     return (
@@ -322,47 +323,53 @@ export default function Cart() {
       <div className="p-4 space-y-6">
         {/* Cart Items */}
         <div className="space-y-4">
-          {cart.map((item) => (
-            <div key={item.product.id} className="bg-white p-4 rounded-xl shadow-sm flex gap-4">
-              {item.product.image_url && (
-                <img
-                  src={item.product.image_url}
-                  alt={item.product.name}
-                  className="w-20 h-20 object-cover rounded-lg bg-gray-100"
-                />
-              )}
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-gray-900 truncate">{item.product.name}</h3>
-                <p className="text-sm text-gray-500 mb-2">
-                  ¥{parseFloat(String(item.product.price)).toLocaleString()} / {item.product.unit} <span className="text-xs text-gray-400">(税抜)</span>
-                </p>
+          {cart.map((item) => {
+            const rawPrice = item.product.price_with_tax ?? item.product.price
+            const parsedPrice = parseFloat(String(rawPrice))
+            const unitPrice = Math.round(isNaN(parsedPrice) ? 0 : parsedPrice)
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-1">
+            return (
+              <div key={item.product.id} className="bg-white p-4 rounded-xl shadow-sm flex gap-4">
+                {item.product.image_url && (
+                  <img
+                    src={item.product.image_url}
+                    alt={item.product.name}
+                    className="w-20 h-20 object-cover rounded-lg bg-gray-100"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-gray-900 truncate">{item.product.name}</h3>
+                  <p className="text-sm text-gray-500 mb-2">
+                    ¥{unitPrice.toLocaleString()} / {item.product.unit} <span className="text-xs text-gray-400">(税込)</span>
+                  </p>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-1">
+                      <button
+                        onClick={() => updateCartQuantity(item.product.id, Number(item.quantity) - 1)}
+                        className="w-7 h-7 flex items-center justify-center bg-white rounded shadow-sm text-gray-600"
+                      >
+                        -
+                      </button>
+                      <span className="font-bold text-sm w-4 text-center">{item.quantity}</span>
+                      <button
+                        onClick={() => updateCartQuantity(item.product.id, Number(item.quantity) + 1)}
+                        className="w-7 h-7 flex items-center justify-center bg-white rounded shadow-sm text-gray-600"
+                      >
+                        +
+                      </button>
+                    </div>
                     <button
-                      onClick={() => updateCartQuantity(item.product.id, Number(item.quantity) - 1)}
-                      className="w-7 h-7 flex items-center justify-center bg-white rounded shadow-sm text-gray-600"
+                      onClick={() => removeFromCart(item.product.id)}
+                      className="text-gray-400 hover:text-red-500 p-2"
                     >
-                      -
-                    </button>
-                    <span className="font-bold text-sm w-4 text-center">{item.quantity}</span>
-                    <button
-                      onClick={() => updateCartQuantity(item.product.id, Number(item.quantity) + 1)}
-                      className="w-7 h-7 flex items-center justify-center bg-white rounded shadow-sm text-gray-600"
-                    >
-                      +
+                      <Trash2 className="w-5 h-5" />
                     </button>
                   </div>
-                  <button
-                    onClick={() => removeFromCart(item.product.id)}
-                    className="text-gray-400 hover:text-red-500 p-2"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* Delivery Details */}
@@ -449,8 +456,8 @@ export default function Cart() {
         <div className="bg-white p-5 rounded-xl shadow-sm space-y-4">
           <div className="space-y-2">
             <div className="flex justify-between text-sm text-gray-600">
-              <span>小計 (税抜)</span>
-              <span>¥{subtotal.toLocaleString()}</span>
+              <span>小計 (税込)</span>
+              <span>¥{totalWithTax.toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-sm text-gray-600">
               <span>消費税</span>
