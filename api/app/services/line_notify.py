@@ -151,7 +151,10 @@ class LineNotificationService:
 
         items_text = ""
         for item in order.order_items:
-            items_text += f"・{item.product_name} × {item.quantity}{item.product_unit}\n"
+            farmer_name = "農家不明"
+            if item.product and getattr(item.product, "farmer", None) and item.product.farmer.name:
+                farmer_name = item.product.farmer.name
+            items_text += f"・{item.product_name}（{farmer_name}） × {item.quantity}{item.product_unit}\n"
         if not items_text:
             items_text = "・（商品情報が取得できませんでした）\n"
 
@@ -185,7 +188,10 @@ class LineNotificationService:
 
         items_text = ""
         for item in order.order_items:
-            items_text += f"・{item.product_name} × {item.quantity}{item.product_unit}\n"
+            farmer_name = "農家不明"
+            if item.product and getattr(item.product, "farmer", None) and item.product.farmer.name:
+                farmer_name = item.product.farmer.name
+            items_text += f"・{item.product_name}（{farmer_name}） × {item.quantity}{item.product_unit}\n"
         if not items_text:
             items_text = "・（商品情報が取得できませんでした）\n"
 
@@ -409,7 +415,10 @@ No. {order.id}
 
         items_text = ""
         for item in order.order_items:
-            items_text += f"・{item.product_name} × {item.quantity}{item.product_unit}\n"
+            farmer_name = "農家不明"
+            if item.product and getattr(item.product, "farmer", None) and item.product.farmer.name:
+                farmer_name = item.product.farmer.name
+            items_text += f"・{item.product_name}（{farmer_name}） × {item.quantity}{item.product_unit}\n"
         if not items_text:
             items_text = "・（商品情報が取得できませんでした）\n"
 
