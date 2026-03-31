@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
-import { Plus, Pencil, Trash2, Link as LinkIcon, Copy, Unlink, CheckCircle, AlertTriangle } from 'lucide-react'
+import { Plus, Pencil, Trash2, Link as LinkIcon, Copy, Unlink, CheckCircle } from 'lucide-react'
 import { restaurantApi, invitationApi, adminApi } from '../../services/api'
 import { toast } from 'sonner'
 import type { Restaurant, SettlementStatus } from '../../types'
@@ -225,7 +225,7 @@ export default function RestaurantManagement() {
                 </button>
             </div>
 
-            <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="bg-white rounded-lg shadow overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
@@ -234,7 +234,6 @@ export default function RestaurantManagement() {
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">住所</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">連携状況</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">対象月（ステータス）</th>
-                            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">アラート</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                         </tr>
                     </thead>
@@ -287,15 +286,6 @@ export default function RestaurantManagement() {
                                             <span className="text-xs text-gray-400">対象外</span>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 text-center">
-                                        {isAlert ? (
-                                            <span className="inline-flex items-center gap-1 text-red-600 text-xs font-bold" title="未払いアラート">
-                                                <AlertTriangle size={14} /> ⚠️
-                                            </span>
-                                        ) : (
-                                            <span className="text-gray-300 text-xs">-</span>
-                                        )}
-                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end gap-2">
                                         <button
                                             onClick={() => handleGenerateInvite(restaurant)}
@@ -313,10 +303,11 @@ export default function RestaurantManagement() {
                                         <button
                                             onClick={() => handleCompleteSettlement(restaurant)}
                                             disabled={!hasSettlement || !hasLine || isSending}
-                                            className={`p-1 rounded ${hasSettlement && hasLine ? 'text-emerald-600 hover:text-emerald-800 bg-emerald-50' : 'text-gray-300 bg-gray-50'} ${isSending ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                            className={`inline-flex items-center gap-1 px-2 py-1 rounded border ${hasSettlement && hasLine ? 'text-emerald-700 border-emerald-200 bg-emerald-50 hover:text-emerald-800' : 'text-gray-300 border-gray-100 bg-gray-50'} ${isSending ? 'opacity-60 cursor-not-allowed' : ''}`}
                                             title={hasSettlement ? '入金確認を通知' : '対象月の注文なし'}
                                         >
                                             <CheckCircle className="w-4 h-4" />
+                                            <span className="text-xs font-bold">入金確認</span>
                                         </button>
                                     </td>
                                 </tr>

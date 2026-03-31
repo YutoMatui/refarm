@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { farmerApi, invitationApi, uploadApi, adminApi } from '@/services/api';
 import { Farmer, ChefComment, Commitment, Achievement, SettlementStatus } from '@/types';
-import { Edit2, Loader2, X, Link as LinkIcon, Copy, Unlink, Trash2, Camera, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Edit2, Loader2, X, Link as LinkIcon, Copy, Unlink, Trash2, Camera, CheckCircle } from 'lucide-react';
 import { format, subMonths, endOfMonth, subDays } from 'date-fns';
 import Loading from '@/components/Loading';
 import { toast } from 'sonner';
@@ -401,7 +401,6 @@ export default function FarmerManagement() {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">主要作物</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">連携状況</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">対象月（ステータス）</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">アラート</th>
                                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">操作</th>
                                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">表示/非表示</th>
                             </tr>
@@ -461,15 +460,6 @@ export default function FarmerManagement() {
                                                 </span>
                                             ) : (
                                                 <span className="text-xs text-gray-400">対象外</span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            {isAlert ? (
-                                                <span className="inline-flex items-center gap-1 text-red-600 text-xs font-bold" title="未払いアラート">
-                                                    <AlertTriangle size={14} /> ⚠️
-                                                </span>
-                                            ) : (
-                                                <span className="text-gray-300 text-xs">-</span>
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-center flex items-center justify-center gap-2">
