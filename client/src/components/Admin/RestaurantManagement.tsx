@@ -399,19 +399,34 @@ export default function RestaurantManagement() {
                             </button>
                         </div>
 
-                        <div className="space-y-2">
-                            <label className="flex items-center gap-2 text-sm text-gray-700">
-                                <input
-                                    type="checkbox"
-                                    checked={sendLine}
-                                    onChange={(e) => setSendLine(e.target.checked)}
-                                    disabled={!Boolean(settlementTarget.line_user_id)}
-                                />
-                                LINE通知も送る
-                            </label>
-                            {!Boolean(settlementTarget.line_user_id) && (
-                                <p className="text-xs text-gray-500">LINE未連携のため送信できません（ステータスのみ更新）</p>
-                            )}
+                        <div className="space-y-3">
+                            <div className="text-sm font-bold text-gray-700">処理内容</div>
+                            <div className="text-sm text-gray-600">入金確認に更新</div>
+                            <div className="pt-2">
+                                <div className="text-sm font-bold text-gray-700 mb-1">LINE通知</div>
+                                <label className="flex items-center gap-2 text-sm text-gray-700">
+                                    <input
+                                        type="radio"
+                                        name="send-line"
+                                        checked={sendLine}
+                                        onChange={() => setSendLine(true)}
+                                        disabled={!Boolean(settlementTarget.line_user_id)}
+                                    />
+                                    送る
+                                </label>
+                                <label className="flex items-center gap-2 text-sm text-gray-700 mt-1">
+                                    <input
+                                        type="radio"
+                                        name="send-line"
+                                        checked={!sendLine}
+                                        onChange={() => setSendLine(false)}
+                                    />
+                                    送らない
+                                </label>
+                                {!Boolean(settlementTarget.line_user_id) && (
+                                    <p className="text-xs text-gray-500 mt-1">LINE未連携のため送信できません（自動で送らないに設定）</p>
+                                )}
+                            </div>
                         </div>
 
                         <div className="flex justify-end gap-3 mt-6">
