@@ -3,7 +3,7 @@ Admin Settlements Router - 月次入金/振込ステータス管理
 """
 from datetime import datetime
 import calendar
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 from dateutil.relativedelta import relativedelta
 from zoneinfo import ZoneInfo
@@ -36,18 +36,25 @@ class SettlementStatusResponse(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+    skip_reason: Optional[str] = None
+    skip_note: Optional[str] = None
+    notified_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
 
 
-class SettlementCompleteRequest(BaseModel):
+class SettlementUpdateRequest(BaseModel):
     user_type: str = Field(..., description="restaurant | farmer")
     user_id: int
     target_month: Optional[str] = Field(None, description="YYYY-MM（省略時は前月）")
+    action: Literal["complete", "skip"] = Field(..., description="complete | skip")
+    send_line: bool = Field(True, description="LINE送信するかどうか")
+    skip_reason: Optional[str] = Field(None, description="スキップ理由")
+    skip_note: Optional[str] = Field(None, description="スキップ備考")
 
 
-class SettlementCompleteResponse(BaseModel):
+class SettlementUpdateResponse(BaseModel):
     success: bool
     message: str
     status: SettlementStatusResponse
@@ -99,8 +106,7 @@ async def _get_order_user_ids(db: AsyncSession, user_type: str, target_month: st
         ).where(
             Product.farmer_id.isnot(None),
             func.date(Order.delivery_date) >= start_date.date(),
-            func.date(Order.delivery_date) <= end_date.date(),
-            Order.status != OrderStatus.CANCELLED
+            func.date(Order.delivery_date) <= end_date.date()
         ).distinct()
 
     result = await db.execute(stmt)
@@ -125,8 +131,7 @@ async def _has_orders(db: AsyncSession, user_type: str, user_id: int, target_mon
         ).where(
             Product.farmer_id == user_id,
             func.date(Order.delivery_date) >= start_date.date(),
-            func.date(Order.delivery_date) <= end_date.date(),
-            Order.status != OrderStatus.CANCELLED
+            func.date(Order.delivery_date) <= end_date.date()
         ).limit(1)
 
     result = await db.execute(stmt)
@@ -189,19 +194,22 @@ async def list_settlement_statuses(
     return responses
 
 
-@router.post("/settlements/complete", response_model=SettlementCompleteResponse)
+@router.post("/settlements/complete", response_model=SettlementUpdateResponse)
 async def complete_settlement(
-    payload: SettlementCompleteRequest,
+    payload: SettlementUpdateRequest,
     db: AsyncSession = Depends(get_db),
     _: Admin = Depends(get_current_admin)
 ):
-    """ステータスを完了に更新し、LINE通知を送信"""
+    """ステータスを更新し、必要に応じてLINE通知を送信"""
     user_type = _validate_user_type(payload.user_type)
     target_month = payload.target_month or _get_default_target_month()
     _format_month_label(target_month)
 
     if not await _has_orders(db, user_type, payload.user_id, target_month):
         raise HTTPException(status_code=400, detail="対象月の注文がないため送信できません")
+
+    if payload.action == "skip" and not payload.skip_reason:
+        raise HTTPException(status_code=400, detail="スキップ理由を指定してください")
 
     if user_type == "restaurant":
         stmt = select(Restaurant).where(Restaurant.id == payload.user_id)
@@ -220,42 +228,42 @@ async def complete_settlement(
         line_user_id = getattr(target, "line_user_id", None)
         target_name = target.name
 
-    if not line_user_id:
-        raise HTTPException(status_code=400, detail="LINE未連携のため送信できません")
-
-    if settings.SETTLEMENT_TEST_MODE:
-        allowed_ids = _parse_test_user_ids()
-        if line_user_id not in allowed_ids:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="テスト送信制限中のため、このユーザーには送信できません"
-            )
-
     month_label = _format_month_label(target_month)
-    if user_type == "restaurant":
-        message = f"""いつもベジコベをご利用いただきありがとうございます。
+    should_send_line = payload.send_line and payload.action == "complete"
+    line_sent = False
+
+    if should_send_line and line_user_id:
+        if settings.SETTLEMENT_TEST_MODE:
+            allowed_ids = _parse_test_user_ids()
+            if line_user_id not in allowed_ids:
+                should_send_line = False
+
+    if should_send_line and line_user_id:
+        if user_type == "restaurant":
+            message = f"""いつもベジコベをご利用いただきありがとうございます。
 
 {month_label}のご利用代金について、当方にてご入金を確認いたしました。
 速やかなご対応、誠にありがとうございます。
 引き続き、美味しいお野菜をお届けしてまいりますので、よろしくお願いいたします。"""
-        token = await line_service.get_access_token(
-            settings.LINE_RESTAURANT_CHANNEL_ID,
-            settings.LINE_RESTAURANT_CHANNEL_SECRET,
-            settings.LINE_RESTAURANT_CHANNEL_ACCESS_TOKEN
-        )
-    else:
-        message = f"""いつも美味しいお野菜を出品いただき、ありがとうございます。
+            token = await line_service.get_access_token(
+                settings.LINE_RESTAURANT_CHANNEL_ID,
+                settings.LINE_RESTAURANT_CHANNEL_SECRET,
+                settings.LINE_RESTAURANT_CHANNEL_ACCESS_TOKEN
+            )
+        else:
+            message = f"""いつも美味しいお野菜を出品いただき、ありがとうございます。
 
 {month_label}の売上代金について、ご指定の口座へお振込みの手続きを完了いたしました。
 お手数をおかけしますが、ご都合の良い時に口座の入金状況をご確認ください。
 ※金額の詳細につきましては、アプリ内の売上履歴よりご確認いただけます。"""
-        token = await line_service.get_access_token(
-            settings.LINE_PRODUCER_CHANNEL_ID,
-            settings.LINE_PRODUCER_CHANNEL_SECRET,
-            settings.LINE_PRODUCER_CHANNEL_ACCESS_TOKEN
-        )
+            token = await line_service.get_access_token(
+                settings.LINE_PRODUCER_CHANNEL_ID,
+                settings.LINE_PRODUCER_CHANNEL_SECRET,
+                settings.LINE_PRODUCER_CHANNEL_ACCESS_TOKEN
+            )
 
-    await line_service.send_push_message(token, line_user_id, message)
+        await line_service.send_push_message(token, line_user_id, message)
+        line_sent = True
 
     # Upsert status
     status_stmt = select(SettlementStatus).where(
@@ -265,24 +273,40 @@ async def complete_settlement(
     )
     status_result = await db.execute(status_stmt)
     status_row = status_result.scalar_one_or_none()
+    now = datetime.now(ZoneInfo(settings.TZ))
     if status_row:
-        status_row.status = "completed"
-        status_row.completed_at = datetime.now(ZoneInfo(settings.TZ))
+        status_row.status = "completed" if payload.action == "complete" else "skipped"
+        status_row.completed_at = now
+        status_row.skip_reason = payload.skip_reason if payload.action == "skip" else None
+        status_row.skip_note = payload.skip_note if payload.action == "skip" else None
+        if line_sent:
+            status_row.notified_at = now
     else:
         status_row = SettlementStatus(
             user_type=user_type,
             user_id=payload.user_id,
             target_month=target_month,
-            status="completed",
-            completed_at=datetime.now(ZoneInfo(settings.TZ))
+            status="completed" if payload.action == "complete" else "skipped",
+            completed_at=now,
+            skip_reason=payload.skip_reason if payload.action == "skip" else None,
+            skip_note=payload.skip_note if payload.action == "skip" else None,
+            notified_at=now if line_sent else None
         )
         db.add(status_row)
 
     await db.commit()
     await db.refresh(status_row)
 
-    return SettlementCompleteResponse(
+    message = "ステータスを更新しました"
+    if line_sent:
+        message = f"{target_name}へ通知を送信しました"
+    elif payload.action == "complete":
+        message = f"{target_name}のステータスを入金/振込完了に更新しました"
+    else:
+        message = f"{target_name}のステータスをスキップに更新しました"
+
+    return SettlementUpdateResponse(
         success=True,
-        message=f"{target_name}へ通知を送信しました",
+        message=message,
         status=SettlementStatusResponse.model_validate(status_row)
     )

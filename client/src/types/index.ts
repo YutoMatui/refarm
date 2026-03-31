@@ -77,10 +77,13 @@ export interface SettlementStatus {
   user_type: 'restaurant' | 'farmer'
   user_id: number
   target_month: string
-  status: 'pending' | 'completed'
+  status: 'pending' | 'completed' | 'skipped'
   created_at?: string | null
   updated_at?: string | null
   completed_at?: string | null
+  skip_reason?: string | null
+  skip_note?: string | null
+  notified_at?: string | null
 }
 
 // Restaurant

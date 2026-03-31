@@ -13,7 +13,7 @@ class SettlementStatus(Base, TimestampMixin):
 
     - user_type: "restaurant" | "farmer"
     - target_month: "YYYY-MM"
-    - status: "pending" | "completed"
+    - status: "pending" | "completed" | "skipped"
     """
 
     __tablename__ = "settlement_statuses"
@@ -51,13 +51,31 @@ class SettlementStatus(Base, TimestampMixin):
         String(20),
         nullable=False,
         server_default="pending",
-        comment="ステータス (pending/completed)"
+        comment="ステータス (pending/completed/skipped)"
     )
 
     completed_at = Column(
         DateTime(timezone=True),
         nullable=True,
         comment="完了日時"
+    )
+
+    skip_reason = Column(
+        String(50),
+        nullable=True,
+        comment="スキップ理由"
+    )
+
+    skip_note = Column(
+        String(500),
+        nullable=True,
+        comment="スキップ備考"
+    )
+
+    notified_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="LINE送信日時"
     )
 
     __table_args__ = (

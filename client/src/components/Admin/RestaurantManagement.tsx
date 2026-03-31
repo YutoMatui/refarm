@@ -131,13 +131,19 @@ export default function RestaurantManagement() {
     }
 
     const handleCompleteSettlement = async (restaurant: Restaurant) => {
-        if (!confirm(`${restaurant.name}へ入金確認のLINEを送信しますか？`)) return
+        const lineLinked = Boolean(restaurant.line_user_id)
+        const confirmMessage = lineLinked
+            ? `${restaurant.name}へ入金確認のLINEを送信しますか？`
+            : `${restaurant.name}はLINE未連携です。ステータスのみ更新しますか？`
+        if (!confirm(confirmMessage)) return
         try {
             setSendingSettlementId(restaurant.id)
             const res = await adminApi.completeSettlement({
                 user_type: 'restaurant',
                 user_id: restaurant.id,
-                target_month: targetMonth
+                target_month: targetMonth,
+                action: 'complete',
+                send_line: lineLinked
             })
             setSettlementStatuses((prev) => ({
                 ...prev,
@@ -231,7 +237,6 @@ export default function RestaurantManagement() {
                         <tr>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">店舗名</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">連絡先</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">住所</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">連携状況</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">対象月（ステータス）</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
@@ -243,21 +248,22 @@ export default function RestaurantManagement() {
                             const hasSettlement = Boolean(settlement)
                             const status = settlement?.status ?? 'pending'
                             const isCompleted = status === 'completed'
-                            const statusLabel = isCompleted ? '送金済み' : '未払い'
+                            const isSkipped = status === 'skipped'
+                            const statusLabel = isCompleted ? '送金済み' : isSkipped ? 'スキップ' : '未払い'
                             const badgeClass = isCompleted
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                                : isSkipped
+                                    ? 'bg-gray-50 text-gray-600 border-gray-200'
+                                    : 'bg-amber-50 text-amber-700 border-amber-200'
                             const now = new Date()
                             const alertThreshold = new Date(now.getFullYear(), now.getMonth(), 16, 0, 0, 0, 0)
-                            const isAlert = hasSettlement && !isCompleted && now >= alertThreshold
-                            const hasLine = Boolean(restaurant.line_user_id)
+                            const isAlert = hasSettlement && !isCompleted && !isSkipped && now >= alertThreshold
                             const isSending = sendingSettlementId === restaurant.id
 
                             return (
                                 <tr key={restaurant.id} className={`hover:bg-gray-50 ${isAlert ? 'bg-red-50' : ''}`}>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{restaurant.name}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{restaurant.phone_number}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{restaurant.address}</td>
                                     <td className="px-6 py-4 text-sm text-gray-500">
                                         {restaurant.line_user_id ? (
                                             <div className="flex items-center gap-2">
@@ -279,7 +285,10 @@ export default function RestaurantManagement() {
                                     </td>
                                     <td className="px-6 py-4 text-sm text-gray-700">
                                         {hasSettlement ? (
-                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${badgeClass}`}>
+                                            <span
+                                                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${badgeClass}`}
+                                                title={isSkipped ? (settlement?.skip_reason || 'スキップ') : undefined}
+                                            >
                                                 {targetMonthLabel}：{statusLabel}
                                             </span>
                                         ) : (
@@ -302,8 +311,8 @@ export default function RestaurantManagement() {
                                         </button>
                                         <button
                                             onClick={() => handleCompleteSettlement(restaurant)}
-                                            disabled={!hasSettlement || !hasLine || isSending}
-                                            className={`inline-flex items-center gap-1 px-2 py-1 rounded border ${hasSettlement && hasLine ? 'text-emerald-700 border-emerald-200 bg-emerald-50 hover:text-emerald-800' : 'text-gray-300 border-gray-100 bg-gray-50'} ${isSending ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                            disabled={!hasSettlement || isSending}
+                                            className={`inline-flex items-center gap-1 px-2 py-1 rounded border ${hasSettlement ? 'text-emerald-700 border-emerald-200 bg-emerald-50 hover:text-emerald-800' : 'text-gray-300 border-gray-100 bg-gray-50'} ${isSending ? 'opacity-60 cursor-not-allowed' : ''}`}
                                             title={hasSettlement ? '入金確認を通知' : '対象月の注文なし'}
                                         >
                                             <CheckCircle className="w-4 h-4" />

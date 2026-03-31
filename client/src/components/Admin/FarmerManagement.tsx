@@ -25,6 +25,11 @@ export default function FarmerManagement() {
     const [selectableDays, setSelectableDays] = useState<number[]>([3]);
     const [settlementStatuses, setSettlementStatuses] = useState<Record<number, SettlementStatus>>({});
     const [sendingSettlementId, setSendingSettlementId] = useState<number | null>(null);
+    const [settlementTarget, setSettlementTarget] = useState<Farmer | null>(null);
+    const [settlementAction, setSettlementAction] = useState<'complete' | 'skip'>('complete');
+    const [sendLine, setSendLine] = useState(true);
+    const [skipReason, setSkipReason] = useState('');
+    const [skipNote, setSkipNote] = useState('');
 
     const targetMonthDate = useMemo(() => subMonths(new Date(), 1), []);
     const targetMonth = useMemo(() => format(targetMonthDate, 'yyyy-MM'), [targetMonthDate]);
@@ -195,22 +200,44 @@ export default function FarmerManagement() {
         }
     };
 
-    const handleCompleteSettlement = async (farmer: Farmer) => {
-        if (!confirm(`${farmer.name}さんへ振込完了のLINEを送信しますか？`)) return;
+    const openSettlementModal = (farmer: Farmer) => {
+        setSettlementTarget(farmer);
+        setSettlementAction('complete');
+        const lineLinked = Boolean((farmer as any).line_user_id);
+        setSendLine(lineLinked);
+        setSkipReason('');
+        setSkipNote('');
+    };
+
+    const closeSettlementModal = () => {
+        setSettlementTarget(null);
+    };
+
+    const handleSubmitSettlement = async () => {
+        if (!settlementTarget) return;
+        if (settlementAction === 'skip' && !skipReason) {
+            toast.error('スキップ理由を選択してください');
+            return;
+        }
         try {
-            setSendingSettlementId(farmer.id);
+            setSendingSettlementId(settlementTarget.id);
             const res = await adminApi.completeSettlement({
                 user_type: 'farmer',
-                user_id: farmer.id,
-                target_month: targetMonth
+                user_id: settlementTarget.id,
+                target_month: targetMonth,
+                action: settlementAction,
+                send_line: settlementAction === 'complete' ? sendLine : false,
+                skip_reason: settlementAction === 'skip' ? skipReason : undefined,
+                skip_note: settlementAction === 'skip' ? skipNote : undefined
             });
             setSettlementStatuses((prev) => ({
                 ...prev,
-                [farmer.id]: res.data.status
+                [settlementTarget.id]: res.data.status
             }));
             toast.success(res.data.message);
+            closeSettlementModal();
         } catch (error: any) {
-            toast.error(error?.response?.data?.detail || '送信に失敗しました');
+            toast.error(error?.response?.data?.detail || '更新に失敗しました');
         } finally {
             setSendingSettlementId(null);
         }
@@ -411,14 +438,16 @@ export default function FarmerManagement() {
                                 const hasSettlement = Boolean(settlement);
                                 const status = settlement?.status ?? 'pending';
                                 const isCompleted = status === 'completed';
-                                const statusLabel = isCompleted ? '入金済み' : '未払い';
+                                const isSkipped = status === 'skipped';
+                                const statusLabel = isCompleted ? '入金済み' : isSkipped ? 'スキップ' : '未払い';
                                 const badgeClass = isCompleted
                                     ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : 'bg-amber-50 text-amber-700 border-amber-200';
+                                    : isSkipped
+                                        ? 'bg-gray-50 text-gray-600 border-gray-200'
+                                        : 'bg-amber-50 text-amber-700 border-amber-200';
                                 const now = new Date();
                                 const alertThreshold = subDays(endOfMonth(now), 5);
-                                const isAlert = hasSettlement && !isCompleted && now >= alertThreshold;
-                                const hasLine = Boolean((farmer as any).line_user_id);
+                                const isAlert = hasSettlement && !isCompleted && !isSkipped && now >= alertThreshold;
                                 const isSending = sendingSettlementId === farmer.id;
 
                                 return (
@@ -455,7 +484,10 @@ export default function FarmerManagement() {
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-700">
                                             {hasSettlement ? (
-                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${badgeClass}`}>
+                                                <span
+                                                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${badgeClass}`}
+                                                    title={isSkipped ? (settlement?.skip_reason || 'スキップ') : undefined}
+                                                >
                                                     {targetMonthLabel}：{statusLabel}
                                                 </span>
                                             ) : (
@@ -485,12 +517,13 @@ export default function FarmerManagement() {
                                                 <Trash2 size={18} />
                                             </button>
                                             <button
-                                                onClick={() => handleCompleteSettlement(farmer)}
-                                                disabled={!hasSettlement || !hasLine || isSending}
-                                                className={`p-2 rounded-full ${hasSettlement && hasLine ? 'text-emerald-600 hover:text-emerald-800 bg-emerald-50' : 'text-gray-300 bg-gray-50'} ${isSending ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                                title={hasSettlement ? '振込完了を通知' : '対象月の注文なし'}
+                                                onClick={() => openSettlementModal(farmer)}
+                                                disabled={!hasSettlement || isSending}
+                                                className={`inline-flex items-center gap-1 px-2 py-1 rounded border ${hasSettlement ? 'text-emerald-700 border-emerald-200 bg-emerald-50 hover:text-emerald-800' : 'text-gray-300 border-gray-100 bg-gray-50'} ${isSending ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                                title={hasSettlement ? '振込操作' : '対象月の注文なし'}
                                             >
-                                                <CheckCircle size={18} />
+                                                <CheckCircle size={16} />
+                                                <span className="text-xs font-bold">振込操作</span>
                                             </button>
                                         </td>
                                         <td className="px-6 py-4 text-center">
@@ -702,6 +735,101 @@ export default function FarmerManagement() {
                             >
                                 {updateFarmerMutation.isPending && <Loader2 className="animate-spin" size={18} />}
                                 保存する
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {settlementTarget && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white p-6 rounded-lg max-w-lg w-full">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold">振込操作（{targetMonthLabel}）</h3>
+                            <button onClick={closeSettlementModal} className="text-gray-500 hover:text-gray-700">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
+                                    <input
+                                        type="radio"
+                                        name="settlement-action"
+                                        checked={settlementAction === 'complete'}
+                                        onChange={() => setSettlementAction('complete')}
+                                    />
+                                    振込完了にする
+                                </label>
+                                <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
+                                    <input
+                                        type="radio"
+                                        name="settlement-action"
+                                        checked={settlementAction === 'skip'}
+                                        onChange={() => setSettlementAction('skip')}
+                                    />
+                                    スキップする
+                                </label>
+                            </div>
+
+                            {settlementAction === 'complete' && (
+                                <div className="space-y-2">
+                                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                                        <input
+                                            type="checkbox"
+                                            checked={sendLine}
+                                            onChange={(e) => setSendLine(e.target.checked)}
+                                            disabled={!Boolean((settlementTarget as any).line_user_id)}
+                                        />
+                                        LINE通知も送る
+                                    </label>
+                                    {!Boolean((settlementTarget as any).line_user_id) && (
+                                        <p className="text-xs text-gray-500">LINE未連携のため送信できません（ステータスのみ更新）</p>
+                                    )}
+                                </div>
+                            )}
+
+                            {settlementAction === 'skip' && (
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">スキップ理由</label>
+                                        <select
+                                            value={skipReason}
+                                            onChange={(e) => setSkipReason(e.target.value)}
+                                            className="w-full border border-gray-300 rounded-lg p-2 text-sm"
+                                        >
+                                            <option value="">選択してください</option>
+                                            <option value="キャンセル">キャンセル</option>
+                                            <option value="相殺">相殺</option>
+                                            <option value="翌月繰越">翌月繰越</option>
+                                            <option value="その他">その他</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">備考（任意）</label>
+                                        <textarea
+                                            value={skipNote}
+                                            onChange={(e) => setSkipNote(e.target.value)}
+                                            className="w-full border border-gray-300 rounded-lg p-2 text-sm"
+                                            rows={3}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button
+                                onClick={closeSettlementModal}
+                                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                            >
+                                キャンセル
+                            </button>
+                            <button
+                                onClick={handleSubmitSettlement}
+                                className="px-4 py-2 rounded-md text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700"
+                            >
+                                確定
                             </button>
                         </div>
                     </div>

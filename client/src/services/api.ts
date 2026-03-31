@@ -543,7 +543,15 @@ export const adminApi = {
   getSettlementStatuses: (params: { user_type: 'restaurant' | 'farmer'; target_month?: string }) =>
     apiClient.get<SettlementStatus[]>('/admin/settlements/status', { params }),
 
-  completeSettlement: (data: { user_type: 'restaurant' | 'farmer'; user_id: number; target_month?: string }) =>
+  completeSettlement: (data: {
+    user_type: 'restaurant' | 'farmer'
+    user_id: number
+    target_month?: string
+    action: 'complete' | 'skip'
+    send_line?: boolean
+    skip_reason?: string
+    skip_note?: string
+  }) =>
     apiClient.post<{ success: boolean; message: string; status: SettlementStatus }>('/admin/settlements/complete', data),
 }
 
