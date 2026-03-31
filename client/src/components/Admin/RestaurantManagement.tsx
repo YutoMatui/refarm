@@ -240,7 +240,9 @@ export default function RestaurantManagement() {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {restaurants.map((restaurant) => {
-                            const status = settlementStatuses[restaurant.id]?.status ?? 'pending'
+                            const settlement = settlementStatuses[restaurant.id]
+                            const hasSettlement = Boolean(settlement)
+                            const status = settlement?.status ?? 'pending'
                             const isCompleted = status === 'completed'
                             const statusLabel = isCompleted ? '送金済み' : '未払い'
                             const badgeClass = isCompleted
@@ -248,7 +250,7 @@ export default function RestaurantManagement() {
                                 : 'bg-amber-50 text-amber-700 border-amber-200'
                             const now = new Date()
                             const alertThreshold = new Date(now.getFullYear(), now.getMonth(), 16, 0, 0, 0, 0)
-                            const isAlert = !isCompleted && now >= alertThreshold
+                            const isAlert = hasSettlement && !isCompleted && now >= alertThreshold
                             const hasLine = Boolean(restaurant.line_user_id)
                             const isSending = sendingSettlementId === restaurant.id
 
@@ -277,9 +279,13 @@ export default function RestaurantManagement() {
                                         )}
                                     </td>
                                     <td className="px-6 py-4 text-sm text-gray-700">
-                                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${badgeClass}`}>
-                                            {targetMonthLabel}：{statusLabel}
-                                        </span>
+                                        {hasSettlement ? (
+                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${badgeClass}`}>
+                                                {targetMonthLabel}：{statusLabel}
+                                            </span>
+                                        ) : (
+                                            <span className="text-xs text-gray-400">対象外</span>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         {isAlert ? (
@@ -306,9 +312,9 @@ export default function RestaurantManagement() {
                                         </button>
                                         <button
                                             onClick={() => handleCompleteSettlement(restaurant)}
-                                            disabled={!hasLine || isSending}
-                                            className={`p-1 rounded ${hasLine ? 'text-emerald-600 hover:text-emerald-800 bg-emerald-50' : 'text-gray-300 bg-gray-50'} ${isSending ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                            title="入金確認を通知"
+                                            disabled={!hasSettlement || !hasLine || isSending}
+                                            className={`p-1 rounded ${hasSettlement && hasLine ? 'text-emerald-600 hover:text-emerald-800 bg-emerald-50' : 'text-gray-300 bg-gray-50'} ${isSending ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                            title={hasSettlement ? '入金確認を通知' : '対象月の注文なし'}
                                         >
                                             <CheckCircle className="w-4 h-4" />
                                         </button>

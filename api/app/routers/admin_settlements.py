@@ -2,13 +2,14 @@
 Admin Settlements Router - 月次入金/振込ステータス管理
 """
 from datetime import datetime
+import calendar
 from typing import List, Optional
 
 from dateutil.relativedelta import relativedelta
 from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -17,6 +18,9 @@ from app.models.admin import Admin
 from app.models.farmer import Farmer
 from app.models.restaurant import Restaurant
 from app.models.settlement_status import SettlementStatus
+from app.models.order import Order, OrderItem
+from app.models.product import Product
+from app.models.enums import OrderStatus
 from app.routers.admin_auth import get_current_admin
 from app.services.line_notify import line_service
 
@@ -64,6 +68,71 @@ def _format_month_label(target_month: str) -> str:
     return f"{dt.month}月分"
 
 
+def _get_month_range(target_month: str) -> tuple[datetime, datetime]:
+    try:
+        year_str, month_str = target_month.split("-")
+        year = int(year_str)
+        month = int(month_str)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="target_month は YYYY-MM 形式で指定してください")
+
+    start_date = datetime(year, month, 1)
+    _, last_day = calendar.monthrange(year, month)
+    end_date = datetime(year, month, last_day, 23, 59, 59)
+    return start_date, end_date
+
+
+async def _get_order_user_ids(db: AsyncSession, user_type: str, target_month: str) -> list[int]:
+    start_date, end_date = _get_month_range(target_month)
+
+    if user_type == "restaurant":
+        stmt = select(Order.restaurant_id).where(
+            func.date(Order.delivery_date) >= start_date.date(),
+            func.date(Order.delivery_date) <= end_date.date(),
+            Order.status != OrderStatus.CANCELLED
+        ).distinct()
+    else:
+        stmt = select(Product.farmer_id).select_from(OrderItem).join(
+            Order, OrderItem.order_id == Order.id
+        ).join(
+            Product, OrderItem.product_id == Product.id
+        ).where(
+            Product.farmer_id.isnot(None),
+            func.date(Order.delivery_date) >= start_date.date(),
+            func.date(Order.delivery_date) <= end_date.date(),
+            Order.status != OrderStatus.CANCELLED
+        ).distinct()
+
+    result = await db.execute(stmt)
+    return [row[0] for row in result.all() if row[0] is not None]
+
+
+async def _has_orders(db: AsyncSession, user_type: str, user_id: int, target_month: str) -> bool:
+    start_date, end_date = _get_month_range(target_month)
+
+    if user_type == "restaurant":
+        stmt = select(Order.id).where(
+            Order.restaurant_id == user_id,
+            func.date(Order.delivery_date) >= start_date.date(),
+            func.date(Order.delivery_date) <= end_date.date(),
+            Order.status != OrderStatus.CANCELLED
+        ).limit(1)
+    else:
+        stmt = select(OrderItem.id).select_from(OrderItem).join(
+            Order, OrderItem.order_id == Order.id
+        ).join(
+            Product, OrderItem.product_id == Product.id
+        ).where(
+            Product.farmer_id == user_id,
+            func.date(Order.delivery_date) >= start_date.date(),
+            func.date(Order.delivery_date) <= end_date.date(),
+            Order.status != OrderStatus.CANCELLED
+        ).limit(1)
+
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none() is not None
+
+
 def _parse_test_user_ids() -> List[str]:
     raw = (settings.SETTLEMENT_TEST_USER_IDS or "").strip()
     if not raw:
@@ -90,12 +159,34 @@ async def list_settlement_statuses(
     user_type = _validate_user_type(user_type)
     month = target_month or _get_default_target_month()
     _format_month_label(month)
+
+    target_user_ids = await _get_order_user_ids(db, user_type, month)
+    if not target_user_ids:
+        return []
+    target_user_ids = sorted(set(target_user_ids))
+
     stmt = select(SettlementStatus).where(
         SettlementStatus.user_type == user_type,
-        SettlementStatus.target_month == month
+        SettlementStatus.target_month == month,
+        SettlementStatus.user_id.in_(target_user_ids)
     )
     result = await db.execute(stmt)
-    return result.scalars().all()
+    rows = result.scalars().all()
+    status_map = {row.user_id: row for row in rows}
+
+    responses: list[SettlementStatusResponse] = []
+    for user_id in target_user_ids:
+        row = status_map.get(user_id)
+        if row:
+            responses.append(SettlementStatusResponse.model_validate(row))
+        else:
+            responses.append(SettlementStatusResponse(
+                user_type=user_type,
+                user_id=user_id,
+                target_month=month,
+                status="pending"
+            ))
+    return responses
 
 
 @router.post("/settlements/complete", response_model=SettlementCompleteResponse)
@@ -107,6 +198,10 @@ async def complete_settlement(
     """ステータスを完了に更新し、LINE通知を送信"""
     user_type = _validate_user_type(payload.user_type)
     target_month = payload.target_month or _get_default_target_month()
+    _format_month_label(target_month)
+
+    if not await _has_orders(db, user_type, payload.user_id, target_month):
+        raise HTTPException(status_code=400, detail="対象月の注文がないため送信できません")
 
     if user_type == "restaurant":
         stmt = select(Restaurant).where(Restaurant.id == payload.user_id)

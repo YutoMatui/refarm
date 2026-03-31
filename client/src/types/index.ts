@@ -73,11 +73,13 @@ export interface AccessLog extends TimestampFields {
   user_agent?: string | null
 }
 
-export interface SettlementStatus extends TimestampFields {
+export interface SettlementStatus {
   user_type: 'restaurant' | 'farmer'
   user_id: number
   target_month: string
   status: 'pending' | 'completed'
+  created_at?: string | null
+  updated_at?: string | null
   completed_at?: string | null
 }
 

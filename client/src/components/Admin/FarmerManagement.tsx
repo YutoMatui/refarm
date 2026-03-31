@@ -408,7 +408,9 @@ export default function FarmerManagement() {
                         </thead>
                         <tbody className="divide-y divide-gray-200">
                             {filteredFarmers.map((farmer) => {
-                                const status = settlementStatuses[farmer.id]?.status ?? 'pending';
+                                const settlement = settlementStatuses[farmer.id];
+                                const hasSettlement = Boolean(settlement);
+                                const status = settlement?.status ?? 'pending';
                                 const isCompleted = status === 'completed';
                                 const statusLabel = isCompleted ? '入金済み' : '未払い';
                                 const badgeClass = isCompleted
@@ -416,7 +418,7 @@ export default function FarmerManagement() {
                                     : 'bg-amber-50 text-amber-700 border-amber-200';
                                 const now = new Date();
                                 const alertThreshold = subDays(endOfMonth(now), 5);
-                                const isAlert = !isCompleted && now >= alertThreshold;
+                                const isAlert = hasSettlement && !isCompleted && now >= alertThreshold;
                                 const hasLine = Boolean((farmer as any).line_user_id);
                                 const isSending = sendingSettlementId === farmer.id;
 
@@ -453,9 +455,13 @@ export default function FarmerManagement() {
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-700">
-                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${badgeClass}`}>
-                                                {targetMonthLabel}：{statusLabel}
-                                            </span>
+                                            {hasSettlement ? (
+                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${badgeClass}`}>
+                                                    {targetMonthLabel}：{statusLabel}
+                                                </span>
+                                            ) : (
+                                                <span className="text-xs text-gray-400">対象外</span>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             {isAlert ? (
@@ -490,9 +496,9 @@ export default function FarmerManagement() {
                                             </button>
                                             <button
                                                 onClick={() => handleCompleteSettlement(farmer)}
-                                                disabled={!hasLine || isSending}
-                                                className={`p-2 rounded-full ${hasLine ? 'text-emerald-600 hover:text-emerald-800 bg-emerald-50' : 'text-gray-300 bg-gray-50'} ${isSending ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                                title="振込完了を通知"
+                                                disabled={!hasSettlement || !hasLine || isSending}
+                                                className={`p-2 rounded-full ${hasSettlement && hasLine ? 'text-emerald-600 hover:text-emerald-800 bg-emerald-50' : 'text-gray-300 bg-gray-50'} ${isSending ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                                title={hasSettlement ? '振込完了を通知' : '対象月の注文なし'}
                                             >
                                                 <CheckCircle size={18} />
                                             </button>
