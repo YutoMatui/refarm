@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
-import { Plus, Pencil, Trash2, Link as LinkIcon, Copy, Unlink, CheckCircle } from 'lucide-react'
+import { Plus, Pencil, Trash2, Link as LinkIcon, Copy, Unlink, CheckCircle, X } from 'lucide-react'
 import { restaurantApi, invitationApi, adminApi } from '../../services/api'
 import { toast } from 'sonner'
 import type { Restaurant, SettlementStatus } from '../../types'
@@ -14,6 +14,8 @@ export default function RestaurantManagement() {
     const [inviteInfo, setInviteInfo] = useState<{ url: string, code: string, targetId: number } | null>(null);
     const [settlementStatuses, setSettlementStatuses] = useState<Record<number, SettlementStatus>>({});
     const [sendingSettlementId, setSendingSettlementId] = useState<number | null>(null);
+    const [settlementTarget, setSettlementTarget] = useState<Restaurant | null>(null);
+    const [sendLine, setSendLine] = useState(true);
 
     const targetMonthDate = useMemo(() => subMonths(new Date(), 1), []);
     const targetMonth = useMemo(() => format(targetMonthDate, 'yyyy-MM'), [targetMonthDate]);
@@ -130,26 +132,32 @@ export default function RestaurantManagement() {
         }
     }
 
-    const handleCompleteSettlement = async (restaurant: Restaurant) => {
-        const lineLinked = Boolean(restaurant.line_user_id)
-        const confirmMessage = lineLinked
-            ? `${restaurant.name}へ入金確認のLINEを送信しますか？`
-            : `${restaurant.name}はLINE未連携です。ステータスのみ更新しますか？`
-        if (!confirm(confirmMessage)) return
+    const openSettlementModal = (restaurant: Restaurant) => {
+        setSettlementTarget(restaurant)
+        setSendLine(Boolean(restaurant.line_user_id))
+    }
+
+    const closeSettlementModal = () => {
+        setSettlementTarget(null)
+    }
+
+    const handleCompleteSettlement = async () => {
+        if (!settlementTarget) return
         try {
-            setSendingSettlementId(restaurant.id)
+            setSendingSettlementId(settlementTarget.id)
             const res = await adminApi.completeSettlement({
                 user_type: 'restaurant',
-                user_id: restaurant.id,
+                user_id: settlementTarget.id,
                 target_month: targetMonth,
                 action: 'complete',
-                send_line: lineLinked
+                send_line: sendLine
             })
             setSettlementStatuses((prev) => ({
                 ...prev,
-                [restaurant.id]: res.data.status
+                [settlementTarget.id]: res.data.status
             }))
             toast.success(res.data.message)
+            closeSettlementModal()
         } catch (error: any) {
             toast.error(error?.response?.data?.detail || '送信に失敗しました')
         } finally {
@@ -310,7 +318,7 @@ export default function RestaurantManagement() {
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                         <button
-                                            onClick={() => handleCompleteSettlement(restaurant)}
+                                            onClick={() => openSettlementModal(restaurant)}
                                             disabled={!hasSettlement || isSending}
                                             className={`inline-flex items-center gap-1 px-2 py-1 rounded border ${hasSettlement ? 'text-emerald-700 border-emerald-200 bg-emerald-50 hover:text-emerald-800' : 'text-gray-300 border-gray-100 bg-gray-50'} ${isSending ? 'opacity-60 cursor-not-allowed' : ''}`}
                                             title={hasSettlement ? '入金確認を通知' : '対象月の注文なし'}
@@ -378,6 +386,48 @@ export default function RestaurantManagement() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+            {settlementTarget && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white p-6 rounded-lg max-w-lg w-full">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold">入金確認（{targetMonthLabel}）</h3>
+                            <button onClick={closeSettlementModal} className="text-gray-500 hover:text-gray-700">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="flex items-center gap-2 text-sm text-gray-700">
+                                <input
+                                    type="checkbox"
+                                    checked={sendLine}
+                                    onChange={(e) => setSendLine(e.target.checked)}
+                                    disabled={!Boolean(settlementTarget.line_user_id)}
+                                />
+                                LINE通知も送る
+                            </label>
+                            {!Boolean(settlementTarget.line_user_id) && (
+                                <p className="text-xs text-gray-500">LINE未連携のため送信できません（ステータスのみ更新）</p>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button
+                                onClick={closeSettlementModal}
+                                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                            >
+                                キャンセル
+                            </button>
+                            <button
+                                onClick={handleCompleteSettlement}
+                                className="px-4 py-2 rounded-md text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700"
+                            >
+                                確定
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
