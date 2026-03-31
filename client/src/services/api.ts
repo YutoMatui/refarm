@@ -33,6 +33,7 @@ import type {
   DeliverySlotCreateRequest,
   DeliverySlotUpdateRequest,
   AccessLog,
+  SettlementStatus,
 } from '@/types'
 import { DeliverySlotType } from '@/types'
 
@@ -537,6 +538,13 @@ export const adminApi = {
   // Access Logs
   getAccessLogs: (params?: { skip?: number; limit?: number; actor_type?: string; actor_id?: number }) =>
     apiClient.get<PaginatedResponse<AccessLog>>('/admin/access-logs', { params }),
+
+  // Settlement Status
+  getSettlementStatuses: (params: { user_type: 'restaurant' | 'farmer'; target_month?: string }) =>
+    apiClient.get<SettlementStatus[]>('/admin/settlements/status', { params }),
+
+  completeSettlement: (data: { user_type: 'restaurant' | 'farmer'; user_id: number; target_month?: string }) =>
+    apiClient.post<{ success: boolean; message: string; status: SettlementStatus }>('/admin/settlements/complete', data),
 }
 
 // Guest API

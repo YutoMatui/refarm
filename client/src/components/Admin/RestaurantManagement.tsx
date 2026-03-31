@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
-import { Plus, Pencil, Trash2, Link as LinkIcon, Copy, Unlink } from 'lucide-react'
-import { restaurantApi, invitationApi } from '../../services/api'
+import { Plus, Pencil, Trash2, Link as LinkIcon, Copy, Unlink, CheckCircle, AlertTriangle } from 'lucide-react'
+import { restaurantApi, invitationApi, adminApi } from '../../services/api'
 import { toast } from 'sonner'
-import type { Restaurant } from '../../types'
+import type { Restaurant, SettlementStatus } from '../../types'
+import { format, subMonths } from 'date-fns'
 
 export default function RestaurantManagement() {
     const [restaurants, setRestaurants] = useState<Restaurant[]>([])
@@ -11,6 +12,12 @@ export default function RestaurantManagement() {
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingRestaurant, setEditingRestaurant] = useState<Restaurant | null>(null)
     const [inviteInfo, setInviteInfo] = useState<{ url: string, code: string, targetId: number } | null>(null);
+    const [settlementStatuses, setSettlementStatuses] = useState<Record<number, SettlementStatus>>({});
+    const [sendingSettlementId, setSendingSettlementId] = useState<number | null>(null);
+
+    const targetMonthDate = useMemo(() => subMonths(new Date(), 1), []);
+    const targetMonth = useMemo(() => format(targetMonthDate, 'yyyy-MM'), [targetMonthDate]);
+    const targetMonthLabel = useMemo(() => `${targetMonthDate.getMonth() + 1}月分`, [targetMonthDate]);
 
     const { register, handleSubmit, reset, setValue } = useForm<Partial<Restaurant>>()
 
@@ -29,6 +36,26 @@ export default function RestaurantManagement() {
     useEffect(() => {
         fetchRestaurants()
     }, [])
+
+    useEffect(() => {
+        let mounted = true
+        adminApi.getSettlementStatuses({ user_type: 'restaurant', target_month: targetMonth })
+            .then((res) => {
+                if (!mounted) return
+                const map: Record<number, SettlementStatus> = {}
+                res.data.forEach((status) => {
+                    map[status.user_id] = status
+                })
+                setSettlementStatuses(map)
+            })
+            .catch(() => {
+                if (!mounted) return
+                toast.error('入金ステータスの取得に失敗しました')
+            })
+        return () => {
+            mounted = false
+        }
+    }, [targetMonth])
 
     const onSubmit = async (data: Partial<Restaurant>) => {
         try {
@@ -100,6 +127,27 @@ export default function RestaurantManagement() {
             fetchRestaurants();
         } catch (error) {
             toast.error('解除に失敗しました');
+        }
+    }
+
+    const handleCompleteSettlement = async (restaurant: Restaurant) => {
+        if (!confirm(`${restaurant.name}へ入金確認のLINEを送信しますか？`)) return
+        try {
+            setSendingSettlementId(restaurant.id)
+            const res = await adminApi.completeSettlement({
+                user_type: 'restaurant',
+                user_id: restaurant.id,
+                target_month: targetMonth
+            })
+            setSettlementStatuses((prev) => ({
+                ...prev,
+                [restaurant.id]: res.data.status
+            }))
+            toast.success(res.data.message)
+        } catch (error: any) {
+            toast.error(error?.response?.data?.detail || '送信に失敗しました')
+        } finally {
+            setSendingSettlementId(null)
         }
     }
 
@@ -185,51 +233,89 @@ export default function RestaurantManagement() {
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">連絡先</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">住所</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">連携状況</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">対象月（ステータス）</th>
+                            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">アラート</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {restaurants.map((restaurant) => (
-                            <tr key={restaurant.id}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{restaurant.name}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{restaurant.phone_number}</td>
-                                <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{restaurant.address}</td>
-                                <td className="px-6 py-4 text-sm text-gray-500">
-                                    {restaurant.line_user_id ? (
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-green-600 flex items-center gap-1 text-xs font-bold">
-                                                <div className="w-2 h-2 bg-green-500 rounded-full"></div> 連携済
+                        {restaurants.map((restaurant) => {
+                            const status = settlementStatuses[restaurant.id]?.status ?? 'pending'
+                            const isCompleted = status === 'completed'
+                            const statusLabel = isCompleted ? '送金済み' : '未払い'
+                            const badgeClass = isCompleted
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                            const now = new Date()
+                            const alertThreshold = new Date(now.getFullYear(), now.getMonth(), 16, 0, 0, 0, 0)
+                            const isAlert = !isCompleted && now >= alertThreshold
+                            const hasLine = Boolean(restaurant.line_user_id)
+                            const isSending = sendingSettlementId === restaurant.id
+
+                            return (
+                                <tr key={restaurant.id} className={`hover:bg-gray-50 ${isAlert ? 'bg-red-50' : ''}`}>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{restaurant.name}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{restaurant.phone_number}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{restaurant.address}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-500">
+                                        {restaurant.line_user_id ? (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-green-600 flex items-center gap-1 text-xs font-bold">
+                                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div> 連携済
+                                                </span>
+                                                <button
+                                                    onClick={() => handleUnlinkLine(restaurant)}
+                                                    className="text-xs bg-red-50 text-red-600 px-2 py-1 rounded border border-red-100 hover:bg-red-100 flex items-center gap-1"
+                                                    title="連携を解除"
+                                                >
+                                                    <Unlink size={12} />
+                                                    解除
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <span className="text-gray-400 text-xs">未連携</span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-700">
+                                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${badgeClass}`}>
+                                            {targetMonthLabel}：{statusLabel}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                        {isAlert ? (
+                                            <span className="inline-flex items-center gap-1 text-red-600 text-xs font-bold" title="未払いアラート">
+                                                <AlertTriangle size={14} /> ⚠️
                                             </span>
-                                            <button
-                                                onClick={() => handleUnlinkLine(restaurant)}
-                                                className="text-xs bg-red-50 text-red-600 px-2 py-1 rounded border border-red-100 hover:bg-red-100 flex items-center gap-1"
-                                                title="連携を解除"
-                                            >
-                                                <Unlink size={12} />
-                                                解除
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <span className="text-gray-400 text-xs">未連携</span>
-                                    )}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end gap-2">
-                                    <button
-                                        onClick={() => handleGenerateInvite(restaurant)}
-                                        className="text-green-600 hover:text-green-800 p-1 bg-green-50 rounded"
-                                        title="招待リンク発行"
-                                    >
-                                        <LinkIcon className="w-4 h-4" />
-                                    </button>
-                                    <button onClick={() => openEdit(restaurant)} className="text-indigo-600 hover:text-indigo-900 p-1">
-                                        <Pencil className="w-4 h-4" />
-                                    </button>
-                                    <button onClick={() => handleDelete(restaurant.id)} className="text-red-600 hover:text-red-900 p-1">
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
+                                        ) : (
+                                            <span className="text-gray-300 text-xs">-</span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end gap-2">
+                                        <button
+                                            onClick={() => handleGenerateInvite(restaurant)}
+                                            className="text-green-600 hover:text-green-800 p-1 bg-green-50 rounded"
+                                            title="招待リンク発行"
+                                        >
+                                            <LinkIcon className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => openEdit(restaurant)} className="text-indigo-600 hover:text-indigo-900 p-1">
+                                            <Pencil className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => handleDelete(restaurant.id)} className="text-red-600 hover:text-red-900 p-1">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleCompleteSettlement(restaurant)}
+                                            disabled={!hasLine || isSending}
+                                            className={`p-1 rounded ${hasLine ? 'text-emerald-600 hover:text-emerald-800 bg-emerald-50' : 'text-gray-300 bg-gray-50'} ${isSending ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                            title="入金確認を通知"
+                                        >
+                                            <CheckCircle className="w-4 h-4" />
+                                        </button>
+                                    </td>
+                                </tr>
+                            )
+                        })}
                     </tbody>
                 </table>
             </div>

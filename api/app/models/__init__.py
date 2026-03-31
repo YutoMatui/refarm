@@ -25,6 +25,7 @@ from app.models.guest import GuestVisit, GuestInteraction
 from app.models.analytics import FarmerFollow, AccessLog
 from app.models.farmer_schedule import FarmerSchedule
 from app.models.organization import Organization
+from app.models.settlement_status import SettlementStatus
 
 __all__ = [
     # Enums
@@ -54,4 +55,5 @@ __all__ = [
     "FarmerFollow",
     "AccessLog",
     "FarmerSchedule",
+    "SettlementStatus",
 ]

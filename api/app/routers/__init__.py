@@ -22,6 +22,7 @@ from . import (
     guest,
     admin_guest,
     admin_access_logs,
+    admin_settlements,
     integrations_lp,
 )
 
@@ -46,5 +47,6 @@ __all__ = [
     "guest",
     "admin_guest",
     "admin_access_logs",
+    "admin_settlements",
     "integrations_lp",
 ]

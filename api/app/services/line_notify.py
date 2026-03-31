@@ -1,5 +1,6 @@
 import httpx
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from decimal import Decimal
 from typing import Dict, List, Any
 from app.core.config import settings
@@ -651,13 +652,23 @@ No. {order.id} の請求書をお送りします。
             settings.LINE_RESTAURANT_CHANNEL_ACCESS_TOKEN
         )
 
-        message = f"""【月次請求書送付のお知らせ】
-{month_str}分の月次請求書をお送りします。
-以下のリンクからダウンロードしてご確認ください。
+        month_label = f"{month_str}分"
+        due_month_label = month_str
+        try:
+            dt = datetime.strptime(month_str, "%Y-%m")
+            month_label = f"{dt.month}月分"
+            due_month_label = f"{(dt + relativedelta(months=1)).month}月"
+        except Exception:
+            pass
 
-{pdf_url}
+        message = f"""いつもベジコベをご利用いただきありがとうございます。
+{month_label}のご利用代金についての請求書を送付いたしました。
 
-※ このリンクの有効期限はありませんが、お早めに保存してください。"""
+恐れ入りますが、内容をご確認いただき、{due_month_label}15日までにお振込みをお願いいたします。
+※金額の詳細や内訳につきましては、アプリ内の注文履歴、または別途お送りしている請求書データをご確認ください。
+
+請求書PDF：
+{pdf_url}"""
 
         await self.send_push_message(token, target_user_id, message)
 

@@ -85,6 +85,10 @@ class Settings(BaseSettings):
     # LINE Test User ID
     LINE_TEST_USER_ID: str = "Uf84a1f7dfb47a12c704d6ac8b438f873"
 
+    # Settlement Notification Test Mode
+    SETTLEMENT_TEST_MODE: bool = True
+    SETTLEMENT_TEST_USER_IDS: str = ""
+
     # LINE Messaging API (Admin)
     LINE_ADMIN_CHANNEL_ID: str = ""
     LINE_ADMIN_CHANNEL_SECRET: str = ""

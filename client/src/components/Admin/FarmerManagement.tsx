@@ -1,8 +1,9 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { farmerApi, invitationApi, uploadApi } from '@/services/api';
-import { Farmer, ChefComment, Commitment, Achievement } from '@/types';
-import { Edit2, Loader2, X, Link as LinkIcon, Copy, Unlink, Trash2, Camera } from 'lucide-react';
+import { farmerApi, invitationApi, uploadApi, adminApi } from '@/services/api';
+import { Farmer, ChefComment, Commitment, Achievement, SettlementStatus } from '@/types';
+import { Edit2, Loader2, X, Link as LinkIcon, Copy, Unlink, Trash2, Camera, CheckCircle, AlertTriangle } from 'lucide-react';
+import { format, subMonths, endOfMonth, subDays } from 'date-fns';
 import Loading from '@/components/Loading';
 import { toast } from 'sonner';
 import ChefCommentsEditor from '@/components/ChefCommentsEditor';
@@ -22,6 +23,12 @@ export default function FarmerManagement() {
     const [cropperImage, setCropperImage] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [selectableDays, setSelectableDays] = useState<number[]>([3]);
+    const [settlementStatuses, setSettlementStatuses] = useState<Record<number, SettlementStatus>>({});
+    const [sendingSettlementId, setSendingSettlementId] = useState<number | null>(null);
+
+    const targetMonthDate = useMemo(() => subMonths(new Date(), 1), []);
+    const targetMonth = useMemo(() => format(targetMonthDate, 'yyyy-MM'), [targetMonthDate]);
+    const targetMonthLabel = useMemo(() => `${targetMonthDate.getMonth() + 1}月分`, [targetMonthDate]);
 
     const parseSelectableDays = (value?: string | null) => {
         if (!value) return [3];
@@ -44,6 +51,26 @@ export default function FarmerManagement() {
         if (!editingFarmer) return;
         setSelectableDays(parseSelectableDays(editingFarmer.selectable_days));
     }, [editingFarmer]);
+
+    useEffect(() => {
+        let mounted = true;
+        adminApi.getSettlementStatuses({ user_type: 'farmer', target_month: targetMonth })
+            .then((res) => {
+                if (!mounted) return;
+                const map: Record<number, SettlementStatus> = {};
+                res.data.forEach((status) => {
+                    map[status.user_id] = status;
+                });
+                setSettlementStatuses(map);
+            })
+            .catch(() => {
+                if (!mounted) return;
+                toast.error('入金ステータスの取得に失敗しました');
+            });
+        return () => {
+            mounted = false;
+        };
+    }, [targetMonth]);
 
     const { data: farmersData, isLoading } = useQuery({
         queryKey: ['admin-farmers'],
@@ -165,6 +192,27 @@ export default function FarmerManagement() {
             queryClient.invalidateQueries({ queryKey: ['admin-farmers'] });
         } catch (e) {
             toast.error('連携解除に失敗しました');
+        }
+    };
+
+    const handleCompleteSettlement = async (farmer: Farmer) => {
+        if (!confirm(`${farmer.name}さんへ振込完了のLINEを送信しますか？`)) return;
+        try {
+            setSendingSettlementId(farmer.id);
+            const res = await adminApi.completeSettlement({
+                user_type: 'farmer',
+                user_id: farmer.id,
+                target_month: targetMonth
+            });
+            setSettlementStatuses((prev) => ({
+                ...prev,
+                [farmer.id]: res.data.status
+            }));
+            toast.success(res.data.message);
+        } catch (error: any) {
+            toast.error(error?.response?.data?.detail || '送信に失敗しました');
+        } finally {
+            setSendingSettlementId(null);
         }
     };
 
@@ -352,83 +400,121 @@ export default function FarmerManagement() {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">生産者名</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">主要作物</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">連携状況</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">対象月（ステータス）</th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">アラート</th>
                                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">操作</th>
                                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">表示/非表示</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                            {filteredFarmers.map((farmer) => (
-                                <tr key={farmer.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 text-sm text-gray-900">#{farmer.id}</td>
-                                    <td className="px-6 py-4">
-                                        <div className="w-10 h-10 rounded-full bg-gray-100 overflow-hidden">
-                                            {farmer.profile_photo_url && (
-                                                <img src={farmer.profile_photo_url} alt="" className="w-full h-full object-cover" />
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{farmer.name}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-500">{farmer.main_crop}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-500">
-                                        {/* @ts-ignore - line_user_id might not be in type yet */}
-                                        {farmer.line_user_id ? (
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-green-600 flex items-center gap-1 text-xs font-bold">
-                                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div> 連携済
-                                                </span>
-                                                <button
-                                                    onClick={() => handleUnlinkLine(farmer)}
-                                                    className="text-xs bg-red-50 text-red-600 px-2 py-1 rounded border border-red-100 hover:bg-red-100 flex items-center gap-1"
-                                                    title="連携を解除"
-                                                >
-                                                    <Unlink size={12} />
-                                                    解除
-                                                </button>
+                            {filteredFarmers.map((farmer) => {
+                                const status = settlementStatuses[farmer.id]?.status ?? 'pending';
+                                const isCompleted = status === 'completed';
+                                const statusLabel = isCompleted ? '入金済み' : '未払い';
+                                const badgeClass = isCompleted
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : 'bg-amber-50 text-amber-700 border-amber-200';
+                                const now = new Date();
+                                const alertThreshold = subDays(endOfMonth(now), 5);
+                                const isAlert = !isCompleted && now >= alertThreshold;
+                                const hasLine = Boolean((farmer as any).line_user_id);
+                                const isSending = sendingSettlementId === farmer.id;
+
+                                return (
+                                    <tr key={farmer.id} className={`hover:bg-gray-50 ${isAlert ? 'bg-red-50' : ''}`}>
+                                        <td className="px-6 py-4 text-sm text-gray-900">#{farmer.id}</td>
+                                        <td className="px-6 py-4">
+                                            <div className="w-10 h-10 rounded-full bg-gray-100 overflow-hidden">
+                                                {farmer.profile_photo_url && (
+                                                    <img src={farmer.profile_photo_url} alt="" className="w-full h-full object-cover" />
+                                                )}
                                             </div>
-                                        ) : (
-                                            <span className="text-gray-400 text-xs">未連携</span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4 text-center flex items-center justify-center gap-2">
-                                        <button
-                                            onClick={() => handleGenerateInvite(farmer)}
-                                            className="text-green-600 hover:text-green-800 p-2 bg-green-50 rounded-full"
-                                            title="招待リンク発行"
-                                        >
-                                            <LinkIcon size={18} />
-                                        </button>
-                                        <button
-                                            onClick={() => setEditingFarmer(farmer)}
-                                            className="text-blue-600 hover:text-blue-800 p-2 bg-blue-50 rounded-full"
-                                            title="編集"
-                                        >
-                                            <Edit2 size={18} />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(farmer)}
-                                            className="text-red-600 hover:text-red-800 p-2 bg-red-50 rounded-full"
-                                            title="削除"
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
-                                    </td>
-                                    <td className="px-6 py-4 text-center">
-                                        <button
-                                            onClick={(e) => handleToggleActive(farmer, e)}
-                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${farmer.is_active === 1 ? 'bg-blue-600' : 'bg-gray-200'
-                                                }`}
-                                        >
-                                            <span
-                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${farmer.is_active === 1 ? 'translate-x-6' : 'translate-x-1'
+                                        </td>
+                                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{farmer.name}</td>
+                                        <td className="px-6 py-4 text-sm text-gray-500">{farmer.main_crop}</td>
+                                        <td className="px-6 py-4 text-sm text-gray-500">
+                                            {/* @ts-ignore - line_user_id might not be in type yet */}
+                                            {farmer.line_user_id ? (
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-green-600 flex items-center gap-1 text-xs font-bold">
+                                                        <div className="w-2 h-2 bg-green-500 rounded-full"></div> 連携済
+                                                    </span>
+                                                    <button
+                                                        onClick={() => handleUnlinkLine(farmer)}
+                                                        className="text-xs bg-red-50 text-red-600 px-2 py-1 rounded border border-red-100 hover:bg-red-100 flex items-center gap-1"
+                                                        title="連携を解除"
+                                                    >
+                                                        <Unlink size={12} />
+                                                        解除
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <span className="text-gray-400 text-xs">未連携</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-700">
+                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${badgeClass}`}>
+                                                {targetMonthLabel}：{statusLabel}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            {isAlert ? (
+                                                <span className="inline-flex items-center gap-1 text-red-600 text-xs font-bold" title="未払いアラート">
+                                                    <AlertTriangle size={14} /> ⚠️
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-300 text-xs">-</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 text-center flex items-center justify-center gap-2">
+                                            <button
+                                                onClick={() => handleGenerateInvite(farmer)}
+                                                className="text-green-600 hover:text-green-800 p-2 bg-green-50 rounded-full"
+                                                title="招待リンク発行"
+                                            >
+                                                <LinkIcon size={18} />
+                                            </button>
+                                            <button
+                                                onClick={() => setEditingFarmer(farmer)}
+                                                className="text-blue-600 hover:text-blue-800 p-2 bg-blue-50 rounded-full"
+                                                title="編集"
+                                            >
+                                                <Edit2 size={18} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(farmer)}
+                                                className="text-red-600 hover:text-red-800 p-2 bg-red-50 rounded-full"
+                                                title="削除"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleCompleteSettlement(farmer)}
+                                                disabled={!hasLine || isSending}
+                                                className={`p-2 rounded-full ${hasLine ? 'text-emerald-600 hover:text-emerald-800 bg-emerald-50' : 'text-gray-300 bg-gray-50'} ${isSending ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                                title="振込完了を通知"
+                                            >
+                                                <CheckCircle size={18} />
+                                            </button>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <button
+                                                onClick={(e) => handleToggleActive(farmer, e)}
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${farmer.is_active === 1 ? 'bg-blue-600' : 'bg-gray-200'
                                                     }`}
-                                            />
-                                        </button>
-                                        <div className="text-xs text-gray-500 mt-1">
-                                            {farmer.is_active === 1 ? '表示中' : '非表示'}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                            >
+                                                <span
+                                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${farmer.is_active === 1 ? 'translate-x-6' : 'translate-x-1'
+                                                        }`}
+                                                />
+                                            </button>
+                                            <div className="text-xs text-gray-500 mt-1">
+                                                {farmer.is_active === 1 ? '表示中' : '非表示'}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
