@@ -55,7 +55,7 @@ export default function ImageCropperModal({
     }
 
     return (
-        <div className="fixed inset-0 z-50 bg-black/75">
+        <div className="fixed inset-0 z-[100] bg-black/75">
             <div className="h-full w-full flex items-end sm:items-center sm:justify-center">
                 <div className="bg-white shadow-2xl w-full h-[100dvh] sm:h-auto sm:max-h-[90dvh] sm:max-w-2xl sm:rounded-xl overflow-hidden flex flex-col">
                 {/* Header */}
@@ -70,7 +70,7 @@ export default function ImageCropperModal({
                 </div>
 
                 {/* Cropper Area */}
-                <div className="relative flex-1 min-h-[220px] bg-gray-900">
+                <div className="relative flex-1 min-h-0 sm:min-h-[300px] bg-gray-900">
                     <Cropper
                         image={imageSrc}
                         crop={crop}
@@ -85,7 +85,7 @@ export default function ImageCropperModal({
                 </div>
 
                 {/* Controls */}
-                <div className="bg-white border-t shrink-0 max-h-[42dvh] overflow-y-auto">
+                <div className="bg-white border-t shrink-0 max-h-[32dvh] sm:max-h-[42dvh] overflow-y-auto">
                     <div className="px-4 sm:px-6 py-4 sm:py-6 space-y-5">
                         {/* Zoom Control */}
                         <div className="flex items-center gap-4">
