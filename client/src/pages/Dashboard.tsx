@@ -5,6 +5,7 @@ import { useStore } from '@/store/useStore'
 import { Product, Order, TaxRate, StockType } from '@/types'
 import Loading from '@/components/Loading'
 import { Leaf } from 'lucide-react'
+import ProductImageFrame from '@/components/ProductImageFrame'
 
 export default function Dashboard() {
     const { restaurant, addToCart } = useStore()
@@ -152,7 +153,7 @@ export default function Dashboard() {
                             >
                                 <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 shadow-sm">
                                     {product.image_url ? (
-                                        <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                                        <ProductImageFrame src={product.image_url} alt={product.name} />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center bg-gray-50">
                                             <Leaf className="w-8 h-8 text-gray-300" />
@@ -192,7 +193,7 @@ export default function Dashboard() {
                             >
                                 <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 shadow-sm border border-gray-100">
                                     {product.image_url ? (
-                                        <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                                        <ProductImageFrame src={product.image_url} alt={product.name} className="rounded-full" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center bg-gray-50">
                                             <Leaf className="w-6 h-6 text-gray-300" />

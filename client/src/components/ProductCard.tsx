@@ -1,10 +1,11 @@
 import { Product, StockType } from '@/types'
 import { useStore } from '@/store/useStore'
-import { Heart, Plus, Minus, Salad } from 'lucide-react'
+import { Heart, Plus, Minus } from 'lucide-react'
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { favoriteApi } from '@/services/api'
+import ProductImageFrame from '@/components/ProductImageFrame'
 
 interface ProductCardProps {
   product: Product
@@ -51,14 +52,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           onClick={() => navigate(`/products/${product.id}`)}
           className="aspect-square w-full bg-gray-100 relative overflow-hidden cursor-pointer active:opacity-90 transition-opacity"
         >
-          {product.image_url ? (
-            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50">
-              <Salad className="w-12 h-12 mb-2 text-green-200" />
-              <span className="text-xs text-gray-400 font-medium">No Photo</span>
-            </div>
-          )}
+          <ProductImageFrame src={product.image_url} alt={product.name} />
 
           {/* Badge */}
           <div className="absolute top-2 left-2">

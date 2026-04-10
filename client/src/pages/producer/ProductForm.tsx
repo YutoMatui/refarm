@@ -7,6 +7,7 @@ import { HarvestStatus, FarmingMethod } from '../../types';
 import { toast } from 'sonner';
 import { compressImage } from '../../utils/imageUtils';
 import ImageCropperModal from '../../components/ImageCropperModal';
+import ProductImageFrame from '../../components/ProductImageFrame';
 
 interface ProductFormData {
     name: string;
@@ -41,6 +42,7 @@ export default function ProductForm() {
     const [uploading, setUploading] = useState(false);
     const [loading, setLoading] = useState(isEdit);
     const [cropperImage, setCropperImage] = useState<string | null>(null);
+    const [cropAspectRatio, setCropAspectRatio] = useState(4 / 3);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
 
@@ -73,6 +75,20 @@ export default function ProductForm() {
         }
     };
 
+    const resolveImageAspectRatio = (src: string): Promise<number> =>
+        new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                if (img.width > 0 && img.height > 0) {
+                    resolve(img.width / img.height);
+                    return;
+                }
+                resolve(4 / 3);
+            };
+            img.onerror = () => resolve(4 / 3);
+            img.src = src;
+        });
+
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -80,8 +96,11 @@ export default function ProductForm() {
         e.target.value = '';
 
         const reader = new FileReader();
-        reader.onload = () => {
-            setCropperImage(reader.result as string);
+        reader.onload = async () => {
+            const nextImage = reader.result as string;
+            const aspect = await resolveImageAspectRatio(nextImage);
+            setCropAspectRatio(aspect);
+            setCropperImage(nextImage);
         };
         reader.readAsDataURL(file);
     };
@@ -145,10 +164,10 @@ export default function ProductForm() {
                     <label className="block text-sm font-bold text-gray-700">商品画像</label>
                     <div
                         onClick={() => fileInputRef.current?.click()}
-                        className="w-full aspect-video bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer overflow-hidden relative"
+                        className="w-full aspect-[4/3] bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer overflow-hidden relative"
                     >
                         {imageUrl ? (
-                            <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                            <ProductImageFrame src={imageUrl} alt={watch('name') || '商品画像'} />
                         ) : (
                             <div className="text-gray-400 flex flex-col items-center">
                                 <Camera size={40} className="mb-2" />
@@ -168,6 +187,15 @@ export default function ProductForm() {
                         className="hidden"
                         onChange={handleImageChange}
                     />
+                    <p className="text-xs text-gray-500">縦長の画像も登録できます。飲食店画面では背景をぼかして見やすく表示されます。</p>
+                    {imageUrl && (
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
+                            <p className="text-xs font-bold text-gray-700">飲食店表示プレビュー</p>
+                            <div className="w-full max-w-[220px] aspect-square rounded-lg overflow-hidden border border-gray-200">
+                                <ProductImageFrame src={imageUrl} alt={watch('name') || '商品画像'} />
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Product Name */}
@@ -327,7 +355,7 @@ export default function ProductForm() {
             {cropperImage && (
                 <ImageCropperModal
                     imageSrc={cropperImage}
-                    aspectRatio={4 / 3}
+                    aspectRatio={cropAspectRatio}
                     onCancel={() => setCropperImage(null)}
                     onCropComplete={handleCropComplete}
                     title="商品画像の編集"

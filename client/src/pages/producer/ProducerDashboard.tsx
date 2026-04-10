@@ -3,6 +3,7 @@ import { useOutletContext, Link, useNavigate } from 'react-router-dom';
 import { producerApi } from '../../services/api';
 import { Product, HarvestStatus } from '../../types';
 import { Plus, ChevronRight, Loader2 } from 'lucide-react';
+import ProductImageFrame from '../../components/ProductImageFrame';
 
 export default function ProducerDashboard() {
     useOutletContext<{ farmerId: number; }>();
@@ -73,11 +74,7 @@ export default function ProducerDashboard() {
                         >
                             {/* Image Thumbnail */}
                             <div className="w-16 h-16 bg-gray-200 rounded-md flex-shrink-0 overflow-hidden">
-                                {product.image_url ? (
-                                    <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">No Image</div>
-                                )}
+                                <ProductImageFrame src={product.image_url} alt={product.name} emptyLabel="No Image" compact />
                             </div>
 
                             {/* Info */}

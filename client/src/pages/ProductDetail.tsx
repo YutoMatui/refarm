@@ -3,8 +3,9 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { productApi } from '../services/api';
 import { Product } from '../types';
 import { useStore } from '../store/useStore';
-import { ArrowLeft, Minus, Plus, Loader2, Salad, User, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, Loader2, User, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
+import ProductImageFrame from '@/components/ProductImageFrame';
 
 export default function ProductDetail() {
     const { id } = useParams();
@@ -53,14 +54,7 @@ export default function ProductDetail() {
         <div className="bg-white min-h-screen pb-24">
             {/* Header Image */}
             <div className="relative aspect-square w-full bg-gray-100">
-                {product.image_url ? (
-                    <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
-                ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
-                        <Salad size={48} className="mb-2 opacity-50" />
-                        <span>No Image</span>
-                    </div>
-                )}
+                <ProductImageFrame src={product.image_url} alt={product.name} emptyLabel="No Image" />
                 <button
                     onClick={() => navigate(-1)}
                     className="absolute top-4 left-4 bg-white/80 backdrop-blur-md p-2 rounded-full shadow-sm"

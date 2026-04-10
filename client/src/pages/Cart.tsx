@@ -13,6 +13,7 @@ import { format, addDays, parseISO, isAfter } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import DeliveryCalendar from '@/components/DeliveryCalendar'
 import AvailabilityModal from '@/components/AvailabilityModal'
+import ProductImageFrame from '@/components/ProductImageFrame'
 
 export default function Cart() {
   const navigate = useNavigate()
@@ -322,11 +323,9 @@ export default function Cart() {
             return (
               <div key={item.product.id} className="bg-white p-4 rounded-xl shadow-sm flex gap-4">
                 {item.product.image_url && (
-                  <img
-                    src={item.product.image_url}
-                    alt={item.product.name}
-                    className="w-20 h-20 object-cover rounded-lg bg-gray-100"
-                  />
+                  <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100">
+                    <ProductImageFrame src={item.product.image_url} alt={item.product.name} compact />
+                  </div>
                 )}
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-gray-900 truncate">{item.product.name}</h3>
