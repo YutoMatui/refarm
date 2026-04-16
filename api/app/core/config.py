@@ -3,7 +3,7 @@ Application configuration using Pydantic Settings.
 """
 from typing import List, Union, Any
 from pydantic_settings import BaseSettings
-from pydantic import AnyHttpUrl, validator
+from pydantic import validator
 
 
 class Settings(BaseSettings):
@@ -24,11 +24,14 @@ class Settings(BaseSettings):
     
     # CORS
     CORS_ORIGINS: Union[str, List[str]] = [
-        "http://localhost:5173", 
-        "http://localhost:3000",
         "https://refarm-po00du52z-refarm-ff84e7d8.vercel.app",
         "https://refarm-nine.vercel.app",
-        "https://app.refarmkobe.com"
+        "https://app.refarmkobe.com",
+        "https://refarm-production.up.railway.app",
+    ]
+    CORS_LOCAL_ORIGINS: Union[str, List[str]] = [
+        "http://localhost:5173",
+        "http://localhost:3000",
     ]
     
     @validator("DATABASE_URL", pre=True)
@@ -42,11 +45,11 @@ class Settings(BaseSettings):
             return v.replace("postgresql://", "postgresql+asyncpg://", 1)
         return v
     
-    @validator("CORS_ORIGINS", pre=True)
+    @validator("CORS_ORIGINS", "CORS_LOCAL_ORIGINS", pre=True)
     def parse_cors_origins(cls, v: Any) -> List[str]:
         """Parse comma-separated CORS origins."""
         if isinstance(v, str) and not v.startswith("["):
-            return [origin.strip() for origin in v.split(",")]
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
         elif isinstance(v, list):
             return v
         raise ValueError(v)
@@ -69,24 +72,24 @@ class Settings(BaseSettings):
 
     # LINE Messaging API (Restaurant)
     LINE_RESTAURANT_CHANNEL_ID: str = "2008751355"
-    LINE_RESTAURANT_CHANNEL_SECRET: str = "92d720cf8a7d037a58b4cf5bc5e25115"
+    LINE_RESTAURANT_CHANNEL_SECRET: str = ""
     LINE_RESTAURANT_CHANNEL_ACCESS_TOKEN: str = ""  # Optional: Long-lived access token
 
     # LINE Messaging API (Producer)
     LINE_PRODUCER_CHANNEL_ID: str = "2008751402"
-    LINE_PRODUCER_CHANNEL_SECRET: str = "5928cc0acec4d1e51b21b3d5e8f46cd9"
+    LINE_PRODUCER_CHANNEL_SECRET: str = ""
     LINE_PRODUCER_CHANNEL_ACCESS_TOKEN: str = ""  # Optional: Long-lived access token
 
     # LINE Messaging API (Consumer) - NEW
     LINE_CONSUMER_CHANNEL_ID: str = "2007987539"
     LINE_CONSUMER_CHANNEL_SECRET: str = "" # Optional: for auto-token issuance
-    LINE_CONSUMER_ACCESS_TOKEN: str = "Jf7za5jmyPzScJ/gyTnUzG/Oe/6HTt+BCS8l8c07w1+dxNlLaJoK24EfCSjEoIuVT2vGKFc99+02JOi64IpyYZVdiAoY5T55SH/c0XGXcYwwqp7dC5Pg//bmRrPmk+G4Dw4eNqZSj0j3VGLPgmcDfAdB04t89/1O/w1cDnyilFU="
+    LINE_CONSUMER_ACCESS_TOKEN: str = ""
 
     # LINE Test User ID
     LINE_TEST_USER_ID: str = "Uf84a1f7dfb47a12c704d6ac8b438f873"
 
     # Settlement Notification Test Mode
-    SETTLEMENT_TEST_MODE: bool = True
+    SETTLEMENT_TEST_MODE: bool = False
     SETTLEMENT_TEST_USER_IDS: str = ""
 
     # LINE Messaging API (Admin)

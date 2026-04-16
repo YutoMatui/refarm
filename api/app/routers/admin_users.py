@@ -11,7 +11,7 @@ from datetime import datetime
 from app.core.database import get_db
 from app.core.security import get_password_hash
 from app.models.admin import Admin
-from app.routers.admin_auth import get_current_admin
+from app.routers.admin_auth import require_super_admin
 
 router = APIRouter()
 
@@ -35,19 +35,10 @@ class AdminUserResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# Dependency: Check if current user is Super Admin
-async def get_current_super_admin(current_admin: Admin = Depends(get_current_admin)):
-    if current_admin.role != "super_admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="管理者権限が必要です（Super Admin only）"
-        )
-    return current_admin
-
 @router.get("/", response_model=List[AdminUserResponse])
 async def list_admin_users(
     db: AsyncSession = Depends(get_db),
-    _: Admin = Depends(get_current_super_admin)
+    _: Admin = Depends(require_super_admin)
 ):
     """管理者一覧を取得"""
     stmt = select(Admin).order_by(Admin.id)
@@ -58,7 +49,7 @@ async def list_admin_users(
 async def create_admin_user(
     user_data: AdminUserCreate,
     db: AsyncSession = Depends(get_db),
-    _: Admin = Depends(get_current_super_admin)
+    _: Admin = Depends(require_super_admin)
 ):
     """管理者を追加"""
     # Check duplicate
@@ -82,7 +73,7 @@ async def update_admin_user(
     admin_id: int,
     user_data: AdminUserUpdate,
     db: AsyncSession = Depends(get_db),
-    _: Admin = Depends(get_current_super_admin)
+    _: Admin = Depends(require_super_admin)
 ):
     """管理者情報を更新（パスワード変更含む）"""
     stmt = select(Admin).where(Admin.id == admin_id)
@@ -109,7 +100,7 @@ async def update_admin_user(
 async def delete_admin_user(
     admin_id: int,
     db: AsyncSession = Depends(get_db),
-    current_admin: Admin = Depends(get_current_super_admin)
+    current_admin: Admin = Depends(require_super_admin)
 ):
     """管理者を削除"""
     if admin_id == current_admin.id:

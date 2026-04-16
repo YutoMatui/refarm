@@ -205,23 +205,13 @@ async def get_current_user_from_token(id_token: str) -> dict:
     Returns:
         dict: User information from verified token
     """
-    # Original logic (uncommented)
-    if settings.DEBUG:
-        # Development mode: use mock verification
-        logger.warning("Using mock LINE token verification (DEBUG mode)")
-        
-        # If token is explicitly a mock token or very short (likely mock)
-        if id_token == 'mock-id-token' or len(id_token) < 50:
-             return verify_line_id_token_mock(id_token)
+    # DEBUGでも明示的なmockトークン以外は必ず実トークン検証を実施する。
+    if settings.DEBUG and id_token.startswith("mock-"):
+        logger.warning("Using explicit mock token verification (DEBUG mode)")
+        return verify_line_id_token_mock(id_token)
 
-        try:
-            return await verify_line_id_token(id_token)
-        except Exception:
-            logger.warning("Real token verification failed in DEBUG mode, falling back to mock")
-            return verify_line_id_token_mock(id_token)
-    else:
-        # Production mode: verify with LINE's server
-        return await verify_line_id_token(id_token)
+    # Production mode and regular DEBUG mode both verify with LINE's server.
+    return await verify_line_id_token(id_token)
 
 from datetime import datetime, timedelta, timezone
 import bcrypt

@@ -53,20 +53,12 @@ async def get_line_user_id(
     try:
         user_info = await get_current_user_from_token(id_token)
         return user_info["user_id"]
-    except Exception as e:
-        # Fallback for development/admin tokens if needed, but in prod we should be strict
-        # Checking if it's an admin token handled elsewhere, but this dependency is for LINE users.
-        # If the token is invalid for LINE, we throw 401.
-        
-        # Exception: Allow specific mock tokens in DEBUG mode
-        from app.core.config import settings
-        if settings.DEBUG and (id_token.startswith("mock-") or id_token == "Uk-id-token"):
-             # Return a predictable ID for testing
-             return "Uf84a1f7dfb47a12c704d6ac8b438f873" # Matches seed farmer/restaurant if needed, or specific mock ID
-             
+    except HTTPException:
+        raise
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid token: {str(e)}",
+            detail="Invalid token",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

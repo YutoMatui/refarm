@@ -1,17 +1,17 @@
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from app.core.database import get_db
-from app.models import Organization
+from app.models import Admin, Organization
 from app.schemas import (
     OrganizationCreate,
     OrganizationUpdate,
     OrganizationResponse,
     OrganizationList
 )
-# from app.routers.admin_auth import get_current_admin # TODO: Add Auth check if needed
+from app.routers.admin_auth import require_super_admin
 
 router = APIRouter(
     prefix="/organizations",
@@ -22,6 +22,7 @@ router = APIRouter(
 async def get_organizations(
     skip: int = 0,
     limit: int = 100,
+    _: Admin = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db)
 ) -> Any:
     """組織一覧を取得"""
@@ -39,6 +40,7 @@ async def get_organizations(
 @router.post("/", response_model=OrganizationResponse)
 async def create_organization(
     org_in: OrganizationCreate,
+    _: Admin = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db)
 ) -> Any:
     """組織を作成"""
@@ -51,6 +53,7 @@ async def create_organization(
 @router.get("/{org_id}", response_model=OrganizationResponse)
 async def get_organization(
     org_id: int,
+    _: Admin = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db)
 ) -> Any:
     """組織詳細を取得"""
@@ -63,6 +66,7 @@ async def get_organization(
 async def update_organization(
     org_id: int,
     org_in: OrganizationUpdate,
+    _: Admin = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db)
 ) -> Any:
     """組織を更新"""
@@ -82,6 +86,7 @@ async def update_organization(
 @router.delete("/{org_id}")
 async def delete_organization(
     org_id: int,
+    _: Admin = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db)
 ) -> Any:
     """組織を削除"""

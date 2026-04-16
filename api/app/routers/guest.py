@@ -1,17 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List, Optional
 from app.core.database import get_db
+from app.core.rate_limit import rate_limit
 from app.models.restaurant import Restaurant
 from app.models.farmer import Farmer
 from app.models.guest import GuestVisit, GuestInteraction
 from pydantic import BaseModel
+import logging
 
 router = APIRouter(
     prefix="/guest",
     tags=["guest"],
 )
+logger = logging.getLogger(__name__)
 
 # --- Schemas ---
 class GuestRestaurantResponse(BaseModel):
@@ -92,7 +95,11 @@ async def get_guest_farmers(db: AsyncSession = Depends(get_db)):
     return response
 
 @router.post("/visit", response_model=VisitResponse)
-async def create_visit(visit: VisitCreate, db: AsyncSession = Depends(get_db)):
+async def create_visit(
+    visit: VisitCreate,
+    _: None = Depends(rate_limit(max_requests=30, window_seconds=60, scope="guest_visit")),
+    db: AsyncSession = Depends(get_db),
+):
     """
     訪問セッションの開始（ログ記録）
     """
@@ -106,7 +113,11 @@ async def create_visit(visit: VisitCreate, db: AsyncSession = Depends(get_db)):
     return VisitResponse(visit_id=new_visit.id)
 
 @router.post("/interaction")
-async def create_interaction(interaction: InteractionCreate, db: AsyncSession = Depends(get_db)):
+async def create_interaction(
+    interaction: InteractionCreate,
+    _: None = Depends(rate_limit(max_requests=60, window_seconds=60, scope="guest_interaction")),
+    db: AsyncSession = Depends(get_db),
+):
     """
     スタンプ、メッセージ、興味ありログの記録
     """
@@ -123,11 +134,9 @@ async def create_interaction(interaction: InteractionCreate, db: AsyncSession = 
         db.add(new_interaction)
         await db.commit()
         return {"status": "ok"}
-    except Exception as e:
-        import traceback
-        print(f"Error in create_interaction: {str(e)}")
-        print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+    except Exception:
+        logger.exception("Failed to create guest interaction")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.post("/log")
 async def log_visit_metrics(log: LogCreate, db: AsyncSession = Depends(get_db)):

@@ -13,9 +13,10 @@ from app.core.database import get_db
 from app.models.restaurant import Restaurant
 from app.models.guest import GuestVisit, GuestInteraction
 from app.models.farmer import Farmer
+from app.routers.admin_auth import require_super_admin
 from pydantic import BaseModel
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_super_admin)])
 
 # --- Schemas ---
 

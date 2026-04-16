@@ -38,6 +38,16 @@ async def get_current_admin(token: str = Depends(oauth2_scheme), db: AsyncSessio
         raise credentials_exception
     return admin
 
+
+async def require_super_admin(current_admin: Admin = Depends(get_current_admin)) -> Admin:
+    """Require super_admin role for sensitive admin operations."""
+    if current_admin.role != "super_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Super Admin 権限が必要です",
+        )
+    return current_admin
+
 @router.post("/token")
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
     stmt = select(Admin).where(Admin.email == form_data.username)

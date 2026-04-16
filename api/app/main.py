@@ -2,7 +2,7 @@
 Refarm EOS - FastAPI Main Application
 Production-grade ordering system for restaurants.
 """
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
@@ -10,7 +10,6 @@ from contextlib import asynccontextmanager
 import time
 import logging
 import subprocess
-import os
 
 from app.core.config import settings
 from app.core.database import init_db
@@ -88,19 +87,12 @@ app = FastAPI(
 )
 
 
-# CORS Middleware - Updated
-allowed_origins = [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "https://refarm-nine.vercel.app",
-    "https://app.refarmkobe.com",
-    "https://refarm-production.up.railway.app",
-]
-
-# Merge with settings origins
-for origin in settings.CORS_ORIGINS:
-    if origin not in allowed_origins:
-        allowed_origins.append(origin)
+# CORS Middleware
+allowed_origins = list(dict.fromkeys(settings.CORS_ORIGINS))
+if settings.DEBUG:
+    for origin in settings.CORS_LOCAL_ORIGINS:
+        if origin not in allowed_origins:
+            allowed_origins.append(origin)
 
 app.add_middleware(
     CORSMiddleware,
@@ -145,7 +137,6 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={
             "message": "内部サーバーエラーが発生しました",
-            "error": str(exc) if settings.DEBUG else "Internal Server Error",
         },
         headers=headers
     )
@@ -257,15 +248,18 @@ async def debug_seed_data():
     Manually trigger data seeding.
     Useful if initial seeding failed or for testing.
     """
+    if not settings.DEBUG:
+        raise HTTPException(status_code=404, detail="Not Found")
+
     try:
         from app.seed import seed_data
         await seed_data()
         return {"message": "Data seeding completed successfully"}
-    except Exception as e:
-        logger.error(f"Manual seeding failed: {e}", exc_info=True)
+    except Exception:
+        logger.error("Manual seeding failed", exc_info=True)
         return JSONResponse(
             status_code=500,
-            content={"message": "Seeding failed", "error": str(e)}
+            content={"message": "Seeding failed"}
         )
 
 

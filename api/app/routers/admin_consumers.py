@@ -4,12 +4,10 @@ Admin Consumer Management Router
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
-from typing import List
 
 from app.core.database import get_db
-from app.routers.admin_auth import get_current_admin
-from app.models import Consumer, SupportMessage, Farmer
-from app.schemas import PaginationParams
+from app.routers.admin_auth import require_super_admin
+from app.models import Admin, Consumer, SupportMessage, Farmer
 
 router = APIRouter()
 
@@ -18,7 +16,7 @@ router = APIRouter()
 async def list_consumers(
     skip: int = 0,
     limit: int = 100,
-    current_admin=Depends(get_current_admin),
+    _: Admin = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -44,7 +42,7 @@ async def list_consumers(
 @router.get("/consumers/{consumer_id}")
 async def get_consumer_detail(
     consumer_id: int,
-    current_admin=Depends(get_current_admin),
+    _: Admin = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -66,7 +64,7 @@ async def get_consumer_detail(
 @router.get("/consumers/{consumer_id}/messages")
 async def get_consumer_messages(
     consumer_id: int,
-    current_admin=Depends(get_current_admin),
+    _: Admin = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
