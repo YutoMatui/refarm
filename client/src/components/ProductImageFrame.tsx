@@ -25,24 +25,12 @@ export default function ProductImageFrame({
   }
 
   return (
-    <div className={`relative w-full h-full overflow-hidden bg-neutral-900 ${className}`}>
-      <img
-        src={src}
-        alt=""
-        aria-hidden
-        className="absolute inset-0 w-full h-full object-cover scale-[1.35] blur-3xl saturate-150"
-      />
-      <img
-        src={src}
-        alt=""
-        aria-hidden
-        className="absolute inset-0 w-full h-full object-cover scale-110 opacity-45"
-      />
-      <div className="absolute inset-0 bg-black/5" />
+    <div className={`relative w-full h-full overflow-hidden bg-white ${className}`}>
+      <div className="absolute inset-0 border border-gray-100 pointer-events-none" />
       <img
         src={src}
         alt={alt}
-        className="relative w-full h-full object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.35)]"
+        className="relative w-full h-full object-contain p-1 drop-shadow-[0_3px_10px_rgba(0,0,0,0.16)]"
       />
     </div>
   )
