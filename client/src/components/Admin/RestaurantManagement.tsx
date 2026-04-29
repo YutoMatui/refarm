@@ -433,7 +433,7 @@ export default function RestaurantManagement() {
                                         <span className="text-sm text-amber-800 font-medium">{targetMonthLabel}のお支払いが未確認です</span>
                                     </div>
                                     <p className="text-xs text-amber-700 mb-3">
-                                        まとめの請求書情報と振込先を記載した支払催促メッセージをLINEで送信します。
+                                        請求書PDFのリンクと振込先を記載したお支払いのお願いメッセージをLINEで送信します。
                                     </p>
                                     <button
                                         onClick={handleSendReminder}

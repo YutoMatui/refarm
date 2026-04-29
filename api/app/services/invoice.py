@@ -203,9 +203,9 @@ def generate_monthly_invoice_pdf(restaurant, orders, target_month_label, period_
             subtotal_10 += s10
             tax_10 += t10
 
-    # 支払期限
+    # 支払期限（翌月15日）
     payment_deadline = invoice_date + relativedelta(months=1)
-    payment_deadline = payment_deadline.replace(day=1) + relativedelta(months=1, days=-1)
+    payment_deadline = payment_deadline.replace(day=15)
     due_date = payment_deadline.strftime('%Y/%m/%d')
 
     # 発行元情報 (Duplicate code, should refactor ideally)
