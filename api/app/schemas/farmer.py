@@ -28,6 +28,11 @@ class FarmerBase(BaseModel):
     video_url: Optional[list[str]] = Field(default_factory=list, description="動画URL")
     kodawari: Optional[str] = Field(None, max_length=1000, description="農家のこだわり")
     selectable_days: Optional[str] = Field(None, max_length=100, description="選択可能曜日 (JSON)")
+    bank_name: Optional[str] = Field(None, max_length=100, description="銀行名")
+    bank_branch: Optional[str] = Field(None, max_length=100, description="支店名")
+    bank_account_type: Optional[str] = Field(None, max_length=10, description="口座種別（普通/当座）")
+    bank_account_number: Optional[str] = Field(None, max_length=20, description="口座番号")
+    bank_account_holder: Optional[str] = Field(None, max_length=100, description="口座名義")
     is_active: int = Field(default=1, description="アクティブフラグ")
 
 
@@ -58,6 +63,11 @@ class FarmerUpdate(BaseModel):
     video_url: Optional[list[str]] = Field(None)
     kodawari: Optional[str] = Field(None, max_length=1000)
     selectable_days: Optional[str] = Field(None, max_length=100)
+    bank_name: Optional[str] = Field(None, max_length=100)
+    bank_branch: Optional[str] = Field(None, max_length=100)
+    bank_account_type: Optional[str] = Field(None, max_length=10)
+    bank_account_number: Optional[str] = Field(None, max_length=20)
+    bank_account_holder: Optional[str] = Field(None, max_length=100)
     is_active: Optional[int] = None
 
 

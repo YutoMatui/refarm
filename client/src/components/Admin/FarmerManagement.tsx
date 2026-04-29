@@ -268,7 +268,12 @@ export default function FarmerManagement() {
             farming_method: editingFarmer.farming_method,
             certifications: editingFarmer.certifications,
             cover_photo_url: editingFarmer.cover_photo_url,
-            selectable_days: JSON.stringify(selectableDays)
+            selectable_days: JSON.stringify(selectableDays),
+            bank_name: editingFarmer.bank_name,
+            bank_branch: editingFarmer.bank_branch,
+            bank_account_type: editingFarmer.bank_account_type,
+            bank_account_number: editingFarmer.bank_account_number,
+            bank_account_holder: editingFarmer.bank_account_holder,
         };
 
         if (isCreateMode) {
@@ -459,7 +464,14 @@ export default function FarmerManagement() {
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{farmer.name}</td>
+                                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                                            {farmer.name}
+                                            {farmer.bank_name ? (
+                                                <div className="text-[10px] text-gray-400 mt-0.5">{farmer.bank_name} {farmer.bank_branch}</div>
+                                            ) : (
+                                                <div className="text-[10px] text-red-400 mt-0.5">口座未登録</div>
+                                            )}
+                                        </td>
                                         <td className="px-6 py-4 text-sm text-gray-500">
                                             {/* @ts-ignore - line_user_id might not be in type yet */}
                                             {farmer.line_user_id ? (
@@ -688,6 +700,61 @@ export default function FarmerManagement() {
                                 className="w-full border border-gray-300 rounded-lg p-2"
                                 rows={3}
                             />
+                        </div>
+
+                        {/* Bank Account Info */}
+                        <div className="border-t pt-6">
+                            <h3 className="text-sm font-bold text-gray-700 mb-3">振込先口座情報</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs text-gray-500 mb-1">銀行名</label>
+                                    <input
+                                        value={editingFarmer.bank_name || ''}
+                                        onChange={(e) => setEditingFarmer({ ...editingFarmer, bank_name: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-lg p-2 text-sm"
+                                        placeholder="例: 三井住友銀行"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-gray-500 mb-1">支店名</label>
+                                    <input
+                                        value={editingFarmer.bank_branch || ''}
+                                        onChange={(e) => setEditingFarmer({ ...editingFarmer, bank_branch: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-lg p-2 text-sm"
+                                        placeholder="例: 板宿支店"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-gray-500 mb-1">口座種別</label>
+                                    <select
+                                        value={editingFarmer.bank_account_type || ''}
+                                        onChange={(e) => setEditingFarmer({ ...editingFarmer, bank_account_type: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-lg p-2 text-sm bg-white"
+                                    >
+                                        <option value="">選択してください</option>
+                                        <option value="普通">普通</option>
+                                        <option value="当座">当座</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-gray-500 mb-1">口座番号</label>
+                                    <input
+                                        value={editingFarmer.bank_account_number || ''}
+                                        onChange={(e) => setEditingFarmer({ ...editingFarmer, bank_account_number: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-lg p-2 text-sm"
+                                        placeholder="例: 1234567"
+                                    />
+                                </div>
+                                <div className="col-span-2">
+                                    <label className="block text-xs text-gray-500 mb-1">口座名義</label>
+                                    <input
+                                        value={editingFarmer.bank_account_holder || ''}
+                                        onChange={(e) => setEditingFarmer({ ...editingFarmer, bank_account_holder: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-lg p-2 text-sm"
+                                        placeholder="例: ヤマダ タロウ"
+                                    />
+                                </div>
+                            </div>
                         </div>
 
                         {/* Chef Comments Editor */}
