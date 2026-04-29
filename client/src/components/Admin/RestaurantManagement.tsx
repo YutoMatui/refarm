@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
-import { Plus, Pencil, Trash2, Link as LinkIcon, Copy, Unlink, CheckCircle, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Link as LinkIcon, Copy, Unlink, CheckCircle, X, Send } from 'lucide-react'
 import { restaurantApi, invitationApi, adminApi } from '../../services/api'
 import { toast } from 'sonner'
 import type { Restaurant, SettlementStatus } from '../../types'
@@ -156,6 +156,27 @@ export default function RestaurantManagement() {
                 ...prev,
                 [settlementTarget.id]: res.data.status
             }))
+            toast.success(res.data.message)
+            closeSettlementModal()
+        } catch (error: any) {
+            toast.error(error?.response?.data?.detail || '送信に失敗しました')
+        } finally {
+            setSendingSettlementId(null)
+        }
+    }
+
+    const handleSendReminder = async () => {
+        if (!settlementTarget) return
+        if (!confirm(`${settlementTarget.name}へ${targetMonthLabel}の支払催促メッセージを送信しますか？`)) return
+        try {
+            setSendingSettlementId(settlementTarget.id)
+            const res = await adminApi.completeSettlement({
+                user_type: 'restaurant',
+                user_id: settlementTarget.id,
+                target_month: targetMonth,
+                action: 'remind',
+                send_line: true
+            })
             toast.success(res.data.message)
             closeSettlementModal()
         } catch (error: any) {
@@ -389,63 +410,99 @@ export default function RestaurantManagement() {
                     </div>
                 </div>
             )}
-            {settlementTarget && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white p-6 rounded-lg max-w-lg w-full">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold">入金確認（{targetMonthLabel}）</h3>
-                            <button onClick={closeSettlementModal} className="text-gray-500 hover:text-gray-700">
-                                <X size={20} />
-                            </button>
-                        </div>
+            {settlementTarget && (() => {
+                const targetSettlement = settlementStatuses[settlementTarget.id]
+                const targetStatus = targetSettlement?.status ?? 'pending'
+                const targetIsPending = targetStatus === 'pending'
+                const targetHasLine = Boolean(settlementTarget.line_user_id)
 
-                        <div className="space-y-3">
-                            <div className="text-sm font-bold text-gray-700">処理内容</div>
-                            <div className="text-sm text-gray-600">入金確認に更新</div>
-                            <div className="pt-2">
-                                <div className="text-sm font-bold text-gray-700 mb-1">LINE通知</div>
-                                <label className="flex items-center gap-2 text-sm text-gray-700">
-                                    <input
-                                        type="radio"
-                                        name="send-line"
-                                        checked={sendLine}
-                                        onChange={() => setSendLine(true)}
-                                        disabled={!Boolean(settlementTarget.line_user_id)}
-                                    />
-                                    送る
-                                </label>
-                                <label className="flex items-center gap-2 text-sm text-gray-700 mt-1">
-                                    <input
-                                        type="radio"
-                                        name="send-line"
-                                        checked={!sendLine}
-                                        onChange={() => setSendLine(false)}
-                                    />
-                                    送らない
-                                </label>
-                                {!Boolean(settlementTarget.line_user_id) && (
-                                    <p className="text-xs text-gray-500 mt-1">LINE未連携のため送信できません（自動で送らないに設定）</p>
-                                )}
+                return (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white p-6 rounded-lg max-w-lg w-full">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-lg font-bold">入金確認（{targetMonthLabel}）— {settlementTarget.name}</h3>
+                                <button onClick={closeSettlementModal} className="text-gray-500 hover:text-gray-700">
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            {targetIsPending && (
+                                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">未入金</span>
+                                        <span className="text-sm text-amber-800 font-medium">{targetMonthLabel}のお支払いが未確認です</span>
+                                    </div>
+                                    <p className="text-xs text-amber-700 mb-3">
+                                        まとめの請求書情報と振込先を記載した支払催促メッセージをLINEで送信します。
+                                    </p>
+                                    <button
+                                        onClick={handleSendReminder}
+                                        disabled={!targetHasLine || sendingSettlementId === settlementTarget.id}
+                                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold border ${
+                                            targetHasLine
+                                                ? 'text-white bg-amber-500 border-amber-500 hover:bg-amber-600'
+                                                : 'text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed'
+                                        } ${sendingSettlementId === settlementTarget.id ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                        title={targetHasLine ? '支払催促メッセージをLINEで送信' : 'LINE未連携のため送信できません'}
+                                    >
+                                        <Send size={16} />
+                                        請求書・支払催促を送信
+                                    </button>
+                                    {!targetHasLine && (
+                                        <p className="text-xs text-red-500 mt-2">※ LINE未連携のため送信できません。先にLINE連携を行ってください。</p>
+                                    )}
+                                </div>
+                            )}
+
+                            <div className="space-y-3">
+                                <div className="text-sm font-bold text-gray-700">入金確認済みにする</div>
+                                <div className="text-sm text-gray-600">ステータスを「送金済み」に更新します</div>
+                                <div className="pt-2">
+                                    <div className="text-sm font-bold text-gray-700 mb-1">LINE通知</div>
+                                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                                        <input
+                                            type="radio"
+                                            name="send-line"
+                                            checked={sendLine}
+                                            onChange={() => setSendLine(true)}
+                                            disabled={!targetHasLine}
+                                        />
+                                        送る
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm text-gray-700 mt-1">
+                                        <input
+                                            type="radio"
+                                            name="send-line"
+                                            checked={!sendLine}
+                                            onChange={() => setSendLine(false)}
+                                        />
+                                        送らない
+                                    </label>
+                                    {!targetHasLine && (
+                                        <p className="text-xs text-gray-500 mt-1">LINE未連携のため送信できません（自動で送らないに設定）</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button
+                                    onClick={closeSettlementModal}
+                                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                                >
+                                    キャンセル
+                                </button>
+                                <button
+                                    onClick={handleCompleteSettlement}
+                                    disabled={sendingSettlementId === settlementTarget.id}
+                                    className={`px-4 py-2 rounded-md text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 ${sendingSettlementId === settlementTarget.id ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                >
+                                    入金確認済み
+                                </button>
                             </div>
                         </div>
-
-                        <div className="flex justify-end gap-3 mt-6">
-                            <button
-                                onClick={closeSettlementModal}
-                                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                            >
-                                キャンセル
-                            </button>
-                            <button
-                                onClick={handleCompleteSettlement}
-                                className="px-4 py-2 rounded-md text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700"
-                            >
-                                確定
-                            </button>
-                        </div>
                     </div>
-                </div>
-            )}
+                )
+            })()}
         </div>
     )
 }

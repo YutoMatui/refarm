@@ -7,7 +7,7 @@ from typing import List, Optional, Literal
 
 from dateutil.relativedelta import relativedelta
 from zoneinfo import ZoneInfo
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +23,7 @@ from app.models.product import Product
 from app.models.enums import OrderStatus
 from app.routers.admin_auth import get_current_admin
 from app.services.line_notify import line_service
+from app.services.invoice import generate_monthly_invoice_pdf
 
 
 router = APIRouter()
@@ -48,7 +49,7 @@ class SettlementUpdateRequest(BaseModel):
     user_type: str = Field(..., description="restaurant | farmer")
     user_id: int
     target_month: Optional[str] = Field(None, description="YYYY-MM（省略時は前月）")
-    action: Literal["complete", "skip"] = Field(..., description="complete | skip")
+    action: Literal["complete", "skip", "remind"] = Field(..., description="complete | skip | remind")
     send_line: bool = Field(True, description="LINE送信するかどうか")
     skip_reason: Optional[str] = Field(None, description="スキップ理由")
     skip_note: Optional[str] = Field(None, description="スキップ備考")
@@ -197,6 +198,7 @@ async def list_settlement_statuses(
 @router.post("/settlements/complete", response_model=SettlementUpdateResponse)
 async def complete_settlement(
     payload: SettlementUpdateRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _: Admin = Depends(get_current_admin)
 ):
@@ -229,6 +231,77 @@ async def complete_settlement(
         target_name = target.name
 
     month_label = _format_month_label(target_month)
+
+    # --- remind アクション: 支払催促メッセージ送信 ---
+    if payload.action == "remind":
+        if not line_user_id:
+            raise HTTPException(status_code=400, detail="LINE未連携のため催促メッセージを送信できません")
+
+        should_send = True
+        if settings.SETTLEMENT_TEST_MODE:
+            allowed_ids = _parse_test_user_ids()
+            if line_user_id not in allowed_ids:
+                should_send = False
+
+        if should_send:
+            # 月次まとめ請求書の金額を取得
+            start_date, end_date = _get_month_range(target_month)
+            orders_stmt = select(Order).where(
+                Order.restaurant_id == payload.user_id,
+                func.date(Order.delivery_date) >= start_date.date(),
+                func.date(Order.delivery_date) <= end_date.date(),
+                Order.status != OrderStatus.CANCELLED
+            )
+            orders_result = await db.execute(orders_stmt)
+            orders = orders_result.scalars().all()
+            total_amount = sum(int(o.total_amount) for o in orders)
+
+            # 請求書PDFのURL生成
+            invoice_url = str(request.url_for("download_monthly_invoice")) + f"?restaurant_id={payload.user_id}&target_month={target_month}&no_notify=true"
+
+            # 支払期限を計算（翌月15日）
+            try:
+                dt = datetime.strptime(target_month, "%Y-%m")
+                due_dt = dt + relativedelta(months=1)
+                due_label = f"{due_dt.month}月15日"
+            except ValueError:
+                due_label = "翌月15日"
+
+            remind_message = f"""いつもベジコベをご利用いただきありがとうございます。
+
+{month_label}のご利用代金（合計 ¥{total_amount:,}）について、お支払い期日が近づいておりますのでご連絡いたしました。
+
+恐れ入りますが、内容をご確認いただき、{due_label}までにお振込みをお願いいたします。
+
+■ お振込先
+三井住友銀行 板宿支店
+普通 4792089
+口座名義: マツイ ユウト
+
+■ 請求書（PDF）
+{invoice_url}
+
+※すでにお振込み済みの場合は、行き違いとなり申し訳ございません。何卒ご容赦ください。"""
+
+            token = await line_service.get_access_token(
+                settings.LINE_RESTAURANT_CHANNEL_ID,
+                settings.LINE_RESTAURANT_CHANNEL_SECRET,
+                settings.LINE_RESTAURANT_CHANNEL_ACCESS_TOKEN
+            )
+            await line_service.send_push_message(token, line_user_id, remind_message)
+
+        return SettlementUpdateResponse(
+            success=True,
+            message=f"{target_name}へ{month_label}の支払催促メッセージを送信しました",
+            status=SettlementStatusResponse(
+                user_type=user_type,
+                user_id=payload.user_id,
+                target_month=target_month,
+                status="pending"
+            )
+        )
+
+    # --- complete / skip アクション ---
     should_send_line = payload.send_line and payload.action == "complete"
     line_sent = False
 

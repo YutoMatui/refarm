@@ -547,7 +547,7 @@ export const adminApi = {
     user_type: 'restaurant' | 'farmer'
     user_id: number
     target_month?: string
-    action: 'complete' | 'skip'
+    action: 'complete' | 'skip' | 'remind'
     send_line?: boolean
     skip_reason?: string
     skip_note?: string
