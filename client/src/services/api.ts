@@ -287,6 +287,13 @@ export const orderApi = {
     return response.data
   },
 
+  getMonthlyDates: async (month: string) => {
+    const response = await apiClient.get<{ date: string; farmer_count: number; restaurant_count: number }[]>('/orders/aggregation/monthly-dates', {
+      params: { month }
+    })
+    return response.data
+  },
+
   sendInvoiceLine: (orderId: number) =>
     apiClient.post<{ message: string; success: boolean }>(`/orders/${orderId}/send_invoice_line`),
 }
