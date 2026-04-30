@@ -114,14 +114,7 @@ const LocalMyPage = () => {
     }
 
     const formatDeliveryInfo = (order: ConsumerOrder) => {
-        const deliveryType = order.delivery_type?.toUpperCase() || ''
-        if (deliveryType === 'HOME') {
-            return `自宅配送 (${order.delivery_time_label || ''})`
-        } else if (deliveryType === 'UNIVERSITY') {
-            return `ピックアップステーション受取 (${order.delivery_time_label || ''})`
-        } else {
-            return `${order.delivery_label || '受取'} (${order.delivery_time_label || ''})`
-        }
+        return `ユニバードーム付近で受取 (${order.delivery_time_label || ''})`
     }
 
     return (
@@ -182,22 +175,11 @@ const LocalMyPage = () => {
 
                         <div>
                             <p className="text-xs text-gray-500 mb-1">お名前</p>
-                            <p className="text-sm font-medium text-gray-900">{consumer?.name}</p>
+                            <p className="text-sm font-medium text-gray-900">{consumer?.name || '未登録'}</p>
                         </div>
                         <div>
                             <p className="text-xs text-gray-500 mb-1">電話番号</p>
-                            <p className="text-sm font-medium text-gray-900">{consumer?.phone_number}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-gray-500 mb-1">郵便番号</p>
-                            <p className="text-sm font-medium text-gray-900">〒{consumer?.postal_code}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-gray-500 mb-1">住所</p>
-                            <p className="text-sm font-medium text-gray-900">
-                                {consumer?.address}
-                                {consumer?.building && consumer.building !== 'なし' && ` ${consumer.building}`}
-                            </p>
+                            <p className="text-sm font-medium text-gray-900">{consumer?.phone_number || '未登録'}</p>
                         </div>
 
                         <button

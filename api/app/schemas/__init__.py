@@ -49,6 +49,7 @@ from app.schemas.favorite import (
 from app.schemas.consumer import (
     ConsumerAuthRequest,
     ConsumerRegisterRequest,
+    ConsumerProfileCompleteRequest,
     ConsumerUpdateRequest,
     ConsumerResponse,
     ConsumerAuthResponse,

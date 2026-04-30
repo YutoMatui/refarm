@@ -101,6 +101,11 @@ class Settings(BaseSettings):
     # LP integration
     LP_INTEGRATION_API_KEY: str = ""
     
+    # Stripe
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_PUBLISHABLE_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+
     # Cloudinary
     CLOUDINARY_CLOUD_NAME: str = ""
     CLOUDINARY_API_KEY: str = ""

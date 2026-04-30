@@ -128,8 +128,20 @@ export const consumerApi = {
   updateProfile: (data: ConsumerUpdateRequest) =>
     apiClient.put<Consumer>('/consumers/me', data),
 
+  completeProfile: (data: { name: string; phone_number: string }) =>
+    apiClient.post<Consumer>('/consumers/profile/complete', data),
+
   getOrganizations: () =>
     apiClient.get<{ items: any[], total: number }>('/consumers/organizations'),
+}
+
+// Payment API
+export const paymentApi = {
+  getConfig: () =>
+    apiClient.get<{ publishable_key: string }>('/payments/config'),
+
+  createPaymentIntent: (data: { amount: number; save_card?: boolean }) =>
+    apiClient.post<{ client_secret: string; payment_intent_id: string; customer_id: string | null }>('/payments/create-payment-intent', data),
 }
 
 // Restaurant API

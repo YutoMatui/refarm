@@ -27,7 +27,7 @@ SHIPPING_FEE_HOME = Decimal(500)
 SHIPPING_FEE_UNIV = Decimal(0)
 DELIVERY_LABEL_MAP = {
     DeliverySlotType.HOME: "自宅へ配送",
-    DeliverySlotType.UNIVERSITY: "ピックアップステーション受取",
+    DeliverySlotType.UNIVERSITY: "ユニバードーム付近で受取",
 }
 SUPPORTED_PAYMENT_METHODS = {"cash_on_delivery", "card"}
 
@@ -117,6 +117,8 @@ async def create_consumer_order(
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new consumer order."""
+    if not consumer.name or not consumer.phone_number:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="注文にはお名前と電話番号の登録が必要です")
     if order_data.consumer_id and order_data.consumer_id != consumer.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="本人の注文のみ作成できます")
     if order_data.payment_method not in SUPPORTED_PAYMENT_METHODS:

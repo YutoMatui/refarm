@@ -13,6 +13,7 @@ from app.schemas import (
     ConsumerAuthRequest,
     ConsumerAuthResponse,
     ConsumerRegisterRequest,
+    ConsumerProfileCompleteRequest,
     ConsumerUpdateRequest,
     ConsumerResponse,
     OrganizationList,
@@ -51,7 +52,10 @@ async def verify_consumer(
     auth_request: ConsumerAuthRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    """Verify LINE token and return consumer registration status."""
+    """
+    Verify LINE token and auto-register if new user.
+    LINE IDだけで仮登録し、すぐにアプリを利用できるようにする。
+    """
     user_info = await get_current_user_from_token(auth_request.id_token)
     line_user_id = user_info["user_id"]
 
@@ -59,11 +63,22 @@ async def verify_consumer(
     result = await db.execute(stmt)
     consumer = result.scalar_one_or_none()
 
+    if not consumer:
+        # 自動仮登録: LINE IDだけでConsumerレコードを作成
+        consumer = Consumer(
+            line_user_id=line_user_id,
+            name=user_info.get("name"),  # LINEプロフィール名があれば使う
+            profile_image_url=user_info.get("picture"),
+        )
+        db.add(consumer)
+        await db.commit()
+        await db.refresh(consumer)
+
     return ConsumerAuthResponse(
         line_user_id=line_user_id,
         consumer=consumer,
-        is_registered=consumer is not None,
-        message="会員情報を取得しました" if consumer else "会員登録が必要です"
+        is_registered=True,
+        message="会員情報を取得しました"
     )
 
 
@@ -72,7 +87,7 @@ async def register_consumer(
     register_request: ConsumerRegisterRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    """Register a new consumer account using LINE ID token."""
+    """Register or update consumer account using LINE ID token."""
     user_info = await get_current_user_from_token(register_request.id_token)
     line_user_id = user_info["user_id"]
 
@@ -80,28 +95,35 @@ async def register_consumer(
     result = await db.execute(stmt)
     existing = result.scalar_one_or_none()
 
-    building = _normalize_building(register_request.building)
-
     if existing:
-        # Update existing record to keep latest info
-        existing.name = register_request.name
-        existing.phone_number = register_request.phone_number
-        existing.postal_code = register_request.postal_code
-        existing.address = register_request.address
-        existing.building = building
+        if register_request.name:
+            existing.name = register_request.name
+        if register_request.phone_number:
+            existing.phone_number = register_request.phone_number
         await db.commit()
         await db.refresh(existing)
         return existing
 
     consumer = Consumer(
         line_user_id=line_user_id,
-        name=register_request.name,
+        name=register_request.name or user_info.get("name"),
         phone_number=register_request.phone_number,
-        postal_code=register_request.postal_code,
-        address=register_request.address,
-        building=building,
     )
     db.add(consumer)
+    await db.commit()
+    await db.refresh(consumer)
+    return consumer
+
+
+@router.post("/profile/complete", response_model=ConsumerResponse)
+async def complete_consumer_profile(
+    profile_data: ConsumerProfileCompleteRequest,
+    consumer: Consumer = Depends(get_current_consumer),
+    db: AsyncSession = Depends(get_db)
+):
+    """注文前にプロフィール（名前・電話番号）を完成させる."""
+    consumer.name = profile_data.name
+    consumer.phone_number = profile_data.phone_number
     await db.commit()
     await db.refresh(consumer)
     return consumer

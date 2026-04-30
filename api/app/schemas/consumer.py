@@ -2,16 +2,16 @@
 Pydantic schemas for B2C consumer users.
 """
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.base import BaseSchema, TimestampSchema
 
 
 class ConsumerBase(BaseModel):
-    """Base fields required for consumer registration."""
+    """Base fields for consumer."""
 
-    name: str = Field(..., description="氏名", min_length=1, max_length=200)
-    phone_number: str = Field(..., description="電話番号", min_length=10, max_length=20)
+    name: Optional[str] = Field(None, description="氏名", min_length=1, max_length=200)
+    phone_number: Optional[str] = Field(None, description="電話番号", min_length=10, max_length=20)
     postal_code: Optional[str] = Field(None, description="郵便番号", min_length=3, max_length=10)
     address: Optional[str] = Field(None, description="住所 (都道府県・市区町村・番地)", min_length=1, max_length=500)
     building: Optional[str] = Field(None, description="建物名・部屋番号")
@@ -24,11 +24,19 @@ class ConsumerAuthRequest(BaseModel):
     id_token: str = Field(..., description="LINEログインで取得したIDトークン")
 
 
-class ConsumerRegisterRequest(ConsumerBase):
-    """Consumer registration request schema."""
+class ConsumerRegisterRequest(BaseModel):
+    """Consumer registration request schema - LINE IDのみで仮登録."""
 
     id_token: str = Field(..., description="LINEログインで取得したIDトークン")
-    address: str = Field(..., description="住所 (都道府県・市区町村・番地)", min_length=1, max_length=500)
+    name: Optional[str] = Field(None, description="氏名", min_length=1, max_length=200)
+    phone_number: Optional[str] = Field(None, description="電話番号", min_length=10, max_length=20)
+
+
+class ConsumerProfileCompleteRequest(BaseModel):
+    """注文前にプロフィールを完成させるためのスキーマ."""
+
+    name: str = Field(..., description="氏名", min_length=1, max_length=200)
+    phone_number: str = Field(..., description="電話番号", min_length=10, max_length=20)
 
 
 class ConsumerUpdateRequest(BaseModel):
@@ -47,20 +55,26 @@ class ConsumerResponse(ConsumerBase, TimestampSchema, BaseSchema):
 
     id: int
     line_user_id: str
-    organization_id: Optional[int]
+    organization_id: Optional[int] = None
     stripe_customer_id: Optional[str] = None
     default_stripe_payment_method_id: Optional[str] = None
+    is_profile_complete: bool = False
+
+    @model_validator(mode='after')
+    def compute_profile_complete(self):
+        self.is_profile_complete = bool(self.name and self.phone_number)
+        return self
 
     class Config:
+        from_attributes = True
+
         json_schema_extra = {
             "example": {
                 "id": 1,
                 "line_user_id": "U1234567890abcdef",
                 "name": "山田 太郎",
                 "phone_number": "08012345678",
-                "postal_code": "6500001",
-                "address": "兵庫県神戸市中央区加納町6-5-1",
-                "building": "神戸タワー 501号室",
+                "is_profile_complete": True,
                 "created_at": "2026-01-13T10:00:00+09:00",
                 "updated_at": "2026-01-13T10:00:00+09:00"
             }

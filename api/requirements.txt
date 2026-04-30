@@ -29,6 +29,9 @@ pytz==2023.3
 # HTTP Client (for external API calls if needed)
 httpx==0.26.0
 
+# Payment
+stripe==8.11.0
+
 # PDF Generation (for invoices)
 reportlab==4.0.9
 weasyprint

@@ -112,8 +112,8 @@ export interface Restaurant extends TimestampFields {
 export interface Consumer extends TimestampFields {
   id: number
   line_user_id: string
-  name: string
-  phone_number: string
+  name?: string | null
+  phone_number?: string | null
   postal_code?: string | null
   address?: string | null
   building?: string | null
@@ -121,6 +121,7 @@ export interface Consumer extends TimestampFields {
   organization_id?: number | null
   stripe_customer_id?: string | null
   default_stripe_payment_method_id?: string | null
+  is_profile_complete?: boolean
 }
 
 // Chef Comment
@@ -408,11 +409,8 @@ export interface ConsumerAuthRequest {
 
 export interface ConsumerRegisterRequest {
   id_token: string
-  name: string
-  phone_number: string
-  postal_code?: string
-  address: string
-  building?: string
+  name?: string
+  phone_number?: string
 }
 
 export interface ConsumerUpdateRequest {

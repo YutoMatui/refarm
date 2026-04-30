@@ -482,7 +482,7 @@ No. {order.id}
         shipping_text = self.format_currency_plain(order.shipping_fee)
         total_text = self.format_currency_plain(order.total_amount)
 
-        pickup_place = "ご自宅" if order.delivery_type == DeliverySlotType.HOME else shipping_label
+        pickup_place = "ユニバードーム付近" if order.delivery_type == DeliverySlotType.UNIVERSITY else shipping_label
         time_label = order.delivery_time_label or (order.delivery_slot.time_text if order.delivery_slot else "")
 
         consumer_name = consumer.name if consumer else "お客様"
@@ -507,8 +507,7 @@ No. {order.id}
 日時：{time_label}
 場所：{pickup_place}
 {location_info}
-※お支払いは【商品受取時に現金】でお願いいたします。
-※お釣りが出ないようご協力をお願いいたします。"""
+※お支払いはクレジットカードで決済済みです。"""
 
         await self.send_push_message(token, target_user_id, message)
 

@@ -30,13 +30,13 @@ class Consumer(Base, TimestampMixin):
 
     name = Column(
         String(200),
-        nullable=False,
+        nullable=True,
         comment="氏名"
     )
 
     phone_number = Column(
         String(20),
-        nullable=False,
+        nullable=True,
         comment="電話番号"
     )
 

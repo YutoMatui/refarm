@@ -79,6 +79,7 @@ const LocalApp = () => {
                 setIdToken(token)
 
                 try {
+                    // verify で自動仮登録される（LINE IDだけでConsumerレコード作成）
                     const response = await consumerApi.verify({ id_token: token })
                     const data = response.data
 
@@ -87,22 +88,19 @@ const LocalApp = () => {
                     setRestaurant(null)
                     setFarmer(null)
 
-                    if (data.is_registered && data.consumer) {
+                    if (data.consumer) {
                         setConsumer(data.consumer)
                         setNeedsRegistration(false)
                     } else {
-                        // DBにユーザーが存在しない場合、登録フォームを表示
-                        console.log('初回ログイン: 登録フォームを表示します')
                         setConsumer(null)
                         clearCart()
-                        setNeedsRegistration(true)
+                        setNeedsRegistration(false)
                     }
 
                     setLoading(false)
                 } catch (verifyErr: any) {
-                    // 認証エラーまたは未登録の場合は登録フォームを表示
-                    console.log('認証確認エラー: 登録フォームを表示します', verifyErr?.response?.status)
-                    setNeedsRegistration(true)
+                    console.error('認証確認エラー', verifyErr?.response?.status)
+                    setError('LINEの認証に失敗しました。再度アクセスしてください。')
                     setLoading(false)
                 }
             } catch (err: any) {
@@ -146,10 +144,6 @@ const LocalApp = () => {
                 </button>
             </div>
         )
-    }
-
-    if (needsRegistration) {
-        return <ConsumerRegisterForm idToken={idToken} onSuccess={handleRegistrationSuccess} onRetry={handleRetry} />
     }
 
     if (!consumer) {

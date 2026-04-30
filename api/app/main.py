@@ -183,6 +183,7 @@ from app.routers import (
     delivery_slot as delivery_slot_router,
     consumers as consumers_router,
     consumer_orders as consumer_orders_router,
+    stripe_payment,
     guest,
     admin_guest,
     support_messages,
@@ -212,6 +213,7 @@ app.include_router(producer.router, prefix="/api/producer", tags=["Producer"])
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(consumer_orders_router.router, prefix="/api/consumer-orders", tags=["Consumer Orders"])
 app.include_router(consumers_router.router, prefix="/api/consumers", tags=["Consumers"])
+app.include_router(stripe_payment.router, prefix="/api/payments", tags=["Payments"])
 app.include_router(favorites.router, prefix="/api/favorites", tags=["Favorites"])
 app.include_router(upload.router, prefix="/api/upload", tags=["Upload"])
 app.include_router(settings_router.router, prefix="/api/settings", tags=["Settings"])

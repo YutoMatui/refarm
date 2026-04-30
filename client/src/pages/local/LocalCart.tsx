@@ -4,29 +4,51 @@ import { useNavigate } from 'react-router-dom'
 import { format, addDays, parseISO, isAfter } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { toast } from 'sonner'
-import { MapPin, CreditCard, Wallet } from 'lucide-react'
-import { consumerOrderApi, farmerApi, settingsApi } from '@/services/api'
+import { MapPin, CreditCard, User } from 'lucide-react'
+import { consumerOrderApi, consumerApi, farmerApi, settingsApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
 import { DeliveryTimeSlot, DeliverySlotType, type ConsumerOrder, type ConsumerOrderCreateRequest, type DeliverySchedule } from '@/types'
 import DeliveryCalendar from '@/components/DeliveryCalendar'
 import AvailabilityModal from '@/components/AvailabilityModal'
 
-type ConsumerPaymentMethod = 'cash_on_delivery' | 'card'
-
 const LocalCart = () => {
     const navigate = useNavigate()
     const cart = useStore(state => state.cart)
     const consumer = useStore(state => state.consumer)
+    const setConsumer = useStore(state => state.setConsumer)
     const clearCart = useStore(state => state.clearCart)
 
-    const [deliveryDestination, setDeliveryDestination] = useState<'UNIV' | 'HOME'>('UNIV')
+    // プロフィール未完了の場合の入力フィールド
+    const needsProfile = !consumer?.name || !consumer?.phone_number
+    const [profileName, setProfileName] = useState(consumer?.name || '')
+    const [profilePhone, setProfilePhone] = useState(consumer?.phone_number || '')
+    const [isProfileSubmitting, setIsProfileSubmitting] = useState(false)
+
+    const handleProfileComplete = async () => {
+        if (!profileName.trim() || !profilePhone.trim()) {
+            toast.error('お名前と電話番号を入力してください')
+            return
+        }
+        setIsProfileSubmitting(true)
+        try {
+            const response = await consumerApi.completeProfile({
+                name: profileName.trim(),
+                phone_number: profilePhone.trim(),
+            })
+            setConsumer(response.data)
+            toast.success('プロフィールを登録しました')
+        } catch (error: any) {
+            toast.error(error?.response?.data?.detail || 'プロフィール登録に失敗しました')
+        } finally {
+            setIsProfileSubmitting(false)
+        }
+    }
+
     const [deliveryDate, setDeliveryDate] = useState('')
     const [deliveryTimeSlot, setDeliveryTimeSlot] = useState<DeliveryTimeSlot | ''>('')
     const [deliveryNotes, setDeliveryNotes] = useState('')
-    const [overrideAddress, setOverrideAddress] = useState('')
     const [availableTimeSlots, setAvailableTimeSlots] = useState<{ value: DeliveryTimeSlot; label: string }[]>([])
 
-    const [paymentMethod, setPaymentMethod] = useState<ConsumerPaymentMethod>('cash_on_delivery')
     const [saveCardForFuture, setSaveCardForFuture] = useState(false)
     const [stripeCustomerId, setStripeCustomerId] = useState('')
     const [stripePaymentMethodId, setStripePaymentMethodId] = useState('')
@@ -43,13 +65,6 @@ const LocalCart = () => {
     ]
 
     const minDate = format(addDays(new Date(), 2), 'yyyy-MM-dd')
-
-    useEffect(() => {
-        if (consumer && deliveryDestination === 'HOME') {
-            const baseAddress = `${consumer.address ?? ''}${consumer.building ? ` ${consumer.building}` : ''}`
-            setOverrideAddress(baseAddress.trim())
-        }
-    }, [consumer, deliveryDestination])
 
     useEffect(() => {
         if (!consumer) return
@@ -215,15 +230,11 @@ const LocalCart = () => {
             toast.error('受取日と時間帯を選択してください')
             return
         }
-        if (deliveryDestination === 'HOME' && !overrideAddress.trim()) {
-            toast.error('配送先住所を入力してください')
+        if (!stripePaymentMethodId.trim()) {
+            toast.error('カード情報を入力してください')
             return
         }
-        if (paymentMethod === 'card' && !stripePaymentMethodId.trim()) {
-            toast.error('カード決済にはStripe PaymentMethod IDが必要です')
-            return
-        }
-        if (paymentMethod === 'card' && saveCardForFuture && !stripeCustomerId.trim()) {
+        if (saveCardForFuture && !stripeCustomerId.trim()) {
             toast.error('カード保存にはStripe Customer IDが必要です')
             return
         }
@@ -282,14 +293,13 @@ const LocalCart = () => {
             consumer_id: consumer.id,
             delivery_date: deliveryDate,
             delivery_time_label: selectedTimeLabel,
-            delivery_type: deliveryDestination === 'HOME' ? DeliverySlotType.HOME : DeliverySlotType.UNIVERSITY,
-            delivery_address: deliveryDestination === 'HOME' ? overrideAddress.trim() : undefined,
+            delivery_type: DeliverySlotType.UNIVERSITY,
             delivery_notes: deliveryNotes || undefined,
-            payment_method: paymentMethod,
-            save_card_for_future: paymentMethod === 'card' ? saveCardForFuture : false,
-            stripe_customer_id: paymentMethod === 'card' && stripeCustomerId.trim() ? stripeCustomerId.trim() : undefined,
-            stripe_payment_method_id: paymentMethod === 'card' ? stripePaymentMethodId.trim() : undefined,
-            stripe_payment_intent_id: paymentMethod === 'card' && stripePaymentIntentId.trim() ? stripePaymentIntentId.trim() : undefined,
+            payment_method: 'card',
+            save_card_for_future: saveCardForFuture,
+            stripe_customer_id: stripeCustomerId.trim() || undefined,
+            stripe_payment_method_id: stripePaymentMethodId.trim(),
+            stripe_payment_intent_id: stripePaymentIntentId.trim() || undefined,
             items,
         })
     }
@@ -329,7 +339,7 @@ const LocalCart = () => {
         }
     }, [cart])
 
-    const shippingFee = deliveryDestination === 'HOME' ? 500 : 0
+    const shippingFee = 0
     const grandTotal = productTotal + shippingFee
 
     if (!consumer) {
@@ -361,34 +371,54 @@ const LocalCart = () => {
 
     return (
         <div className="max-w-4xl mx-auto px-4 py-6 pb-24 space-y-6">
+            {needsProfile && (
+                <section className="bg-white border-2 border-amber-400 rounded-xl p-6 space-y-4">
+                    <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                        <User className="text-amber-600" size={20} />
+                        お客様情報の入力
+                    </h2>
+                    <p className="text-sm text-gray-600">注文にはお名前と電話番号が必要です。</p>
+                    <div className="space-y-3">
+                        <div className="space-y-1">
+                            <label className="block text-sm font-medium text-gray-700">お名前 <span className="text-red-500">*</span></label>
+                            <input
+                                type="text"
+                                value={profileName}
+                                onChange={(e) => setProfileName(e.target.value)}
+                                placeholder="例）山田 太郎"
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="block text-sm font-medium text-gray-700">電話番号 <span className="text-red-500">*</span></label>
+                            <input
+                                type="tel"
+                                value={profilePhone}
+                                onChange={(e) => setProfilePhone(e.target.value)}
+                                placeholder="例）08012345678"
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            />
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleProfileComplete}
+                            disabled={isProfileSubmitting || !profileName.trim() || !profilePhone.trim()}
+                            className="w-full py-3 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                            {isProfileSubmitting ? '登録中...' : '登録して注文に進む'}
+                        </button>
+                    </div>
+                </section>
+            )}
+
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                     <MapPin className="text-emerald-600" size={20} />
-                    受取方法を選択
+                    受取場所
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <button
-                        type="button"
-                        onClick={() => setDeliveryDestination('UNIV')}
-                        className={`rounded-xl border-2 p-5 text-left space-y-2 transition-all ${deliveryDestination === 'UNIV'
-                            ? 'border-emerald-500 bg-emerald-50 shadow-md'
-                            : 'border-gray-200 hover:border-emerald-200'
-                            }`}
-                    >
-                        <p className="font-bold text-gray-900">📍 ピックアップステーション受取</p>
-                        <p className="text-sm text-gray-600">受取場所: 正門前 / 送料0円</p>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setDeliveryDestination('HOME')}
-                        className={`rounded-xl border-2 p-5 text-left space-y-2 transition-all ${deliveryDestination === 'HOME'
-                            ? 'border-blue-500 bg-blue-50 shadow-md'
-                            : 'border-gray-200 hover:border-blue-200'
-                            }`}
-                    >
-                        <p className="font-bold text-gray-900">🏠 自宅へ配送</p>
-                        <p className="text-sm text-gray-600">送料500円 / 指定時間帯にお届け</p>
-                    </button>
+                <div className="rounded-xl border-2 border-emerald-500 bg-emerald-50 p-5 space-y-2">
+                    <p className="font-bold text-gray-900">📍 ユニバードーム付近で受取</p>
+                    <p className="text-sm text-gray-600">送料無料</p>
                 </div>
             </section>
 
@@ -429,18 +459,6 @@ const LocalCart = () => {
                 </div>
             </section>
 
-            {deliveryDestination === 'HOME' && (
-                <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-                    <h2 className="text-lg font-bold text-gray-900">配送先住所</h2>
-                    <textarea
-                        value={overrideAddress}
-                        onChange={(e) => setOverrideAddress(e.target.value)}
-                        rows={3}
-                        className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    />
-                </section>
-            )}
-
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
                 <h2 className="text-lg font-bold text-gray-900">ご要望など（任意）</h2>
                 <textarea
@@ -453,75 +471,50 @@ const LocalCart = () => {
             </section>
 
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-                <h2 className="text-lg font-bold text-gray-900">お支払い方法</h2>
-                <p className="text-sm text-gray-600">カード情報の実データはStripeで管理し、当サービスでは保持しません。</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <button
-                        type="button"
-                        onClick={() => setPaymentMethod('cash_on_delivery')}
-                        className={`rounded-xl border-2 p-4 text-left transition-all ${paymentMethod === 'cash_on_delivery'
-                            ? 'border-amber-500 bg-amber-50'
-                            : 'border-gray-200 hover:border-amber-200'
-                            }`}
-                    >
-                        <p className="font-semibold text-gray-900 flex items-center gap-2"><Wallet size={18} />受取時に現金</p>
-                        <p className="text-xs text-gray-600 mt-1">これまで通りの現金決済です。</p>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setPaymentMethod('card')}
-                        className={`rounded-xl border-2 p-4 text-left transition-all ${paymentMethod === 'card'
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-blue-200'
-                            }`}
-                    >
-                        <p className="font-semibold text-gray-900 flex items-center gap-2"><CreditCard size={18} />クレジットカード</p>
-                        <p className="text-xs text-gray-600 mt-1">Stripe連携で安全に決済します。</p>
-                    </button>
-                </div>
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <CreditCard className="text-emerald-600" size={20} />
+                    お支払い（クレジットカード）
+                </h2>
+                <p className="text-sm text-gray-600">カード情報はStripeで安全に処理され、当サービスでは保持しません。</p>
 
-                {paymentMethod === 'card' && (
-                    <div className="space-y-3">
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
-                            本番ではこの領域に Stripe Elements（カード番号・有効期限・CVC）を配置します。
-                        </div>
-                        <label className="flex items-center gap-2 text-sm text-gray-700">
-                            <input
-                                type="checkbox"
-                                checked={saveCardForFuture}
-                                onChange={(e) => setSaveCardForFuture(e.target.checked)}
-                                className="h-4 w-4 rounded border-gray-300 text-emerald-600"
-                            />
-                            次回以降のためにカードを保存する（Stripe上）
-                        </label>
-                        <details className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-                            <summary className="cursor-pointer text-sm font-semibold text-gray-800">開発用: Stripe ID入力（本番はElementsで自動化）</summary>
-                            <div className="mt-3 space-y-2">
-                                <input
-                                    type="text"
-                                    value={stripeCustomerId}
-                                    onChange={(e) => setStripeCustomerId(e.target.value)}
-                                    placeholder="cus_xxx（任意 / 保存時は必須）"
-                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                                />
-                                <input
-                                    type="text"
-                                    value={stripePaymentMethodId}
-                                    onChange={(e) => setStripePaymentMethodId(e.target.value)}
-                                    placeholder="pm_xxx（カード決済時は必須）"
-                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                                />
-                                <input
-                                    type="text"
-                                    value={stripePaymentIntentId}
-                                    onChange={(e) => setStripePaymentIntentId(e.target.value)}
-                                    placeholder="pi_xxx（任意）"
-                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                                />
-                            </div>
-                        </details>
+                <div className="space-y-3">
+                    {/* TODO: Stripe Elements をここに配置。現在はテスト用の手動入力 */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
+                        テスト環境: 下記にStripe IDを入力してください。本番ではStripe Elementsに置き換えます。
                     </div>
-                )}
+                    <div className="space-y-2">
+                        <input
+                            type="text"
+                            value={stripeCustomerId}
+                            onChange={(e) => setStripeCustomerId(e.target.value)}
+                            placeholder="cus_xxx（任意 / カード保存時は必須）"
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                        />
+                        <input
+                            type="text"
+                            value={stripePaymentMethodId}
+                            onChange={(e) => setStripePaymentMethodId(e.target.value)}
+                            placeholder="pm_xxx（必須）"
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                        />
+                        <input
+                            type="text"
+                            value={stripePaymentIntentId}
+                            onChange={(e) => setStripePaymentIntentId(e.target.value)}
+                            placeholder="pi_xxx（任意）"
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                        />
+                    </div>
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                            type="checkbox"
+                            checked={saveCardForFuture}
+                            onChange={(e) => setSaveCardForFuture(e.target.checked)}
+                            className="h-4 w-4 rounded border-gray-300 text-emerald-600"
+                        />
+                        次回以降のためにカードを保存する
+                    </label>
+                </div>
             </section>
 
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
@@ -567,21 +560,14 @@ const LocalCart = () => {
                         <span className="text-emerald-600">¥{grandTotal.toLocaleString()}</span>
                     </div>
                 </div>
-                {paymentMethod === 'cash_on_delivery' ? (
-                    <div className="bg-yellow-50 border-2 border-yellow-300 text-yellow-800 text-sm rounded-xl p-4">
-                        <p className="font-semibold mb-1">💰 お支払いについて</p>
-                        <p>お支払いは受取時の現金です。お釣りが出ないようご準備をお願いします。</p>
-                    </div>
-                ) : (
-                    <div className="bg-blue-50 border-2 border-blue-200 text-blue-900 text-sm rounded-xl p-4">
-                        <p className="font-semibold mb-1">💳 カード決済について</p>
-                        <p>カード情報はStripeで安全に処理され、当サービスでは保持しません。</p>
-                    </div>
-                )}
+                <div className="bg-blue-50 border-2 border-blue-200 text-blue-900 text-sm rounded-xl p-4">
+                    <p className="font-semibold mb-1">💳 カード決済について</p>
+                    <p>カード情報はStripeで安全に処理され、当サービスでは保持しません。</p>
+                </div>
                 <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={mutation.isPending || !deliveryDate || !deliveryTimeSlot || (deliveryDestination === 'HOME' && !overrideAddress.trim())}
+                    disabled={mutation.isPending || !deliveryDate || !deliveryTimeSlot || !stripePaymentMethodId.trim()}
                     className="w-full py-4 bg-emerald-600 text-white font-bold text-lg rounded-xl hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
                 >
                     {mutation.isPending ? '注文処理中...' : '注文を確定する'}

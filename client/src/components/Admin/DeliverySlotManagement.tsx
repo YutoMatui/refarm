@@ -204,7 +204,7 @@ const DeliverySlotManagement = () => {
             <section className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 space-y-4">
                 <div>
                     <h2 className="text-xl font-semibold text-gray-900">受取枠の作成</h2>
-                    <p className="text-sm text-gray-600">自宅配送と大学受取の枠を登録し、公開設定を切り替えられます。</p>
+                    <p className="text-sm text-gray-600">自宅配送とユニバードーム受取の枠を登録し、公開設定を切り替えられます。</p>
                 </div>
 
                 <form className="grid gap-4 md:grid-cols-2" onSubmit={handleCreateSubmit}>
@@ -227,7 +227,7 @@ const DeliverySlotManagement = () => {
                             className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         >
                             <option value={DeliverySlotType.HOME}>自宅配送</option>
-                            <option value={DeliverySlotType.UNIVERSITY}>兵庫県立大学 正門受取</option>
+                            <option value={DeliverySlotType.UNIVERSITY}>ユニバードーム付近 受取</option>
                         </select>
                     </div>
 
@@ -334,7 +334,7 @@ const DeliverySlotManagement = () => {
                                 {slots.map(slot => (
                                     <tr key={slot.id} className="hover:bg-gray-50">
                                         <td className="px-4 py-2 text-sm text-gray-700">{formatDate(slot.date)}</td>
-                                        <td className="px-4 py-2 text-sm text-gray-700">{slot.slot_type === DeliverySlotType.HOME ? '自宅配送' : '大学受取'}</td>
+                                        <td className="px-4 py-2 text-sm text-gray-700">{slot.slot_type === DeliverySlotType.HOME ? '自宅配送' : 'ユニバードーム受取'}</td>
                                         <td className="px-4 py-2 text-sm text-gray-700">{slot.time_text}</td>
                                         <td className="px-4 py-2 text-sm">
                                             <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${slot.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
@@ -413,7 +413,7 @@ const DeliverySlotManagement = () => {
                                 className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                                 <option value={DeliverySlotType.HOME}>自宅配送</option>
-                                <option value={DeliverySlotType.UNIVERSITY}>兵庫県立大学 正門受取</option>
+                                <option value={DeliverySlotType.UNIVERSITY}>ユニバードーム付近 受取</option>
                             </select>
                         </div>
 

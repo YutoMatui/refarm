@@ -136,7 +136,7 @@ const ConsumerDeliverySlotManagement = () => {
                     </label>
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
                         <p className="text-xs text-blue-700">
-                            <strong>兵庫県立大学:</strong> 大学での受取専用の時間枠<br />
+                            <strong>ユニバードーム:</strong> ユニバードーム付近での受取専用の時間枠<br />
                             <strong>自宅配送:</strong> 自宅配送専用の時間枠（飲食店配送と同じ）
                         </p>
                     </div>
@@ -150,7 +150,7 @@ const ConsumerDeliverySlotManagement = () => {
                                 }`}
                         >
                             <MapPin size={18} className="inline mr-2" />
-                            🏫 兵庫県立大学
+                            🏫 ユニバードーム
                         </button>
                         <button
                             type="button"
@@ -238,7 +238,7 @@ const ConsumerDeliverySlotManagement = () => {
             {selectedDate && (
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <h3 className="text-lg font-bold text-gray-900 mb-4">
-                        {selectedDate} の受取枠（{selectedType === DeliverySlotType.UNIVERSITY ? '兵庫県立大学' : '自宅配送'}）
+                        {selectedDate} の受取枠（{selectedType === DeliverySlotType.UNIVERSITY ? 'ユニバードーム' : '自宅配送'}）
                     </h3>
 
                     {selectedDateSlots.length > 0 ? (
