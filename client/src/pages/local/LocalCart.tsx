@@ -121,11 +121,10 @@ const LocalCart = () => {
     // Stripe
     const [clientSecret, setClientSecret] = useState<string | null>(null)
     const [stripeInstance, setStripeInstance] = useState<Awaited<ReturnType<typeof loadStripe>> | null>(null)
-    const [paymentReady, setPaymentReady] = useState(false)
 
     const [isAvailModalOpen, setIsAvailModalOpen] = useState(false)
-    const [unavailableItems, setUnavailableItems] = useState<any[]>([])
-    const [nextDateSuggestion, setNextDateSuggestion] = useState<{ date: string; label: string } | undefined>()
+    const [unavailableItems] = useState<any[]>([])
+    const [nextDateSuggestion] = useState<{ date: string; label: string } | undefined>()
 
     const minDate = format(addDays(new Date(), 2), 'yyyy-MM-dd')
 
