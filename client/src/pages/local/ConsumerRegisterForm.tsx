@@ -96,9 +96,6 @@ const ConsumerRegisterForm = ({ idToken, onSuccess, onRetry }: ConsumerRegisterF
                 id_token: idToken,
                 name,
                 phone_number: phoneNumber,
-                postal_code: sanitizePostalCode(postalCode) || undefined,
-                address,
-                building: building || undefined,
             })
 
             toast.success('会員登録が完了しました')

@@ -27,13 +27,6 @@ const ConsumerDeliverySlotManagement = () => {
 
     const slots = slotsData?.items ?? []
 
-    // 選択された日付のユニバードーム受取枠を取得
-    const selectedDateSlots = slots.filter(
-        (slot: DeliverySlot) =>
-            slot.date === selectedDate &&
-            slot.slot_type === DeliverySlotType.UNIVERSITY
-    )
-
     // 今後の受取枠をまとめて表示
     const today = new Date().toISOString().split('T')[0]
     const upcomingSlots = slots

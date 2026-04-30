@@ -67,8 +67,8 @@ const ConsumerManagement = () => {
 
     // 検索フィルター
     const filteredConsumers = consumers.filter((consumer: Consumer) =>
-        consumer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        consumer.phone_number.includes(searchQuery) ||
+        (consumer.name ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (consumer.phone_number ?? '').includes(searchQuery) ||
         (consumer.address?.toLowerCase() || '').includes(searchQuery.toLowerCase())
     )
 
@@ -162,7 +162,7 @@ const ConsumerManagement = () => {
                                                 {consumer.profile_image_url ? (
                                                     <img
                                                         src={consumer.profile_image_url}
-                                                        alt={consumer.name}
+                                                        alt={consumer.name ?? ''}
                                                         className="w-full h-full object-cover"
                                                     />
                                                 ) : (
@@ -344,7 +344,7 @@ const ConsumerManagement = () => {
                                                 {selectedConsumer.profile_image_url ? (
                                                     <img
                                                         src={selectedConsumer.profile_image_url}
-                                                        alt={selectedConsumer.name}
+                                                        alt={selectedConsumer.name ?? ''}
                                                         className="w-full h-full object-cover"
                                                     />
                                                 ) : (
