@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { format, addDays } from 'date-fns'
+import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { toast } from 'sonner'
-import { MapPin, CreditCard, User, Calendar } from 'lucide-react'
+import { MapPin, CreditCard, User, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { consumerOrderApi, consumerApi, paymentApi, deliverySlotApi } from '@/services/api'
@@ -113,6 +113,7 @@ const LocalCart = () => {
         }
     }
 
+    const [calendarMonth, setCalendarMonth] = useState(new Date())
     const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null)
     const [deliveryDate, setDeliveryDate] = useState('')
     const [deliveryTimeLabel, setDeliveryTimeLabel] = useState('')
@@ -348,35 +349,89 @@ const LocalCart = () => {
                 </div>
             </section>
 
-            {/* 受取日を選択（管理画面で設定した日付のみ） */}
+            {/* 受取日を選択（カレンダー） */}
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                     <Calendar className="text-emerald-600" size={20} />
                     受取日を選択
                 </h2>
-                {availableDates.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {availableDates.map(date => (
-                            <button
-                                key={date}
-                                type="button"
-                                onClick={() => setDeliveryDate(date)}
-                                className={`p-3 rounded-xl border-2 text-center font-medium transition-all ${
-                                    deliveryDate === date
-                                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                                        : 'border-gray-200 hover:border-emerald-200 text-gray-700'
-                                }`}
-                            >
-                                {formatDateLabel(date)}
-                            </button>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="text-center py-6 text-gray-500">
-                        <p>現在、受取可能な日程がありません。</p>
-                        <p className="text-xs mt-1">管理者が受取枠を設定するとここに表示されます。</p>
-                    </div>
-                )}
+                {(() => {
+                    const monthStart = startOfMonth(calendarMonth)
+                    const monthEnd = endOfMonth(calendarMonth)
+                    const days = eachDayOfInterval({ start: monthStart, end: monthEnd })
+                    const startPadding = getDay(monthStart) // 0=日曜
+                    const availableSet = new Set(availableDates)
+                    const today = format(new Date(), 'yyyy-MM-dd')
+
+                    return (
+                        <div>
+                            {/* 月ナビ */}
+                            <div className="flex items-center justify-between mb-3">
+                                <button type="button" onClick={() => setCalendarMonth(subMonths(calendarMonth, 1))}
+                                    className="p-2 rounded-lg hover:bg-gray-100 transition">
+                                    <ChevronLeft size={20} className="text-gray-600" />
+                                </button>
+                                <span className="font-bold text-gray-900">
+                                    {format(calendarMonth, 'yyyy年M月', { locale: ja })}
+                                </span>
+                                <button type="button" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}
+                                    className="p-2 rounded-lg hover:bg-gray-100 transition">
+                                    <ChevronRight size={20} className="text-gray-600" />
+                                </button>
+                            </div>
+                            {/* 曜日ヘッダー */}
+                            <div className="grid grid-cols-7 text-center text-xs font-medium text-gray-500 mb-1">
+                                {['日','月','火','水','木','金','土'].map(d => <div key={d} className="py-1">{d}</div>)}
+                            </div>
+                            {/* 日付グリッド */}
+                            <div className="grid grid-cols-7 gap-1">
+                                {Array.from({ length: startPadding }).map((_, i) => <div key={`pad-${i}`} />)}
+                                {days.map(day => {
+                                    const dateStr = format(day, 'yyyy-MM-dd')
+                                    const isAvailable = availableSet.has(dateStr)
+                                    const isSelected = deliveryDate === dateStr
+                                    const isPast = dateStr < today || dateStr < minDate
+
+                                    return (
+                                        <button
+                                            key={dateStr}
+                                            type="button"
+                                            disabled={!isAvailable || isPast}
+                                            onClick={() => setDeliveryDate(dateStr)}
+                                            className={`aspect-square flex flex-col items-center justify-center rounded-lg text-sm font-medium transition-all ${
+                                                isSelected
+                                                    ? 'bg-emerald-600 text-white shadow-md'
+                                                    : isAvailable && !isPast
+                                                        ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                                                        : isPast
+                                                            ? 'text-gray-300 cursor-not-allowed'
+                                                            : 'text-gray-400 cursor-not-allowed'
+                                            }`}
+                                        >
+                                            <span>{day.getDate()}</span>
+                                            {isAvailable && !isPast && !isSelected && (
+                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-0.5" />
+                                            )}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                            {availableDates.length === 0 && (
+                                <p className="text-center text-gray-500 text-sm mt-4">
+                                    受取可能な日程がありません
+                                </p>
+                            )}
+                            <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
+                                <span className="flex items-center gap-1">
+                                    <span className="w-3 h-3 rounded bg-emerald-50 border border-emerald-200" /> 受取可能
+                                </span>
+                                <span className="flex items-center gap-1">
+                                    <span className="w-3 h-3 rounded bg-emerald-600" /> 選択中
+                                </span>
+                            </div>
+                        </div>
+                    )
+                })()}
             </section>
 
             {/* 時間帯を選択（選択日の受取枠から） */}
