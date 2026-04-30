@@ -551,9 +551,7 @@ const LocalCart = () => {
                     </div>
                     <div className="flex justify-between">
                         <span>送料</span>
-                        <span className={shippingFee === 0 ? 'text-emerald-600 font-semibold' : ''}>
-                            {shippingFee === 0 ? '無料' : `¥${shippingFee.toLocaleString()}`}
-                        </span>
+                        <span className="text-emerald-600 font-semibold">無料</span>
                     </div>
                     <div className="flex justify-between font-bold text-xl text-gray-900 pt-2 border-t-2 border-gray-300">
                         <span>お支払い合計</span>

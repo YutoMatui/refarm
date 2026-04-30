@@ -13,11 +13,9 @@ import LocalMyPage from '@/pages/local/LocalMyPage'
 import LocalCart from '@/pages/local/LocalCart'
 import LocalOrderComplete from '@/pages/local/LocalOrderComplete'
 import LocalProfile from '@/pages/local/LocalProfile'
-import ConsumerRegisterForm from '@/pages/local/ConsumerRegisterForm'
 import LocalBottomNav from '@/components/local/LocalBottomNav'
 import LocalFloatingCartButton from '@/components/local/LocalFloatingCartButton'
 import Loading from '@/components/Loading'
-import type { Consumer } from '@/types'
 
 // LINEログイン設定
 const SKIP_LINE_LOGIN = false // 本番環境: LINEログインを有効化
@@ -25,9 +23,6 @@ const SKIP_LINE_LOGIN = false // 本番環境: LINEログインを有効化
 const LocalApp = () => {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
-    const [needsRegistration, setNeedsRegistration] = useState(false)
-    const [idToken, setIdToken] = useState<string | null>(null)
-
     const consumer = useStore(state => state.consumer)
     const setConsumer = useStore(state => state.setConsumer)
     const setLineUserId = useStore(state => state.setLineUserId)
@@ -50,8 +45,6 @@ const LocalApp = () => {
                     setFarmer(null)
                     setConsumer(null)
                     clearCart()
-                    setIdToken('dev-token')
-                    setNeedsRegistration(true)
                     setLoading(false)
                     return
                 }
@@ -76,8 +69,6 @@ const LocalApp = () => {
                     return
                 }
 
-                setIdToken(token)
-
                 try {
                     // verify で自動仮登録される（LINE IDだけでConsumerレコード作成）
                     const response = await consumerApi.verify({ id_token: token })
@@ -90,11 +81,9 @@ const LocalApp = () => {
 
                     if (data.consumer) {
                         setConsumer(data.consumer)
-                        setNeedsRegistration(false)
                     } else {
                         setConsumer(null)
                         clearCart()
-                        setNeedsRegistration(false)
                     }
 
                     setLoading(false)
@@ -113,11 +102,6 @@ const LocalApp = () => {
 
         init()
     }, [setConsumer, setFarmer, setLineUserId, setRestaurant, setUserRole, clearCart])
-
-    const handleRegistrationSuccess = (registered: Consumer) => {
-        setConsumer(registered)
-        setNeedsRegistration(false)
-    }
 
     const handleRetry = () => {
         window.location.reload()
