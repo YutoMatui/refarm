@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, ShoppingBag, Truck, ClipboardList, Store, Map, ShieldAlert, MessageCircle, UserCircle, Activity, Calendar, ChevronDown, Menu, X } from 'lucide-react'
+import { Users, ShoppingBag, Truck, ClipboardList, Store, Map, ShieldAlert, MessageCircle, UserCircle, Activity, Calendar, ChevronDown, Menu, X, Receipt } from 'lucide-react'
 import FarmerManagement from '@/components/Admin/FarmerManagement'
 import ProductManagement from '@/components/Admin/ProductManagement'
 import DeliveryManagement from '@/components/Admin/DeliveryManagement'
@@ -11,10 +11,11 @@ import DeliveryScheduleManagement from '@/components/Admin/DeliveryScheduleManag
 import GuestManagement from '@/components/Admin/GuestManagement'
 import ConsumerManagement from '@/components/Admin/ConsumerManagement'
 import ConsumerDeliverySlotManagement from '@/components/Admin/ConsumerDeliverySlotManagement'
+import ConsumerOrderManagement from '@/components/Admin/ConsumerOrderManagement'
 import AccessLogManagement from '@/components/Admin/AccessLogManagement'
 import { adminApi } from '@/services/api'
 
-type TabId = 'consumers' | 'consumer_slots' | 'restaurants' | 'delivery' | 'delivery_schedule' | 'farmers' | 'products' | 'procurement' | 'route' | 'guest' | 'access_logs' | 'admin_users'
+type TabId = 'consumers' | 'consumer_orders' | 'consumer_slots' | 'restaurants' | 'delivery' | 'delivery_schedule' | 'farmers' | 'products' | 'procurement' | 'route' | 'guest' | 'access_logs' | 'admin_users'
 
 interface TabItem {
     id: TabId
@@ -45,6 +46,7 @@ export default function Admin() {
             label: 'ベジコベ（消費者向け）',
             tabs: [
                 { id: 'consumers', label: '消費者管理', icon: UserCircle },
+                { id: 'consumer_orders', label: '注文履歴', icon: Receipt },
                 { id: 'consumer_slots', label: '受取枠管理', icon: Calendar },
             ],
         },
@@ -191,6 +193,7 @@ export default function Admin() {
                     {/* Content Area */}
                     <div className="flex-1 min-w-0">
                         {activeTab === 'consumers' && <ConsumerManagement />}
+                        {activeTab === 'consumer_orders' && <ConsumerOrderManagement />}
                         {activeTab === 'consumer_slots' && <ConsumerDeliverySlotManagement />}
                         {activeTab === 'restaurants' && <RestaurantManagement />}
                         {activeTab === 'delivery' && <DeliveryManagement />}
