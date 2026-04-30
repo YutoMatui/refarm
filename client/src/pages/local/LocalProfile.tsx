@@ -23,8 +23,8 @@ const LocalProfile = () => {
     useEffect(() => {
         if (consumer) {
             setForm({
-                name: consumer.name,
-                phone_number: consumer.phone_number,
+                name: consumer.name ?? '',
+                phone_number: consumer.phone_number ?? '',
                 postal_code: consumer.postal_code ?? '',
                 address: consumer.address ?? '',
                 building: consumer.building ?? '',

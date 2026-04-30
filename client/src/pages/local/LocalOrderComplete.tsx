@@ -47,8 +47,6 @@ const LocalOrderComplete = () => {
     const pickupDate = data.delivery_slot?.date
         ? format(parseISO(data.delivery_slot.date), 'M月d日(E)', { locale: ja })
         : data.delivery_time_label
-    const isCardPayment = data.payment_method === 'card'
-
     return (
         <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
             <div className="bg-white border border-emerald-200 rounded-2xl p-8 shadow-sm text-center space-y-4">
