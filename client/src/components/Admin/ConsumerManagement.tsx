@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Search, Phone, MapPin, Calendar, MessageCircle, Edit2, Trash2, X, Save, User } from 'lucide-react'
+import { Search, Phone, MapPin, Calendar, MessageCircle, Edit2, Trash2, X, Save, User, Package, ShoppingBag } from 'lucide-react'
 import { toast } from 'sonner'
 import { adminConsumerApi } from '@/services/api'
 import type { Consumer } from '@/types'
@@ -10,6 +10,7 @@ const ConsumerManagement = () => {
     const [searchQuery, setSearchQuery] = useState('')
     const [selectedConsumer, setSelectedConsumer] = useState<Consumer | null>(null)
     const [showMessages, setShowMessages] = useState(false)
+    const [showOrders, setShowOrders] = useState(false)
     const [isEditing, setIsEditing] = useState(false)
     const [editForm, setEditForm] = useState<Partial<Consumer>>({})
 
@@ -31,6 +32,17 @@ const ConsumerManagement = () => {
             return response.data
         },
         enabled: !!selectedConsumer && showMessages
+    })
+
+    // 選択された消費者の注文履歴取得
+    const { data: orders = [] } = useQuery({
+        queryKey: ['admin-consumer-orders', selectedConsumer?.id],
+        queryFn: async () => {
+            if (!selectedConsumer) return []
+            const response = await adminConsumerApi.getOrders(selectedConsumer.id)
+            return response.data
+        },
+        enabled: !!selectedConsumer && showOrders
     })
 
     // 更新Mutation
@@ -150,6 +162,7 @@ const ConsumerManagement = () => {
                                     onClick={() => {
                                         setSelectedConsumer(consumer)
                                         setShowMessages(false)
+                                        setShowOrders(false)
                                         setIsEditing(false)
                                     }}
                                     className={`p-4 hover:bg-gray-50 cursor-pointer transition ${selectedConsumer?.id === consumer.id ? 'bg-emerald-50 border-l-4 border-emerald-600' : ''
@@ -410,6 +423,74 @@ const ConsumerManagement = () => {
                                                 </p>
                                             </div>
                                         </div>
+                                    </div>
+
+                                    {/* 注文履歴 */}
+                                    <div>
+                                        <button
+                                            onClick={() => setShowOrders(!showOrders)}
+                                            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition"
+                                        >
+                                            <ShoppingBag size={18} />
+                                            {showOrders ? '注文履歴を隠す' : `注文履歴を表示`}
+                                        </button>
+
+                                        {showOrders && (
+                                            <div className="mt-4 space-y-3 max-h-[500px] overflow-y-auto">
+                                                {orders.length > 0 ? (
+                                                    orders.map((order: any) => {
+                                                        const statusMap: Record<string, { label: string; color: string }> = {
+                                                            'pending': { label: '確認中', color: 'bg-yellow-100 text-yellow-800' },
+                                                            'confirmed': { label: '確認済', color: 'bg-blue-100 text-blue-800' },
+                                                            'preparing': { label: '準備中', color: 'bg-purple-100 text-purple-800' },
+                                                            'shipped': { label: '配送中', color: 'bg-emerald-100 text-emerald-800' },
+                                                            'delivered': { label: '完了', color: 'bg-green-100 text-green-800' },
+                                                            'completed': { label: '完了', color: 'bg-green-100 text-green-800' },
+                                                            'cancelled': { label: 'キャンセル', color: 'bg-red-100 text-red-800' },
+                                                        }
+                                                        const s = statusMap[order.status?.toLowerCase()] || { label: order.status, color: 'bg-gray-100 text-gray-800' }
+                                                        return (
+                                                            <div key={order.id} className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                                                                <div className="flex items-start justify-between mb-2">
+                                                                    <div>
+                                                                        <div className="flex items-center gap-2 mb-1">
+                                                                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${s.color}`}>{s.label}</span>
+                                                                            <span className="text-xs text-gray-500">#{String(order.id).padStart(6, '0')}</span>
+                                                                        </div>
+                                                                        {order.delivery_date && (
+                                                                            <p className="text-xs text-gray-600 flex items-center gap-1">
+                                                                                <Calendar size={12} />
+                                                                                {order.delivery_date} {order.delivery_time_label}
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="text-right">
+                                                                        <p className="font-bold text-emerald-700">¥{Math.round(Number(order.total_amount)).toLocaleString()}</p>
+                                                                        <p className="text-xs text-gray-400">{order.payment_method === 'card' ? 'カード' : '現金'}</p>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="space-y-1 mt-2 border-t border-gray-200 pt-2">
+                                                                    {order.items?.map((item: any) => (
+                                                                        <div key={item.id} className="flex justify-between text-xs text-gray-600">
+                                                                            <span>{item.product_name} × {item.quantity}{item.product_unit}</span>
+                                                                            <span>¥{Math.round(Number(item.total_amount)).toLocaleString()}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                                <p className="text-xs text-gray-400 mt-2">
+                                                                    {order.created_at ? new Date(order.created_at).toLocaleString('ja-JP') : ''}
+                                                                </p>
+                                                            </div>
+                                                        )
+                                                    })
+                                                ) : (
+                                                    <div className="text-center py-6 text-gray-400">
+                                                        <Package size={24} className="mx-auto mb-2" />
+                                                        <p className="text-sm">注文履歴はありません</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* 応援メッセージ */}

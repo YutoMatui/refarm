@@ -622,6 +622,8 @@ export const adminConsumerApi = {
     apiClient.delete(`/admin/consumers/${id}`),
   getMessages: (consumerId: number) =>
     apiClient.get(`/admin/consumers/${consumerId}/messages`),
+  getOrders: (consumerId: number) =>
+    apiClient.get(`/admin/consumers/${consumerId}/orders`),
 }
 
 // Admin Organization API

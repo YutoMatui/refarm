@@ -3,11 +3,12 @@ Admin Consumer Management Router
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func
+from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.routers.admin_auth import require_super_admin
-from app.models import Admin, Consumer, SupportMessage, Farmer
+from app.models import Admin, Consumer, SupportMessage, Farmer, ConsumerOrder, ConsumerOrderItem, Product, DeliverySlot
 
 router = APIRouter()
 
@@ -92,3 +93,57 @@ async def get_consumer_messages(
         })
     
     return messages
+
+
+@router.get("/consumers/{consumer_id}/orders")
+async def get_consumer_orders(
+    consumer_id: int,
+    _: Admin = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    消費者の注文履歴を取得（管理者用）
+    """
+    query = (
+        select(ConsumerOrder)
+        .options(
+            selectinload(ConsumerOrder.order_items)
+            .selectinload(ConsumerOrderItem.product)
+            .selectinload(Product.farmer),
+            selectinload(ConsumerOrder.delivery_slot),
+        )
+        .where(ConsumerOrder.consumer_id == consumer_id)
+        .order_by(desc(ConsumerOrder.created_at))
+    )
+    result = await db.execute(query)
+    orders = result.scalars().all()
+
+    return [
+        {
+            "id": order.id,
+            "status": order.status.value if hasattr(order.status, 'value') else str(order.status),
+            "delivery_type": order.delivery_type.value if hasattr(order.delivery_type, 'value') else str(order.delivery_type),
+            "delivery_label": order.delivery_label,
+            "delivery_time_label": order.delivery_time_label,
+            "delivery_date": order.delivery_slot.date.isoformat() if order.delivery_slot else None,
+            "payment_method": order.payment_method,
+            "subtotal": str(order.subtotal),
+            "tax_amount": str(order.tax_amount),
+            "shipping_fee": order.shipping_fee,
+            "total_amount": str(order.total_amount),
+            "created_at": order.created_at.isoformat() if order.created_at else None,
+            "items": [
+                {
+                    "id": item.id,
+                    "product_name": item.product_name,
+                    "product_unit": item.product_unit,
+                    "quantity": item.quantity,
+                    "unit_price": str(item.unit_price),
+                    "total_amount": str(item.total_amount),
+                    "farmer_name": item.product.farmer.name if item.product and item.product.farmer else None,
+                }
+                for item in order.order_items
+            ],
+        }
+        for order in orders
+    ]
