@@ -269,14 +269,6 @@ const LocalCart = () => {
         setIsAvailModalOpen(false)
     }
 
-    const formatDateLabel = (dateStr: string) => {
-        try {
-            return format(new Date(dateStr + 'T00:00:00'), 'M月d日(E)', { locale: ja })
-        } catch {
-            return dateStr
-        }
-    }
-
     if (!consumer) {
         return (
             <div className="max-w-3xl mx-auto px-4 py-6">
