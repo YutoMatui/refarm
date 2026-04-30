@@ -121,6 +121,7 @@ const LocalCart = () => {
     // Stripe
     const [clientSecret, setClientSecret] = useState<string | null>(null)
     const [stripeInstance, setStripeInstance] = useState<Awaited<ReturnType<typeof loadStripe>> | null>(null)
+    const [stripeError, setStripeError] = useState<string | null>(null)
 
     const [isAvailModalOpen, setIsAvailModalOpen] = useState(false)
     const [unavailableItems] = useState<any[]>([])
@@ -189,17 +190,24 @@ const LocalCart = () => {
         let cancelled = false
 
         const createIntent = async () => {
+            setStripeError(null)
             try {
                 const stripe = await getStripe()
-                if (!stripe || cancelled) return
+                if (cancelled) return
+                if (!stripe) {
+                    setStripeError('Stripeの初期化に失敗しました。公開キーを確認してください。')
+                    return
+                }
                 setStripeInstance(stripe)
 
                 const res = await paymentApi.createPaymentIntent({ amount: grandTotal, save_card: false })
                 if (!cancelled) {
                     setClientSecret(res.data.client_secret)
                 }
-            } catch (err) {
+            } catch (err: any) {
                 console.error('PaymentIntent creation failed', err)
+                const detail = err?.response?.data?.detail || err?.message || '決済の初期化に失敗しました'
+                if (!cancelled) setStripeError(detail)
             }
         }
 
@@ -477,7 +485,14 @@ const LocalCart = () => {
                     </div>
                 )}
 
-                {canSubmit && clientSecret && stripeInstance ? (
+                {canSubmit && stripeError && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
+                        <p className="font-semibold mb-1">決済エラー</p>
+                        <p>{stripeError}</p>
+                    </div>
+                )}
+
+                {canSubmit && !stripeError && clientSecret && stripeInstance ? (
                     <Elements stripe={stripeInstance} options={{
                         clientSecret,
                         appearance: {
@@ -491,7 +506,7 @@ const LocalCart = () => {
                             isSubmitting={mutation.isPending}
                         />
                     </Elements>
-                ) : canSubmit ? (
+                ) : canSubmit && !stripeError ? (
                     <div className="text-center py-4 text-gray-500 text-sm">
                         決済フォームを読み込んでいます...
                     </div>
