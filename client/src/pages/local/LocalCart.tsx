@@ -1,16 +1,85 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { format, addDays, parseISO, isAfter } from 'date-fns'
+import { format, addDays } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { toast } from 'sonner'
-import { MapPin, CreditCard, User } from 'lucide-react'
-import { consumerOrderApi, consumerApi, farmerApi, settingsApi } from '@/services/api'
+import { MapPin, CreditCard, User, Calendar } from 'lucide-react'
+import { loadStripe } from '@stripe/stripe-js'
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import { consumerOrderApi, consumerApi, paymentApi, deliverySlotApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
-import { DeliveryTimeSlot, DeliverySlotType, type ConsumerOrder, type ConsumerOrderCreateRequest, type DeliverySchedule } from '@/types'
-import DeliveryCalendar from '@/components/DeliveryCalendar'
+import { DeliverySlotType, type ConsumerOrder, type ConsumerOrderCreateRequest, type DeliverySlot } from '@/types'
 import AvailabilityModal from '@/components/AvailabilityModal'
 
+// Stripe公開キーの初期化（バックエンドから取得）
+let stripePromise: ReturnType<typeof loadStripe> | null = null
+const getStripe = async () => {
+    if (!stripePromise) {
+        try {
+            const res = await paymentApi.getConfig()
+            stripePromise = loadStripe(res.data.publishable_key)
+        } catch {
+            console.error('Failed to load Stripe config')
+            stripePromise = null
+        }
+    }
+    return stripePromise
+}
+
+// --- Stripe決済フォーム（Elements内で使用） ---
+interface CheckoutFormProps {
+    onPaymentSuccess: (paymentIntentId: string, paymentMethodId: string) => void
+    isSubmitting: boolean
+}
+
+const CheckoutForm = ({ onPaymentSuccess, isSubmitting }: CheckoutFormProps) => {
+    const stripe = useStripe()
+    const elements = useElements()
+    const [isProcessing, setIsProcessing] = useState(false)
+    const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+    const handleSubmit = async () => {
+        if (!stripe || !elements) return
+
+        setIsProcessing(true)
+        setErrorMessage(null)
+
+        const { error, paymentIntent } = await stripe.confirmPayment({
+            elements,
+            redirect: 'if_required',
+        })
+
+        if (error) {
+            setErrorMessage(error.message ?? 'カード決済に失敗しました')
+            setIsProcessing(false)
+        } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+            onPaymentSuccess(paymentIntent.id, paymentIntent.payment_method as string)
+        } else {
+            setErrorMessage('決済処理を完了できませんでした')
+            setIsProcessing(false)
+        }
+    }
+
+    return (
+        <div className="space-y-3">
+            <PaymentElement options={{ layout: 'tabs' }} />
+            {errorMessage && (
+                <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">{errorMessage}</div>
+            )}
+            <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!stripe || isProcessing || isSubmitting}
+                className="w-full py-4 bg-emerald-600 text-white font-bold text-lg rounded-xl hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+            >
+                {isProcessing || isSubmitting ? '決済処理中...' : '注文を確定する'}
+            </button>
+        </div>
+    )
+}
+
+// --- メインカートコンポーネント ---
 const LocalCart = () => {
     const navigate = useNavigate()
     const cart = useStore(state => state.cart)
@@ -44,90 +113,102 @@ const LocalCart = () => {
         }
     }
 
+    const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null)
     const [deliveryDate, setDeliveryDate] = useState('')
-    const [deliveryTimeSlot, setDeliveryTimeSlot] = useState<DeliveryTimeSlot | ''>('')
+    const [deliveryTimeLabel, setDeliveryTimeLabel] = useState('')
     const [deliveryNotes, setDeliveryNotes] = useState('')
-    const [availableTimeSlots, setAvailableTimeSlots] = useState<{ value: DeliveryTimeSlot; label: string }[]>([])
 
-    const [saveCardForFuture, setSaveCardForFuture] = useState(false)
-    const [stripeCustomerId, setStripeCustomerId] = useState('')
-    const [stripePaymentMethodId, setStripePaymentMethodId] = useState('')
-    const [stripePaymentIntentId, setStripePaymentIntentId] = useState('')
+    // Stripe
+    const [clientSecret, setClientSecret] = useState<string | null>(null)
+    const [stripeInstance, setStripeInstance] = useState<Awaited<ReturnType<typeof loadStripe>> | null>(null)
+    const [paymentReady, setPaymentReady] = useState(false)
 
     const [isAvailModalOpen, setIsAvailModalOpen] = useState(false)
     const [unavailableItems, setUnavailableItems] = useState<any[]>([])
     const [nextDateSuggestion, setNextDateSuggestion] = useState<{ date: string; label: string } | undefined>()
 
-    const defaultTimeSlots = [
-        { value: DeliveryTimeSlot.SLOT_12_14, label: '12:00 〜 14:00' },
-        { value: DeliveryTimeSlot.SLOT_14_16, label: '14:00 〜 16:00' },
-        { value: DeliveryTimeSlot.SLOT_16_18, label: '16:00 〜 18:00' },
-    ]
-
     const minDate = format(addDays(new Date(), 2), 'yyyy-MM-dd')
 
-    useEffect(() => {
-        if (!consumer) return
-        setStripeCustomerId(consumer.stripe_customer_id ?? '')
-        setStripePaymentMethodId(consumer.default_stripe_payment_method_id ?? '')
-    }, [consumer])
-
-    const { data: settings } = useQuery({
-        queryKey: ['delivery-settings'],
+    // --- 消費者向けの受取枠をAPI取得 ---
+    const { data: universitySlots } = useQuery({
+        queryKey: ['consumer-delivery-slots-public'],
         queryFn: async () => {
-            try {
-                const res = await settingsApi.getDeliverySettings()
-                return res.data
-            } catch {
-                return {
-                    allowed_days: [0, 1, 2, 3, 4, 5, 6],
-                    closed_dates: [],
-                    time_slots: [
-                        { id: '12-14', label: '12:00 〜 14:00', enabled: true },
-                        { id: '14-16', label: '14:00 〜 16:00', enabled: true },
-                        { id: '16-18', label: '16:00 〜 18:00', enabled: true },
-                    ],
-                }
-            }
-        },
-    })
-
-    useEffect(() => {
-        if (settings) {
-            const slots = settings.time_slots?.filter(s => s.enabled).map(s => ({
-                value: s.id as DeliveryTimeSlot,
-                label: s.label,
-            })) || defaultTimeSlots
-            setAvailableTimeSlots(slots)
-            return
-        }
-        setAvailableTimeSlots(defaultTimeSlots)
-    }, [settings])
-
-    const uniqueFarmerIds = useMemo(() => {
-        return Array.from(new Set(
-            cart
-                .map(item => item.product.farmer_id)
-                .filter(id => id !== undefined && id !== null && id !== 0)
-        )) as number[]
-    }, [cart])
-
-    const { data: bulkAvailability } = useQuery({
-        queryKey: ['farmer-availability-bulk-local', format(new Date(), 'yyyy-MM'), uniqueFarmerIds],
-        queryFn: async () => {
-            if (uniqueFarmerIds.length === 0) return null
-            const start = format(new Date(), 'yyyy-MM-dd')
-            const end = format(addDays(new Date(), 30), 'yyyy-MM-dd')
-            const res = await farmerApi.checkAvailabilityBulk({
-                farmer_ids: uniqueFarmerIds,
-                start_date: start,
-                end_date: end,
-            })
+            const res = await deliverySlotApi.list({ slot_type: DeliverySlotType.UNIVERSITY })
             return res.data
         },
-        enabled: uniqueFarmerIds.length > 0,
     })
 
+    // 受取枠がある日付だけ抽出（minDate以降）
+    const availableDates = useMemo(() => {
+        if (!universitySlots) return []
+        return [...new Set(
+            universitySlots
+                .filter((s: DeliverySlot) => s.is_active && s.date >= minDate)
+                .map((s: DeliverySlot) => s.date)
+        )].sort()
+    }, [universitySlots, minDate])
+
+    // 選択された日の時間帯
+    const timeSlotsForDate = useMemo(() => {
+        if (!universitySlots || !deliveryDate) return []
+        return universitySlots.filter(
+            (s: DeliverySlot) => s.date === deliveryDate && s.is_active && s.slot_type === DeliverySlotType.UNIVERSITY
+        )
+    }, [universitySlots, deliveryDate])
+
+    // 日付変更時にスロット選択をリセット
+    useEffect(() => {
+        setSelectedSlotId(null)
+        setDeliveryTimeLabel('')
+    }, [deliveryDate])
+
+    // --- Stripe初期化 ---
+    const { subtotal, taxAmount, productTotal } = useMemo(() => {
+        let currentSubtotal = 0
+        let currentTax = 0
+        cart.forEach(item => {
+            const price = parseFloat(String(item.product.price))
+            const quantity = Number(item.quantity)
+            const taxRate = item.product.tax_rate
+            const itemSubtotal = price * quantity
+            const itemTax = Math.round(itemSubtotal * (taxRate / 100))
+            currentSubtotal += itemSubtotal
+            currentTax += itemTax
+        })
+        return {
+            subtotal: Math.round(currentSubtotal),
+            taxAmount: Math.round(currentTax),
+            productTotal: Math.round(currentSubtotal + currentTax),
+        }
+    }, [cart])
+
+    const grandTotal = productTotal
+
+    // PaymentIntentを作成（金額が決まったとき）
+    useEffect(() => {
+        if (grandTotal <= 0 || needsProfile) return
+        let cancelled = false
+
+        const createIntent = async () => {
+            try {
+                const stripe = await getStripe()
+                if (!stripe || cancelled) return
+                setStripeInstance(stripe)
+
+                const res = await paymentApi.createPaymentIntent({ amount: grandTotal, save_card: false })
+                if (!cancelled) {
+                    setClientSecret(res.data.client_secret)
+                }
+            } catch (err) {
+                console.error('PaymentIntent creation failed', err)
+            }
+        }
+
+        createIntent()
+        return () => { cancelled = true }
+    }, [grandTotal, needsProfile])
+
+    // --- 注文送信 ---
     const mutation = useMutation<ConsumerOrder, unknown, ConsumerOrderCreateRequest>({
         mutationFn: async (payload: ConsumerOrderCreateRequest) => {
             const response = await consumerOrderApi.create(payload)
@@ -145,145 +226,9 @@ const LocalCart = () => {
         },
     })
 
-    const handleDateSelect = async (date: string, schedule?: DeliverySchedule) => {
-        setDeliveryDate(date)
-        setDeliveryTimeSlot('')
+    const handlePaymentSuccess = (paymentIntentId: string, paymentMethodId: string) => {
+        if (!consumer) return
 
-        if (uniqueFarmerIds.length > 0) {
-            const badItems: any[] = []
-            for (const farmerId of uniqueFarmerIds) {
-                try {
-                    const res = await farmerApi.checkAvailability(farmerId, date)
-                    if (!res.data.is_available) {
-                        const product = cart.find(item => item.product.farmer_id === farmerId)?.product
-                        badItems.push({
-                            productName: product?.name || '商品',
-                            farmerName: product?.farmer?.name || '農家',
-                            reason: res.data.reason || '出荷不可',
-                            productId: product?.id,
-                            farmerId,
-                        })
-                    }
-                } catch (e) {
-                    console.error('Selection check failed', e)
-                }
-            }
-
-            if (badItems.length > 0) {
-                setUnavailableItems(badItems)
-                if (bulkAvailability) {
-                    const today = new Date()
-                    const dates = Object.keys(bulkAvailability).sort()
-                    const nextComplete = dates.find(d => {
-                        const dObj = new Date(d)
-                        return isAfter(dObj, today) && bulkAvailability[d].all_available
-                    })
-                    if (nextComplete) {
-                        setNextDateSuggestion({
-                            date: nextComplete,
-                            label: format(parseISO(nextComplete), 'M月d日(E)', { locale: ja }),
-                        })
-                    }
-                }
-                setIsAvailModalOpen(true)
-            }
-        }
-
-        if (schedule && schedule.time_slot) {
-            const slotsStr = schedule.time_slot.split(',')
-            const validSlots: { value: DeliveryTimeSlot; label: string }[] = []
-
-            slotsStr.forEach(slotStr => {
-                let mappedSlot: DeliveryTimeSlot | null = null
-                if (slotStr.includes('12') && slotStr.includes('14')) mappedSlot = DeliveryTimeSlot.SLOT_12_14
-                else if (slotStr.includes('14') && slotStr.includes('16')) mappedSlot = DeliveryTimeSlot.SLOT_14_16
-                else if (slotStr.includes('16') && slotStr.includes('18')) mappedSlot = DeliveryTimeSlot.SLOT_16_18
-
-                if (mappedSlot && !validSlots.some(s => s.value === mappedSlot)) {
-                    validSlots.push({ value: mappedSlot, label: slotStr.trim() })
-                }
-            })
-
-            if (validSlots.length > 0) {
-                setAvailableTimeSlots(validSlots)
-                return
-            }
-        }
-
-        const slots = settings?.time_slots?.filter(s => s.enabled).map(s => ({
-            value: s.id as DeliveryTimeSlot,
-            label: s.label,
-        })) || defaultTimeSlots
-        setAvailableTimeSlots(slots)
-    }
-
-    const handleSubmit = async () => {
-        if (!consumer) {
-            toast.error('会員情報が取得できませんでした')
-            return
-        }
-        if (cart.length === 0) {
-            toast.error('カートに商品がありません')
-            return
-        }
-        if (!deliveryDate || !deliveryTimeSlot) {
-            toast.error('受取日と時間帯を選択してください')
-            return
-        }
-        if (!stripePaymentMethodId.trim()) {
-            toast.error('カード情報を入力してください')
-            return
-        }
-        if (saveCardForFuture && !stripeCustomerId.trim()) {
-            toast.error('カード保存にはStripe Customer IDが必要です')
-            return
-        }
-
-        if (uniqueFarmerIds.length > 0) {
-            const badItems: any[] = []
-            for (const farmerId of uniqueFarmerIds) {
-                try {
-                    const res = await farmerApi.checkAvailability(farmerId, deliveryDate)
-                    if (!res.data.is_available) {
-                        const product = cart.find(item => item.product.farmer_id === farmerId)?.product
-                        badItems.push({
-                            productName: product?.name || '商品',
-                            farmerName: product?.farmer?.name || '農家',
-                            reason: res.data.reason || '出荷不可',
-                            productId: product?.id,
-                            farmerId,
-                        })
-                    }
-                } catch (e) {
-                    console.error('Availability check failed', e)
-                    toast.error('出荷状況を確認できませんでした')
-                    return
-                }
-            }
-
-            if (badItems.length > 0) {
-                setUnavailableItems(badItems)
-                if (bulkAvailability) {
-                    const today = new Date()
-                    const dates = Object.keys(bulkAvailability).sort()
-                    const nextComplete = dates.find(d => {
-                        const dObj = new Date(d)
-                        return isAfter(dObj, today) && bulkAvailability[d].all_available
-                    })
-
-                    if (nextComplete) {
-                        setNextDateSuggestion({
-                            date: nextComplete,
-                            label: format(parseISO(nextComplete), 'M月d日(E)', { locale: ja }),
-                        })
-                    }
-                }
-                setIsAvailModalOpen(true)
-                return
-            }
-        }
-
-        const selectedTimeLabel = availableTimeSlots.find(slot => slot.value === deliveryTimeSlot)?.label ?? String(deliveryTimeSlot)
         const items = cart.map(item => ({
             product_id: item.product.id,
             quantity: Number(item.quantity),
@@ -291,15 +236,15 @@ const LocalCart = () => {
 
         mutation.mutate({
             consumer_id: consumer.id,
+            delivery_slot_id: selectedSlotId ?? undefined,
             delivery_date: deliveryDate,
-            delivery_time_label: selectedTimeLabel,
+            delivery_time_label: deliveryTimeLabel,
             delivery_type: DeliverySlotType.UNIVERSITY,
             delivery_notes: deliveryNotes || undefined,
             payment_method: 'card',
-            save_card_for_future: saveCardForFuture,
-            stripe_customer_id: stripeCustomerId.trim() || undefined,
-            stripe_payment_method_id: stripePaymentMethodId.trim(),
-            stripe_payment_intent_id: stripePaymentIntentId.trim() || undefined,
+            save_card_for_future: false,
+            stripe_payment_method_id: paymentMethodId,
+            stripe_payment_intent_id: paymentIntentId,
             items,
         })
     }
@@ -316,31 +261,13 @@ const LocalCart = () => {
         setIsAvailModalOpen(false)
     }
 
-    const { subtotal, taxAmount, productTotal } = useMemo(() => {
-        let currentSubtotal = 0
-        let currentTax = 0
-
-        cart.forEach(item => {
-            const price = parseFloat(String(item.product.price))
-            const quantity = Number(item.quantity)
-            const taxRate = item.product.tax_rate
-
-            const itemSubtotal = price * quantity
-            const itemTax = Math.round(itemSubtotal * (taxRate / 100))
-
-            currentSubtotal += itemSubtotal
-            currentTax += itemTax
-        })
-
-        return {
-            subtotal: Math.round(currentSubtotal),
-            taxAmount: Math.round(currentTax),
-            productTotal: Math.round(currentSubtotal + currentTax),
+    const formatDateLabel = (dateStr: string) => {
+        try {
+            return format(new Date(dateStr + 'T00:00:00'), 'M月d日(E)', { locale: ja })
+        } catch {
+            return dateStr
         }
-    }, [cart])
-
-    const shippingFee = 0
-    const grandTotal = productTotal + shippingFee
+    }
 
     if (!consumer) {
         return (
@@ -369,6 +296,8 @@ const LocalCart = () => {
         )
     }
 
+    const canSubmit = !!deliveryDate && !!selectedSlotId && !needsProfile
+
     return (
         <div className="max-w-4xl mx-auto px-4 py-6 pb-24 space-y-6">
             {needsProfile && (
@@ -381,36 +310,26 @@ const LocalCart = () => {
                     <div className="space-y-3">
                         <div className="space-y-1">
                             <label className="block text-sm font-medium text-gray-700">お名前 <span className="text-red-500">*</span></label>
-                            <input
-                                type="text"
-                                value={profileName}
-                                onChange={(e) => setProfileName(e.target.value)}
+                            <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)}
                                 placeholder="例）山田 太郎"
-                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            />
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                         </div>
                         <div className="space-y-1">
                             <label className="block text-sm font-medium text-gray-700">電話番号 <span className="text-red-500">*</span></label>
-                            <input
-                                type="tel"
-                                value={profilePhone}
-                                onChange={(e) => setProfilePhone(e.target.value)}
+                            <input type="tel" value={profilePhone} onChange={(e) => setProfilePhone(e.target.value)}
                                 placeholder="例）08012345678"
-                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            />
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                         </div>
-                        <button
-                            type="button"
-                            onClick={handleProfileComplete}
+                        <button type="button" onClick={handleProfileComplete}
                             disabled={isProfileSubmitting || !profileName.trim() || !profilePhone.trim()}
-                            className="w-full py-3 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed"
-                        >
+                            className="w-full py-3 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed">
                             {isProfileSubmitting ? '登録中...' : '登録して注文に進む'}
                         </button>
                     </div>
                 </section>
             )}
 
+            {/* 受取場所 */}
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                     <MapPin className="text-emerald-600" size={20} />
@@ -422,101 +341,87 @@ const LocalCart = () => {
                 </div>
             </section>
 
+            {/* 受取日を選択（管理画面で設定した日付のみ） */}
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-                <h2 className="text-lg font-bold text-gray-900">お届け日を選択</h2>
-                <p className="text-sm text-gray-600">飲食店向けと同じ配達可能日・時間ロジックで表示しています。</p>
-                <DeliveryCalendar
-                    selectedDate={deliveryDate}
-                    onSelect={handleDateSelect}
-                    minDate={minDate}
-                    cart={cart}
-                />
-                <p className="text-xs text-gray-500">※2日後以降の日付を選択可能（○：揃う、△：一部不可、×：不可）</p>
-            </section>
-
-            <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-                <h2 className="text-lg font-bold text-gray-900">時間帯を選択</h2>
-                <div className="grid grid-cols-1 gap-2">
-                    {availableTimeSlots.map((slot) => (
-                        <label
-                            key={slot.value}
-                            className={`flex items-center p-3 border rounded-xl cursor-pointer transition-all ${deliveryTimeSlot === slot.value
-                                ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500'
-                                : 'border-gray-200 hover:bg-gray-50'
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <Calendar className="text-emerald-600" size={20} />
+                    受取日を選択
+                </h2>
+                {availableDates.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {availableDates.map(date => (
+                            <button
+                                key={date}
+                                type="button"
+                                onClick={() => setDeliveryDate(date)}
+                                className={`p-3 rounded-xl border-2 text-center font-medium transition-all ${
+                                    deliveryDate === date
+                                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                                        : 'border-gray-200 hover:border-emerald-200 text-gray-700'
                                 }`}
-                        >
-                            <input
-                                type="radio"
-                                name="timeSlot"
-                                value={slot.value}
-                                checked={deliveryTimeSlot === slot.value}
-                                onChange={(e) => setDeliveryTimeSlot(e.target.value as DeliveryTimeSlot)}
-                                className="w-4 h-4 text-emerald-600 border-gray-300"
-                            />
-                            <span className="ml-3 font-medium text-gray-900">{slot.label}</span>
-                        </label>
-                    ))}
-                </div>
+                            >
+                                {formatDateLabel(date)}
+                            </button>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-6 text-gray-500">
+                        <p>現在、受取可能な日程がありません。</p>
+                        <p className="text-xs mt-1">管理者が受取枠を設定するとここに表示されます。</p>
+                    </div>
+                )}
             </section>
 
+            {/* 時間帯を選択（選択日の受取枠から） */}
+            {deliveryDate && (
+                <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+                    <h2 className="text-lg font-bold text-gray-900">時間帯を選択</h2>
+                    {timeSlotsForDate.length > 0 ? (
+                        <div className="grid grid-cols-1 gap-2">
+                            {timeSlotsForDate.map((slot: DeliverySlot) => (
+                                <label
+                                    key={slot.id}
+                                    className={`flex items-center p-3 border rounded-xl cursor-pointer transition-all ${
+                                        selectedSlotId === slot.id
+                                            ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500'
+                                            : 'border-gray-200 hover:bg-gray-50'
+                                    }`}
+                                >
+                                    <input
+                                        type="radio"
+                                        name="timeSlot"
+                                        value={slot.id}
+                                        checked={selectedSlotId === slot.id}
+                                        onChange={() => {
+                                            setSelectedSlotId(slot.id)
+                                            setDeliveryTimeLabel(slot.time_text)
+                                        }}
+                                        className="w-4 h-4 text-emerald-600 border-gray-300"
+                                    />
+                                    <span className="ml-3 font-medium text-gray-900">{slot.time_text}</span>
+                                    {slot.note && <span className="ml-2 text-xs text-gray-400">({slot.note})</span>}
+                                </label>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-gray-500 text-center py-4">この日の時間帯は設定されていません。</p>
+                    )}
+                </section>
+            )}
+
+            {/* ご要望 */}
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
                 <h2 className="text-lg font-bold text-gray-900">ご要望など（任意）</h2>
                 <textarea
                     value={deliveryNotes}
                     onChange={(e) => setDeliveryNotes(e.target.value)}
-                    placeholder="インターホンが鳴らない場合はお電話ください など"
-                    rows={3}
+                    placeholder="連絡事項があればご記入ください"
+                    rows={2}
                     className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 />
             </section>
 
-            <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                    <CreditCard className="text-emerald-600" size={20} />
-                    お支払い（クレジットカード）
-                </h2>
-                <p className="text-sm text-gray-600">カード情報はStripeで安全に処理され、当サービスでは保持しません。</p>
-
-                <div className="space-y-3">
-                    {/* TODO: Stripe Elements をここに配置。現在はテスト用の手動入力 */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
-                        テスト環境: 下記にStripe IDを入力してください。本番ではStripe Elementsに置き換えます。
-                    </div>
-                    <div className="space-y-2">
-                        <input
-                            type="text"
-                            value={stripeCustomerId}
-                            onChange={(e) => setStripeCustomerId(e.target.value)}
-                            placeholder="cus_xxx（任意 / カード保存時は必須）"
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                        />
-                        <input
-                            type="text"
-                            value={stripePaymentMethodId}
-                            onChange={(e) => setStripePaymentMethodId(e.target.value)}
-                            placeholder="pm_xxx（必須）"
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                        />
-                        <input
-                            type="text"
-                            value={stripePaymentIntentId}
-                            onChange={(e) => setStripePaymentIntentId(e.target.value)}
-                            placeholder="pi_xxx（任意）"
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                        />
-                    </div>
-                    <label className="flex items-center gap-2 text-sm text-gray-700">
-                        <input
-                            type="checkbox"
-                            checked={saveCardForFuture}
-                            onChange={(e) => setSaveCardForFuture(e.target.checked)}
-                            className="h-4 w-4 rounded border-gray-300 text-emerald-600"
-                        />
-                        次回以降のためにカードを保存する
-                    </label>
-                </div>
-            </section>
-
+            {/* 注文内容の確認 */}
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
                 <h2 className="text-lg font-bold text-gray-900">注文内容の確認</h2>
                 <div className="space-y-2">
@@ -527,7 +432,6 @@ const LocalCart = () => {
                         const itemSubtotal = Math.round(price * quantity)
                         const itemTax = Math.round(itemSubtotal * (taxRate / 100))
                         const itemTotal = itemSubtotal + itemTax
-
                         return (
                             <div key={item.product.id} className="flex justify-between text-sm text-gray-700 py-2 border-b border-gray-100">
                                 <span className="font-medium">{item.product.name} × {item.quantity}{item.product.unit}</span>
@@ -558,18 +462,41 @@ const LocalCart = () => {
                         <span className="text-emerald-600">¥{grandTotal.toLocaleString()}</span>
                     </div>
                 </div>
-                <div className="bg-blue-50 border-2 border-blue-200 text-blue-900 text-sm rounded-xl p-4">
-                    <p className="font-semibold mb-1">💳 カード決済について</p>
-                    <p>カード情報はStripeで安全に処理され、当サービスでは保持しません。</p>
-                </div>
-                <button
-                    type="button"
-                    onClick={handleSubmit}
-                    disabled={mutation.isPending || !deliveryDate || !deliveryTimeSlot || !stripePaymentMethodId.trim()}
-                    className="w-full py-4 bg-emerald-600 text-white font-bold text-lg rounded-xl hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
-                >
-                    {mutation.isPending ? '注文処理中...' : '注文を確定する'}
-                </button>
+            </section>
+
+            {/* Stripe決済 */}
+            <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <CreditCard className="text-emerald-600" size={20} />
+                    お支払い（クレジットカード）
+                </h2>
+                <p className="text-sm text-gray-600">カード情報はStripeで安全に処理され、当サービスでは保持しません。</p>
+
+                {!canSubmit && (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-500 text-center">
+                        受取日と時間帯を選択するとカード入力フォームが表示されます
+                    </div>
+                )}
+
+                {canSubmit && clientSecret && stripeInstance ? (
+                    <Elements stripe={stripeInstance} options={{
+                        clientSecret,
+                        appearance: {
+                            theme: 'stripe',
+                            variables: { colorPrimary: '#059669', borderRadius: '8px' },
+                        },
+                        locale: 'ja',
+                    }}>
+                        <CheckoutForm
+                            onPaymentSuccess={handlePaymentSuccess}
+                            isSubmitting={mutation.isPending}
+                        />
+                    </Elements>
+                ) : canSubmit ? (
+                    <div className="text-center py-4 text-gray-500 text-sm">
+                        決済フォームを読み込んでいます...
+                    </div>
+                ) : null}
             </section>
 
             <AvailabilityModal
