@@ -2,35 +2,33 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { orderApi } from '@/services/api'
 import { Order, OrderStatus } from '@/types'
-import { FileText, Truck, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
+import { Search, Calendar, Package, ChevronDown, ChevronUp, FileText, Truck, Trash2, Store } from 'lucide-react'
 import Loading from '@/components/Loading'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 
+const STATUS_MAP: Record<string, { label: string; color: string }> = {
+    PENDING: { label: '未確定', color: 'bg-yellow-100 text-yellow-800' },
+    CONFIRMED: { label: '受注確定', color: 'bg-blue-100 text-blue-800' },
+    PREPARING: { label: '準備中', color: 'bg-purple-100 text-purple-800' },
+    SHIPPED: { label: '配送中', color: 'bg-emerald-100 text-emerald-800' },
+    DELIVERED: { label: '配達完了', color: 'bg-green-100 text-green-800' },
+    CANCELLED: { label: 'キャンセル', color: 'bg-red-100 text-red-800' },
+}
+
 export default function DeliveryManagement() {
     const queryClient = useQueryClient()
-    const [expandedOrders, setExpandedOrders] = useState<Set<number>>(new Set())
-
-    const toggleOrderExpand = (orderId: number) => {
-        const newExpanded = new Set(expandedOrders)
-        if (newExpanded.has(orderId)) {
-            newExpanded.delete(orderId)
-        } else {
-            newExpanded.add(orderId)
-        }
-        setExpandedOrders(newExpanded)
-    }
+    const [searchQuery, setSearchQuery] = useState('')
+    const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null)
 
     const { data, isLoading } = useQuery({
         queryKey: ['admin-orders'],
         queryFn: async () => {
-            // 全注文を取得
             const response = await orderApi.list({ limit: 100 })
             return response.data
         },
     })
 
-    // PDF Download Handler - 請求書・納品書のダウンロード処理
     const handleDownload = async (orderId: number, type: 'invoice' | 'delivery_slip') => {
         try {
             const blob = type === 'invoice'
@@ -50,7 +48,6 @@ export default function DeliveryManagement() {
         }
     }
 
-    // ステータス更新
     const updateStatusMutation = useMutation({
         mutationFn: async ({ id, status }: { id: number; status: OrderStatus }) => {
             await orderApi.updateStatus(id, status)
@@ -64,7 +61,6 @@ export default function DeliveryManagement() {
         }
     })
 
-    // アイテム削除
     const deleteItemMutation = useMutation({
         mutationFn: async ({ orderId, itemId }: { orderId: number; itemId: number }) => {
             if (!confirm('このアイテムを削除しますか？\n削除すると担当農家にLINE通知が送信されます。')) return;
@@ -86,127 +82,188 @@ export default function DeliveryManagement() {
         .slice()
         .sort((a: Order, b: Order) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
+    const filteredOrders = orders.filter((order: Order) => {
+        if (!searchQuery) return true
+        const q = searchQuery.toLowerCase()
+        return (
+            String(order.id).includes(q) ||
+            order.restaurant?.name?.toLowerCase().includes(q) ||
+            order.items?.some((item) => item.product_name?.toLowerCase().includes(q))
+        )
+    })
+
+    const toggleExpand = (orderId: number) => {
+        setExpandedOrderId(prev => prev === orderId ? null : orderId)
+    }
+
     return (
         <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow">
-                <div className="p-6 border-b">
-                    <h2 className="text-xl font-bold">配送・注文管理</h2>
-                    <p className="text-sm text-gray-600 mt-1">注文一覧の確認、各種帳票のダウンロードができます</p>
-                </div>
+            <div>
+                <h2 className="text-2xl font-bold text-gray-900">注文履歴（飲食店）</h2>
+                <p className="text-sm text-gray-600 mt-1">全 {orders.length} 件</p>
+            </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="bg-gray-50 border-b">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">注文ID</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">配送日・時間</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">注文日時</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">飲食店名</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">注文内容</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">金額</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ステータス</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">帳票</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                            {orders.map((order: Order) => (
-                                <tr key={order.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 text-sm text-gray-900">#{order.id}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-900">
-                                        <div>{format(new Date(order.delivery_date), 'MM/dd(E)', { locale: ja })}</div>
-                                        <div className="text-gray-500 text-xs">{order.delivery_time_slot}</div>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-900">
-                                        <div>{format(new Date(order.created_at), 'yyyy/MM/dd', { locale: ja })}</div>
-                                        <div className="text-gray-500 text-xs">{format(new Date(order.created_at), 'HH:mm', { locale: ja })}</div>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-900">
-                                        <div className="font-medium">{order.restaurant?.name || `Restaurant #${order.restaurant_id}`}</div>
-                                        <div className="text-xs text-gray-500 truncate max-w-[150px]">{order.delivery_address}</div>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-900">
-                                        <div className="space-y-2">
-                                            {order.items && order.items.length > 0 && (expandedOrders.has(order.id) ? order.items : [order.items[0]]).map((item) => (
-                                                <div key={item.id} className="text-xs border-b border-gray-100 last:border-0 pb-2 last:pb-0">
-                                                    <div className="font-medium text-gray-800">{item.product_name}</div>
-                                                    <div className="flex justify-between items-center mt-1">
-                                                        <div className="flex items-center gap-1">
-                                                            <span className="text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded text-[10px]">
-                                                                {item.farmer_name || '農家不明'}
-                                                            </span>
-                                                            <button
-                                                                onClick={() => deleteItemMutation.mutate({ orderId: order.id, itemId: item.id })}
-                                                                className="text-red-400 hover:text-red-600 p-0.5"
-                                                                title="アイテムを削除"
-                                                            >
-                                                                <Trash2 className="w-3 h-3" />
-                                                            </button>
-                                                        </div>
-                                                        <span className="font-medium">
-                                                            ×{item.quantity}<span className="text-gray-500 font-normal">{item.product_unit}</span>
-                                                        </span>
+            {/* 検索 */}
+            <div className="bg-white rounded-lg shadow p-4">
+                <div className="relative">
+                    <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="注文番号、飲食店名、商品名で検索..."
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                </div>
+            </div>
+
+            {/* 注文一覧 */}
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+                {filteredOrders.length > 0 ? (
+                    <div className="divide-y divide-gray-100">
+                        {filteredOrders.map((order: Order) => {
+                            const s = STATUS_MAP[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-800' }
+                            const isExpanded = expandedOrderId === order.id
+
+                            return (
+                                <div key={order.id} className="hover:bg-gray-50 transition">
+                                    {/* 注文サマリー行 */}
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleExpand(order.id)}
+                                        className="w-full px-4 py-3 flex items-center gap-4 text-left"
+                                    >
+                                        <div className="flex-shrink-0 w-16 text-xs text-gray-500 font-mono">
+                                            #{String(order.id).padStart(6, '0')}
+                                        </div>
+                                        <div className="flex-shrink-0">
+                                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${s.color}`}>
+                                                {s.label}
+                                            </span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-gray-900 truncate flex items-center gap-1">
+                                                <Store size={13} className="text-gray-400 flex-shrink-0" />
+                                                {order.restaurant?.name || `Restaurant #${order.restaurant_id}`}
+                                            </p>
+                                            <p className="text-xs text-gray-500 flex items-center gap-1">
+                                                <Calendar size={11} />
+                                                {format(new Date(order.delivery_date), 'MM/dd(E)', { locale: ja })} {order.delivery_time_slot}
+                                            </p>
+                                        </div>
+                                        <div className="flex-shrink-0 text-right">
+                                            <p className="font-bold text-emerald-700">
+                                                ¥{parseInt(order.total_amount).toLocaleString()}
+                                            </p>
+                                            <p className="text-xs text-gray-400">
+                                                {order.items?.length || 0}点
+                                            </p>
+                                        </div>
+                                        <div className="flex-shrink-0">
+                                            {isExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                                        </div>
+                                    </button>
+
+                                    {/* 展開した明細 */}
+                                    {isExpanded && (
+                                        <div className="px-4 pb-4 pt-0">
+                                            <div className="bg-gray-50 rounded-lg p-4 ml-16 space-y-3">
+                                                {/* 注文情報 */}
+                                                <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                                                    <div>
+                                                        <span className="text-gray-400">注文日時: </span>
+                                                        {format(new Date(order.created_at), 'yyyy/MM/dd HH:mm', { locale: ja })}
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-gray-400">配送先: </span>
+                                                        {order.delivery_address || '-'}
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-gray-400">電話: </span>
+                                                        {order.delivery_phone || '-'}
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-gray-400">配送日時: </span>
+                                                        {format(new Date(order.delivery_date), 'yyyy/MM/dd(E)', { locale: ja })} {order.delivery_time_slot}
                                                     </div>
                                                 </div>
-                                            ))}
-                                            {order.items.length > 1 && (
-                                                <button
-                                                    onClick={() => toggleOrderExpand(order.id)}
-                                                    className="text-blue-600 text-xs mt-1 flex items-center gap-1 hover:underline w-full justify-center bg-blue-50 py-1 rounded"
-                                                >
-                                                    {expandedOrders.has(order.id) ? (
-                                                        <>
-                                                            <ChevronUp className="w-3 h-3" />
-                                                            閉じる
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <ChevronDown className="w-3 h-3" />
-                                                            すべて見る ({order.items.length}点)
-                                                        </>
-                                                    )}
-                                                </button>
-                                            )}
+
+                                                {/* ステータス変更 */}
+                                                <div className="border-t border-gray-200 pt-2 flex items-center gap-3">
+                                                    <span className="text-xs font-semibold text-gray-500">ステータス変更:</span>
+                                                    <select
+                                                        className="text-xs border-gray-300 rounded-md shadow-sm focus:border-emerald-300 focus:ring focus:ring-emerald-200 focus:ring-opacity-50 py-1 px-2"
+                                                        value={order.status}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        onChange={(e) => updateStatusMutation.mutate({ id: order.id, status: e.target.value as OrderStatus })}
+                                                    >
+                                                        <option value={OrderStatus.PENDING}>未確定</option>
+                                                        <option value={OrderStatus.CONFIRMED}>受注確定</option>
+                                                        <option value={OrderStatus.SHIPPED}>配送中</option>
+                                                        <option value={OrderStatus.DELIVERED}>配達完了</option>
+                                                        <option value={OrderStatus.CANCELLED}>キャンセル</option>
+                                                    </select>
+                                                </div>
+
+                                                {/* 商品明細 */}
+                                                <div className="border-t border-gray-200 pt-2">
+                                                    <p className="text-xs font-semibold text-gray-500 mb-1">商品明細</p>
+                                                    {order.items?.map((item) => (
+                                                        <div key={item.id} className="flex justify-between items-center text-sm py-1">
+                                                            <span className="text-gray-700 flex items-center gap-1">
+                                                                {item.product_name} × {item.quantity}{item.product_unit}
+                                                                {item.farmer_name && <span className="text-xs text-gray-400 ml-1">({item.farmer_name})</span>}
+                                                                <button
+                                                                    onClick={() => deleteItemMutation.mutate({ orderId: order.id, itemId: item.id })}
+                                                                    className="text-red-400 hover:text-red-600 p-0.5 ml-1"
+                                                                    title="アイテムを削除"
+                                                                >
+                                                                    <Trash2 className="w-3 h-3" />
+                                                                </button>
+                                                            </span>
+                                                            <span className="font-medium text-gray-900">
+                                                                ¥{Math.round(Number(item.total_amount)).toLocaleString()}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {/* 合計 */}
+                                                <div className="border-t border-gray-200 pt-2 flex justify-between text-sm">
+                                                    <span className="font-semibold text-gray-700">合計</span>
+                                                    <span className="font-bold text-emerald-700">
+                                                        ¥{parseInt(order.total_amount).toLocaleString()}
+                                                    </span>
+                                                </div>
+
+                                                {/* 帳票ダウンロード */}
+                                                <div className="border-t border-gray-200 pt-2 flex gap-2">
+                                                    <button
+                                                        onClick={() => handleDownload(order.id, 'invoice')}
+                                                        className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded hover:bg-blue-100"
+                                                    >
+                                                        <FileText className="w-3 h-3" /> 請求書
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDownload(order.id, 'delivery_slip')}
+                                                        className="flex items-center gap-1 text-xs bg-green-50 text-green-700 px-3 py-1.5 rounded hover:bg-green-100"
+                                                    >
+                                                        <Truck className="w-3 h-3" /> 納品書
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                                        ¥{parseInt(order.total_amount).toLocaleString()}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <select
-                                            className="text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                                            value={order.status}
-                                            onChange={(e) => updateStatusMutation.mutate({ id: order.id, status: e.target.value as OrderStatus })}
-                                        >
-                                            <option value={OrderStatus.PENDING}>未確定</option>
-                                            <option value={OrderStatus.CONFIRMED}>受注確定</option>
-                                            <option value={OrderStatus.SHIPPED}>配送中</option>
-                                            <option value={OrderStatus.DELIVERED}>配達完了</option>
-                                            <option value={OrderStatus.CANCELLED}>キャンセル</option>
-                                        </select>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => handleDownload(order.id, 'invoice')}
-                                                className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded hover:bg-blue-100"
-                                                title="請求書ダウンロード"
-                                            >
-                                                <FileText className="w-3 h-3" /> 請求書
-                                            </button>
-                                            <button
-                                                onClick={() => handleDownload(order.id, 'delivery_slip')}
-                                                className="flex items-center gap-1 text-xs bg-green-50 text-green-700 px-2 py-1 rounded hover:bg-green-100"
-                                                title="納品書ダウンロード"
-                                            >
-                                                <Truck className="w-3 h-3" /> 納品書
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                                    )}
+                                </div>
+                            )
+                        })}
+                    </div>
+                ) : (
+                    <div className="p-12 text-center text-gray-400">
+                        <Package size={32} className="mx-auto mb-2" />
+                        <p>注文データがありません</p>
+                    </div>
+                )}
             </div>
         </div>
     )
