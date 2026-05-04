@@ -57,8 +57,9 @@ async def get_current_farmer(line_user_id: str, db: AsyncSession) -> Farmer:
 
 @router.get("/dashboard/sales/invoice")
 async def download_payment_notice(
-    farmer_id: int = Query(..., description="生産者ID"),
+    farmer_id: int = Query(None, description="生産者ID (省略可)"),
     month: str = Query(..., description="対象月 (YYYY-MM)"),
+    line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -66,13 +67,17 @@ async def download_payment_notice(
     Refarmから生産者への支払通知
     """
     from app.services.invoice import generate_farmer_payment_notice_pdf
-    
+
     # 1. Get Farmer
-    stmt = select(Farmer).where(Farmer.id == farmer_id)
-    result = await db.execute(stmt)
-    farmer = result.scalar_one_or_none()
-    if not farmer:
-        raise HTTPException(status_code=404, detail="生産者が見つかりません")
+    if farmer_id:
+        stmt = select(Farmer).where(Farmer.id == farmer_id)
+        result = await db.execute(stmt)
+        farmer = result.scalar_one_or_none()
+        if not farmer:
+            raise HTTPException(status_code=404, detail="生産者が見つかりません")
+    else:
+        farmer = await get_current_farmer(line_user_id, db)
+        farmer_id = farmer.id
 
     try:
         target_month = datetime.strptime(month, "%Y-%m")
