@@ -96,7 +96,6 @@ def _generate_pdf(order, title):
         "building": "メゾン戸崎通 101",
         "tel": "090-9614-4516",
         "pic": "松井優人",
-        "reg_num": "T1234567890123" # Dummy T-Number (Enable when real)
     }
 
     # 銀行振込先
@@ -216,7 +215,6 @@ def generate_monthly_invoice_pdf(restaurant, orders, target_month_label, period_
         "building": "メゾン戸崎通 101",
         "tel": "090-9614-4516",
         "pic": "松井優人",
-        "reg_num": "T1234567890123"
     }
 
     bank_info = {
@@ -240,7 +238,7 @@ def generate_monthly_invoice_pdf(restaurant, orders, target_month_label, period_
         "sender_building": "メゾン戸崎通 101",
         "sender_tel": "090-9614-4516",
         "sender_pic": "松井優人",
-        "sender_reg_num": "T1234567890123", # Placeholder
+        "sender_reg_num": "",
         
         "total_amount_incl_tax": grand_total,
         "subtotal": subtotal_8 + subtotal_10,
@@ -290,7 +288,6 @@ def generate_farmer_payment_notice_pdf(farmer, total_amount, period_str, details
         "building": "メゾン戸崎通 101",
         "tel": "090-9614-4516",
         "pic": "松井優人",
-        "reg_num": "T1234567890123"
     }
 
     context = {
