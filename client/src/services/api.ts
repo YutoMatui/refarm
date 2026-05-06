@@ -369,14 +369,14 @@ export const producerApi = {
 
   downloadPaymentNotice: async (farmerId: number | undefined, month: string) => {
     const response = await apiClient.get(`/producer/dashboard/sales/invoice`, {
-      params: { month, ...(farmerId != null ? { farmer_id: farmerId } : {}) },
+      params: { month, ...(farmerId ? { farmer_id: farmerId } : {}) },
       responseType: 'blob',
     })
     return response.data
   },
 
   sendPaymentNoticeLine: (farmerId: number | undefined, month: string) =>
-    apiClient.post<{ message: string; success: boolean }>(`/producer/dashboard/sales/invoice/send_line?month=${month}${farmerId != null ? `&farmer_id=${farmerId}` : ''}`),
+    apiClient.post<{ message: string; success: boolean }>(`/producer/dashboard/sales/invoice/send_line?month=${month}${farmerId ? `&farmer_id=${farmerId}` : ''}`),
 
   getScheduleSettings: (start: string, end: string, farmerId?: number) =>
     apiClient.get<FarmerSchedule[]>('/producer/schedule/settings', {
