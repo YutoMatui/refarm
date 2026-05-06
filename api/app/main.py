@@ -192,6 +192,7 @@ from app.routers import (
     admin_access_logs,
     admin_settlements,
     integrations_lp,
+    public,
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -220,6 +221,7 @@ app.include_router(settings_router.router, prefix="/api/settings", tags=["Settin
 app.include_router(support_messages.router, prefix="/api/support-messages", tags=["Support Messages"])
 app.include_router(guest.router, prefix="/api") # guest router has /guest prefix already
 app.include_router(integrations_lp.router, prefix="/api/integrations/lp", tags=["LP Integrations"])
+app.include_router(public.router, prefix="/api/public", tags=["Public"])
 
 
 # ----------------------------------------------------
