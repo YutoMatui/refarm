@@ -142,7 +142,10 @@ async def send_payment_notice_line(
     line_user_id: str = Depends(get_line_user_id),
     db: AsyncSession = Depends(get_db)
 ):
-    """支払通知書をLINEで送信"""
+    """支払通知書をLINEで送信（PDFをCloudinaryにアップロードして公開URLを送信）"""
+    from app.services.invoice import generate_farmer_payment_notice_pdf
+    from app.core.cloudinary import upload_file
+
     # 1. Get Farmer
     if farmer_id:
         stmt = select(Farmer).where(Farmer.id == farmer_id)
@@ -150,26 +153,71 @@ async def send_payment_notice_line(
         farmer = result.scalar_one_or_none()
         if not farmer:
             raise HTTPException(status_code=404, detail="生産者が見つかりません")
-        # Access Check
-        if farmer.line_user_id != line_user_id:
-            raise HTTPException(status_code=403, detail="このデータへのアクセス権限がありません")
     else:
         farmer = await get_current_farmer(line_user_id, db)
         farmer_id = farmer.id
 
     # Validate month format
     try:
-        datetime.strptime(month, "%Y-%m")
+        target_month = datetime.strptime(month, "%Y-%m")
+        start_date = target_month.replace(day=1)
+        _, last_day = calendar.monthrange(start_date.year, start_date.month)
+        end_date = start_date.replace(day=last_day, hour=23, minute=59, second=59)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
 
-    # Construct PDF URL using API endpoint
-    # Use request.url_for and add no_notify to prevent re-triggering notifications
-    pdf_url = str(request.url_for("download_payment_notice")) + f"?farmer_id={farmer_id}&month={month}&no_notify=true"
+    # 2. Get Sales Data
+    query = (
+        select(
+            func.date(Order.delivery_date).label("date"),
+            Product.name.label("product_name"),
+            func.sum(func.coalesce(OrderItem.wholesale_price, 0) * OrderItem.quantity).label("amount")
+        )
+        .join(OrderItem.order)
+        .join(OrderItem.product)
+        .where(
+            Product.farmer_id == farmer_id,
+            Order.delivery_date >= start_date,
+            Order.delivery_date <= end_date,
+            Order.status != OrderStatus.CANCELLED
+        )
+        .group_by(func.date(Order.delivery_date), Product.name)
+        .order_by(func.date(Order.delivery_date))
+    )
+    result = await db.execute(query)
+    rows = result.all()
 
-    # Send to LINE
+    details = []
+    total_amount = 0
+    for row in rows:
+        amount = int(row.amount or 0)
+        details.append({
+            "date": row.date.strftime('%Y/%m/%d'),
+            "product": row.product_name,
+            "amount": amount
+        })
+        total_amount += amount
+
+    period_str = f"{start_date.strftime('%Y/%m/%d')} - {end_date.strftime('%Y/%m/%d')}"
+
+    # 3. Generate PDF
+    pdf_content = generate_farmer_payment_notice_pdf(farmer, total_amount, period_str, details)
+
+    # 4. Upload to Cloudinary
+    upload_result = upload_file(
+        pdf_content,
+        folder="refarm/payment-notices",
+        resource_type="raw",
+        public_id=f"payment_notice_{farmer_id}_{month}"
+    )
+    if not upload_result:
+        raise HTTPException(status_code=500, detail="PDFのアップロードに失敗しました")
+
+    pdf_url = upload_result.get("secure_url", upload_result.get("url"))
+
+    # 5. Send to LINE
     await line_service.send_payment_notice_message(farmer_id, month, pdf_url, line_user_id=farmer.line_user_id)
-    
+
     return ResponseMessage(message="支払通知書をLINEに送信しました", success=True)
 
 
