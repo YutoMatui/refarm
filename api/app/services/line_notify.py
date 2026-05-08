@@ -127,9 +127,18 @@ class LineNotificationService:
 
     def _get_admin_user_ids(self) -> List[str]:
         raw = (settings.LINE_ADMIN_USER_IDS or "").strip()
-        if not raw:
-            return []
-        return [value.strip() for value in raw.split(",") if value.strip()]
+        if raw:
+            return [value.strip() for value in raw.split(",") if value.strip()]
+        # フォールバック: LINE_TEST_USER_ID を管理者として使用
+        if settings.LINE_TEST_USER_ID:
+            return [settings.LINE_TEST_USER_ID]
+        return []
+
+    def _get_admin_token_params(self):
+        """管理者チャネルの認証情報を返す。未設定なら飲食店チャネルにフォールバック"""
+        if settings.LINE_ADMIN_CHANNEL_ID and (settings.LINE_ADMIN_CHANNEL_SECRET or settings.LINE_ADMIN_CHANNEL_ACCESS_TOKEN):
+            return (settings.LINE_ADMIN_CHANNEL_ID, settings.LINE_ADMIN_CHANNEL_SECRET, settings.LINE_ADMIN_CHANNEL_ACCESS_TOKEN)
+        return (settings.LINE_RESTAURANT_CHANNEL_ID, settings.LINE_RESTAURANT_CHANNEL_SECRET, settings.LINE_RESTAURANT_CHANNEL_ACCESS_TOKEN)
 
     async def notify_admin_order(self, order: Order):
         """Send order notification to admin LINE."""
@@ -138,11 +147,8 @@ class LineNotificationService:
             print("No LINE admin user IDs configured")
             return
 
-        token = await self.get_access_token(
-            settings.LINE_ADMIN_CHANNEL_ID,
-            settings.LINE_ADMIN_CHANNEL_SECRET,
-            settings.LINE_ADMIN_CHANNEL_ACCESS_TOKEN
-        )
+        channel_id, channel_secret, channel_token = self._get_admin_token_params()
+        token = await self.get_access_token(channel_id, channel_secret, channel_token)
 
         restaurant_name = order.restaurant.name if order.restaurant else f"Restaurant #{order.restaurant_id}"
         delivery_date_str = self.format_date(order.delivery_date)
@@ -177,11 +183,8 @@ class LineNotificationService:
             print("No LINE admin user IDs configured")
             return
 
-        token = await self.get_access_token(
-            settings.LINE_ADMIN_CHANNEL_ID,
-            settings.LINE_ADMIN_CHANNEL_SECRET,
-            settings.LINE_ADMIN_CHANNEL_ACCESS_TOKEN
-        )
+        channel_id, channel_secret, channel_token = self._get_admin_token_params()
+        token = await self.get_access_token(channel_id, channel_secret, channel_token)
 
         consumer_name = "一般消費者"
         if getattr(order, "consumer", None) and order.consumer.name:
