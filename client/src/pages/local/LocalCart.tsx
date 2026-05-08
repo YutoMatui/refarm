@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { toast } from 'sonner'
-import { MapPin, CreditCard, User, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
+import { MapPin, CreditCard, User, Calendar, ChevronLeft, ChevronRight, ShoppingCart, Minus, Plus, Trash2 } from 'lucide-react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { consumerOrderApi, consumerApi, paymentApi, deliverySlotApi } from '@/services/api'
@@ -86,6 +86,8 @@ const LocalCart = () => {
     const consumer = useStore(state => state.consumer)
     const setConsumer = useStore(state => state.setConsumer)
     const clearCart = useStore(state => state.clearCart)
+    const updateCartQuantity = useStore(state => state.updateCartQuantity)
+    const removeFromCart = useStore(state => state.removeFromCart)
 
     // プロフィール未完了の場合の入力フィールド
     const needsProfile = !consumer?.name || !consumer?.phone_number
@@ -300,6 +302,63 @@ const LocalCart = () => {
 
     return (
         <div className="max-w-4xl mx-auto px-4 py-6 pb-24 space-y-6">
+            {/* カート商品一覧（編集可能） */}
+            <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <ShoppingCart className="text-emerald-600" size={20} />
+                    カートの中身
+                </h2>
+                <div className="space-y-3">
+                    {cart.map(item => {
+                        const price = parseFloat(String(item.product.price))
+                        const quantity = Number(item.quantity)
+                        const taxRate = item.product.tax_rate
+                        const itemSubtotal = Math.round(price * quantity)
+                        const itemTax = Math.round(itemSubtotal * (taxRate / 100))
+                        const itemTotal = itemSubtotal + itemTax
+                        return (
+                            <div key={item.product.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                {item.product.image_url ? (
+                                    <img src={item.product.image_url} alt={item.product.name}
+                                        className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+                                ) : (
+                                    <div className="w-16 h-16 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                        <span className="text-2xl">🥬</span>
+                                    </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-semibold text-gray-900 text-sm truncate">{item.product.name}</p>
+                                    <p className="text-xs text-gray-500">¥{price.toLocaleString()}/{item.product.unit}（税抜）</p>
+                                    <p className="text-sm font-semibold text-emerald-600 mt-1">¥{itemTotal.toLocaleString()}</p>
+                                </div>
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                    <button type="button"
+                                        onClick={() => updateCartQuantity(item.product.id, quantity - 1)}
+                                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition">
+                                        <Minus size={14} className="text-gray-600" />
+                                    </button>
+                                    <span className="w-8 text-center font-bold text-gray-900 text-sm">{quantity}</span>
+                                    <button type="button"
+                                        onClick={() => updateCartQuantity(item.product.id, quantity + 1)}
+                                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition">
+                                        <Plus size={14} className="text-gray-600" />
+                                    </button>
+                                </div>
+                                <button type="button"
+                                    onClick={() => removeFromCart(item.product.id)}
+                                    className="w-8 h-8 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition flex-shrink-0">
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+                        )
+                    })}
+                </div>
+                <button type="button" onClick={() => navigate('/local')}
+                    className="w-full py-2 text-sm text-emerald-600 font-medium border border-emerald-200 rounded-xl hover:bg-emerald-50 transition">
+                    商品を追加する
+                </button>
+            </section>
+
             {needsProfile && (
                 <section className="bg-white border-2 border-amber-400 rounded-xl p-6 space-y-4">
                     <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
