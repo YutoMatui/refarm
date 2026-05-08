@@ -304,7 +304,7 @@ No. {order.id}
                     "total_sales": 0
                 }
             farmers_items[farmer_id]["items"].append(item)
-            farmers_items[farmer_id]["total_sales"] += item.total_amount
+            farmers_items[farmer_id]["total_sales"] += (item.wholesale_price or 0) * item.quantity
 
         for farmer_id, data in farmers_items.items():
             farmer_name = data["farmer_name"]
@@ -327,7 +327,7 @@ No. {order.id}
 飲食店から注文が入りました。収穫・出荷の準備をお願いします。
 
 ■ 出荷期限
-明日 {delivery_date_str} 午前10時まで
+{delivery_date_str} 午前10時まで
 
 ■ 収穫リスト
 {items_text}
@@ -535,7 +535,7 @@ No. {order.id}
                     "total_sales": Decimal(0)
                 }
             farmers_items[farmer_id]["items"].append(item)
-            farmers_items[farmer_id]["total_sales"] += Decimal(item.total_amount or 0)
+            farmers_items[farmer_id]["total_sales"] += Decimal(item.wholesale_price or 0) * item.quantity
 
         if not farmers_items:
             return
