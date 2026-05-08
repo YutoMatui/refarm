@@ -53,8 +53,14 @@ async def create_payment_intent(
         )
 
     try:
-        # Stripe Customerが未作成なら作成
+        # Stripe Customerが未作成 or 無効なら作成
         customer_id = consumer.stripe_customer_id
+        if customer_id:
+            try:
+                stripe.Customer.retrieve(customer_id)
+            except stripe.error.InvalidRequestError:
+                customer_id = None
+
         if not customer_id:
             customer = stripe.Customer.create(
                 metadata={"consumer_id": str(consumer.id), "line_user_id": consumer.line_user_id},
