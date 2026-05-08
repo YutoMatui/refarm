@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_consumer
-from app.models import ConsumerOrder, ConsumerOrderItem, Product, DeliverySlot, Consumer
+from app.models import ConsumerOrder, ConsumerOrderItem, Product, DeliverySlot, Consumer, Coupon
 from app.models.enums import OrderStatus, DeliverySlotType
 from app.schemas import (
     ConsumerOrderCreate,
@@ -194,7 +194,23 @@ async def create_consumer_order(
 
     db_order.subtotal = subtotal
     db_order.tax_amount = tax_amount
-    db_order.total_amount = subtotal + tax_amount + shipping_fee
+
+    # クーポン適用
+    discount_amount = Decimal(0)
+    if order_data.coupon_code:
+        from app.routers.coupons import validate_coupon as _validate
+        coupon_result = await db.execute(select(Coupon).where(Coupon.code == order_data.coupon_code.upper()))
+        coupon = coupon_result.scalar_one_or_none()
+        product_total = subtotal + tax_amount
+        validation = _validate(coupon, product_total)
+        if not validation.valid:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=validation.message)
+        discount_amount = validation.discount_amount
+        db_order.coupon_code = coupon.code
+        coupon.used_count += 1
+
+    db_order.discount_amount = discount_amount
+    db_order.total_amount = subtotal + tax_amount + shipping_fee - discount_amount
 
     if order_data.stripe_customer_id and not consumer.stripe_customer_id:
         consumer.stripe_customer_id = order_data.stripe_customer_id

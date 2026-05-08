@@ -193,6 +193,8 @@ from app.routers import (
     admin_settlements,
     integrations_lp,
     public,
+    admin_coupons,
+    coupons as coupons_router,
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -222,6 +224,8 @@ app.include_router(support_messages.router, prefix="/api/support-messages", tags
 app.include_router(guest.router, prefix="/api") # guest router has /guest prefix already
 app.include_router(integrations_lp.router, prefix="/api/integrations/lp", tags=["LP Integrations"])
 app.include_router(public.router, prefix="/api/public", tags=["Public"])
+app.include_router(admin_coupons.router, prefix="/api/admin", tags=["Admin Coupons"])
+app.include_router(coupons_router.router, prefix="/api/coupons", tags=["Coupons"])
 
 
 # ----------------------------------------------------

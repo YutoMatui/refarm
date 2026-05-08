@@ -26,6 +26,7 @@ from app.models.analytics import FarmerFollow, AccessLog
 from app.models.farmer_schedule import FarmerSchedule
 from app.models.organization import Organization
 from app.models.settlement_status import SettlementStatus
+from app.models.coupon import Coupon, DiscountType
 
 __all__ = [
     # Enums
@@ -56,4 +57,6 @@ __all__ = [
     "AccessLog",
     "FarmerSchedule",
     "SettlementStatus",
+    "Coupon",
+    "DiscountType",
 ]

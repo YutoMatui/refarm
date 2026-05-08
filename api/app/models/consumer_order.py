@@ -132,6 +132,19 @@ class ConsumerOrder(Base, TimestampMixin):
         comment="送料"
     )
 
+    coupon_code = Column(
+        String(50),
+        nullable=True,
+        comment="適用クーポンコード"
+    )
+
+    discount_amount = Column(
+        Numeric(10, 2),
+        nullable=False,
+        default=0,
+        comment="割引額"
+    )
+
     total_amount = Column(
         Numeric(10, 2),
         nullable=False,

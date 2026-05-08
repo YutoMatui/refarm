@@ -66,6 +66,7 @@ class ConsumerOrderCreate(BaseModel):
     stripe_customer_id: Optional[str] = Field(None, description="Stripe Customer ID")
     stripe_payment_method_id: Optional[str] = Field(None, description="Stripe PaymentMethod ID")
     stripe_payment_intent_id: Optional[str] = Field(None, description="Stripe PaymentIntent ID")
+    coupon_code: Optional[str] = Field(None, description="クーポンコード")
     items: List[ConsumerOrderItemCreate]
 
 
@@ -121,6 +122,8 @@ class ConsumerOrderResponse(TimestampSchema, BaseSchema):
     status: OrderStatus
     subtotal: Decimal
     tax_amount: Decimal
+    coupon_code: Optional[str] = None
+    discount_amount: Decimal = Decimal(0)
     shipping_fee: int
     total_amount: Decimal
     confirmed_at: Optional[datetime]

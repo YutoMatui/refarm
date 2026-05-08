@@ -349,6 +349,7 @@ export interface ConsumerOrderCreateRequest {
   stripe_customer_id?: string
   stripe_payment_method_id?: string
   stripe_payment_intent_id?: string
+  coupon_code?: string
   items: Array<{
     product_id: number
     quantity: number

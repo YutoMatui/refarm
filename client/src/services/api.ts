@@ -644,4 +644,32 @@ export const adminOrganizationApi = {
     apiClient.delete(`/admin/organizations/${id}`),
 }
 
+// Coupon API (consumer-facing)
+export const couponApi = {
+  validate: (data: { code: string; order_amount: number }) =>
+    apiClient.post<{
+      valid: boolean
+      code: string
+      discount_type: string | null
+      discount_value: number | null
+      discount_amount: number | null
+      message: string
+    }>('/coupons/validate', data),
+}
+
+// Admin Coupon API
+export const adminCouponApi = {
+  list: (params?: { skip?: number; limit?: number }) =>
+    apiClient.get<{ items: any[]; total: number }>('/admin/coupons/', { params }),
+
+  create: (data: any) =>
+    apiClient.post<any>('/admin/coupons/', data),
+
+  update: (id: number, data: any) =>
+    apiClient.put<any>(`/admin/coupons/${id}`, data),
+
+  delete: (id: number) =>
+    apiClient.delete(`/admin/coupons/${id}`),
+}
+
 export default apiClient

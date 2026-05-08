@@ -2,7 +2,7 @@
 Pydantic schemas for B2C consumer users.
 """
 from typing import Optional
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.schemas.base import BaseSchema, TimestampSchema
 
@@ -42,12 +42,19 @@ class ConsumerProfileCompleteRequest(BaseModel):
 class ConsumerUpdateRequest(BaseModel):
     """Consumer profile update schema."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=200)
-    phone_number: Optional[str] = Field(None, min_length=10, max_length=20)
-    postal_code: Optional[str] = Field(None, min_length=3, max_length=10)
-    address: Optional[str] = Field(None, min_length=1, max_length=500)
+    name: Optional[str] = Field(None, max_length=200)
+    phone_number: Optional[str] = Field(None, max_length=20)
+    postal_code: Optional[str] = Field(None, max_length=10)
+    address: Optional[str] = Field(None, max_length=500)
     building: Optional[str] = Field(None, description="建物名・部屋番号")
     profile_image_url: Optional[str] = Field(None, description="プロフィール画像URL")
+
+    @field_validator("name", "phone_number", "postal_code", "address", "building", "profile_image_url", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, v: str | None) -> str | None:
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return v
 
 
 class ConsumerResponse(ConsumerBase, TimestampSchema, BaseSchema):

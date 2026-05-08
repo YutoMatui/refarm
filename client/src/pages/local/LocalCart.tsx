@@ -4,10 +4,10 @@ import { useNavigate } from 'react-router-dom'
 import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { toast } from 'sonner'
-import { MapPin, CreditCard, User, Calendar, ChevronLeft, ChevronRight, ShoppingCart, Minus, Plus, Trash2 } from 'lucide-react'
+import { MapPin, CreditCard, User, Calendar, ChevronLeft, ChevronRight, ShoppingCart, Minus, Plus, Trash2, Tag } from 'lucide-react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
-import { consumerOrderApi, consumerApi, paymentApi, deliverySlotApi } from '@/services/api'
+import { consumerOrderApi, consumerApi, paymentApi, deliverySlotApi, couponApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
 import { DeliverySlotType, type ConsumerOrder, type ConsumerOrderCreateRequest, type DeliverySlot } from '@/types'
 import AvailabilityModal from '@/components/AvailabilityModal'
@@ -126,6 +126,14 @@ const LocalCart = () => {
     const [stripeInstance, setStripeInstance] = useState<Awaited<ReturnType<typeof loadStripe>> | null>(null)
     const [stripeError, setStripeError] = useState<string | null>(null)
 
+    // Coupon
+    const [couponCode, setCouponCode] = useState('')
+    const [appliedCoupon, setAppliedCoupon] = useState<{
+        code: string; discount_type: string; discount_value: number; discount_amount: number
+    } | null>(null)
+    const [couponError, setCouponError] = useState<string | null>(null)
+    const [isCouponLoading, setIsCouponLoading] = useState(false)
+
     const [isAvailModalOpen, setIsAvailModalOpen] = useState(false)
     const [unavailableItems] = useState<any[]>([])
     const [nextDateSuggestion] = useState<{ date: string; label: string } | undefined>()
@@ -185,7 +193,41 @@ const LocalCart = () => {
         }
     }, [cart])
 
-    const grandTotal = productTotal
+    const discountAmount = appliedCoupon?.discount_amount || 0
+    const grandTotal = Math.max(0, productTotal - discountAmount)
+
+    const handleApplyCoupon = async () => {
+        if (!couponCode.trim()) return
+        setIsCouponLoading(true)
+        setCouponError(null)
+        try {
+            const res = await couponApi.validate({ code: couponCode.trim(), order_amount: productTotal })
+            if (res.data.valid) {
+                setAppliedCoupon({
+                    code: res.data.code,
+                    discount_type: res.data.discount_type!,
+                    discount_value: res.data.discount_value!,
+                    discount_amount: res.data.discount_amount!,
+                })
+                setCouponError(null)
+                toast.success(res.data.message)
+            } else {
+                setAppliedCoupon(null)
+                setCouponError(res.data.message)
+            }
+        } catch {
+            setCouponError('クーポンの確認に失敗しました')
+            setAppliedCoupon(null)
+        } finally {
+            setIsCouponLoading(false)
+        }
+    }
+
+    const handleRemoveCoupon = () => {
+        setAppliedCoupon(null)
+        setCouponCode('')
+        setCouponError(null)
+    }
 
     // PaymentIntentを作成（金額が決まったとき）
     useEffect(() => {
@@ -255,6 +297,7 @@ const LocalCart = () => {
             save_card_for_future: false,
             stripe_payment_method_id: paymentMethodId,
             stripe_payment_intent_id: paymentIntentId,
+            coupon_code: appliedCoupon?.code || undefined,
             items,
         })
     }
@@ -553,6 +596,43 @@ const LocalCart = () => {
                         )
                     })}
                 </div>
+                {/* クーポン入力 */}
+                <div className="border-t-2 border-gray-200 pt-4 space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                        <Tag size={16} className="text-emerald-600" />
+                        クーポン
+                    </div>
+                    {appliedCoupon ? (
+                        <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                            <div className="text-sm">
+                                <span className="font-mono font-bold text-emerald-700">{appliedCoupon.code}</span>
+                                <span className="text-emerald-600 ml-2">
+                                    {appliedCoupon.discount_type === 'percentage'
+                                        ? `${appliedCoupon.discount_value}%OFF`
+                                        : `${Number(appliedCoupon.discount_value).toLocaleString()}円引き`}
+                                </span>
+                            </div>
+                            <button type="button" onClick={handleRemoveCoupon}
+                                className="text-xs text-gray-500 hover:text-red-500 underline">取消</button>
+                        </div>
+                    ) : (
+                        <div className="flex gap-2">
+                            <input type="text" value={couponCode}
+                                onChange={e => setCouponCode(e.target.value.toUpperCase())}
+                                placeholder="クーポンコードを入力"
+                                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                            <button type="button" onClick={handleApplyCoupon}
+                                disabled={isCouponLoading || !couponCode.trim()}
+                                className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed">
+                                {isCouponLoading ? '確認中...' : '適用'}
+                            </button>
+                        </div>
+                    )}
+                    {couponError && (
+                        <p className="text-xs text-red-600">{couponError}</p>
+                    )}
+                </div>
+
                 <div className="border-t-2 border-gray-200 pt-4 space-y-2 text-sm text-gray-700">
                     <div className="flex justify-between">
                         <span>小計（税抜）</span>
@@ -566,6 +646,12 @@ const LocalCart = () => {
                         <span>商品合計（税込）</span>
                         <span>¥{productTotal.toLocaleString()}</span>
                     </div>
+                    {discountAmount > 0 && (
+                        <div className="flex justify-between text-emerald-600 font-semibold">
+                            <span>クーポン割引</span>
+                            <span>-¥{discountAmount.toLocaleString()}</span>
+                        </div>
+                    )}
                     <div className="flex justify-between">
                         <span>送料</span>
                         <span className="text-emerald-600 font-semibold">無料</span>

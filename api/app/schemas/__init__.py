@@ -83,6 +83,14 @@ from app.schemas.access_log import (
     AccessLogResponse,
     AccessLogListResponse,
 )
+from app.schemas.coupon import (
+    CouponCreate,
+    CouponUpdate,
+    CouponResponse,
+    CouponListResponse,
+    CouponValidateRequest,
+    CouponValidateResponse,
+)
 
 # Forward reference resolution for circular dependencies
 FavoriteWithProductResponse.model_rebuild()
@@ -157,4 +165,11 @@ __all__ = [
     # Access Logs
     "AccessLogResponse",
     "AccessLogListResponse",
+    # Coupon
+    "CouponCreate",
+    "CouponUpdate",
+    "CouponResponse",
+    "CouponListResponse",
+    "CouponValidateRequest",
+    "CouponValidateResponse",
 ]
