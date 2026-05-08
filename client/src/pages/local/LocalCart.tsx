@@ -583,7 +583,7 @@ const LocalCart = () => {
                     <CreditCard className="text-emerald-600" size={20} />
                     お支払い（クレジットカード）
                 </h2>
-                <p className="text-sm text-gray-600">カード情報はStripeで安全に処理され、当サービスでは保持しません。</p>
+                <p className="text-sm text-gray-600">ご不明点がございましたら、公式LINEよりお問い合わせください。</p>
 
                 {!canSubmit && (
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-500 text-center">
