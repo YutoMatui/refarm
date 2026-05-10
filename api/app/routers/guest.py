@@ -75,7 +75,7 @@ async def get_guest_farmers(db: AsyncSession = Depends(get_db)):
     全ての生産者情報を取得 (カルーセル用)
     """
     # Fetch all active farmers
-    result = await db.execute(select(Farmer).where(Farmer.is_active == 1))
+    result = await db.execute(select(Farmer).where(Farmer.is_active == 1, Farmer.deleted_at.is_(None)))
     farmers = result.scalars().all()
     
     response = []

@@ -53,7 +53,7 @@ async def public_payment_notice(
         raise HTTPException(status_code=403, detail="無効なリンクです")
 
     # Farmer取得
-    stmt = select(Farmer).where(Farmer.id == farmer_id)
+    stmt = select(Farmer).where(Farmer.id == farmer_id, Farmer.deleted_at.is_(None))
     result = await db.execute(stmt)
     farmer = result.scalar_one_or_none()
     if not farmer:

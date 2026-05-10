@@ -53,20 +53,29 @@ async def create_order(
     # Create order items
     for item_data in order_data.items:
         # Get product
-        stmt = select(Product).where(Product.id == item_data.product_id)
+        stmt = select(Product).where(
+            Product.id == item_data.product_id,
+            Product.deleted_at.is_(None),
+        )
         result = await db.execute(stmt)
         product = result.scalar_one_or_none()
-        
+
         if not product:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"商品ID {item_data.product_id} が見つかりません"
             )
-        
+
         if product.is_active != 1:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"商品「{product.name}」は現在販売されていません"
+            )
+
+        if product.stock_quantity is not None and item_data.quantity > product.stock_quantity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"商品「{product.name}」の在庫が不足しています（残り{product.stock_quantity}個）"
             )
         
         # Calculate prices

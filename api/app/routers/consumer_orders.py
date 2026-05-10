@@ -161,7 +161,10 @@ async def create_consumer_order(
     tax_amount = Decimal(0)
 
     for item_data in order_data.items:
-        stmt_product = select(Product).where(Product.id == item_data.product_id)
+        stmt_product = select(Product).where(
+            Product.id == item_data.product_id,
+            Product.deleted_at.is_(None),
+        )
         product_result = await db.execute(stmt_product)
         product = product_result.scalar_one_or_none()
 
@@ -169,6 +172,8 @@ async def create_consumer_order(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"商品ID {item_data.product_id} が見つかりません")
         if product.is_active != 1:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"商品『{product.name}』は現在購入できません")
+        if product.stock_quantity is not None and item_data.quantity > product.stock_quantity:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"商品『{product.name}』の在庫が不足しています（残り{product.stock_quantity}個）")
 
         quantity = Decimal(item_data.quantity)
         unit_price = Decimal(product.price)

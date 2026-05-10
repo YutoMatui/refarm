@@ -49,7 +49,7 @@ class ProductInfoForOrder(BaseModel):
 
 class ConsumerOrderItemCreate(BaseModel):
     product_id: int
-    quantity: int
+    quantity: int = Field(..., gt=0, le=99, description="数量（1〜99）")
 
 
 class ConsumerOrderCreate(BaseModel):
