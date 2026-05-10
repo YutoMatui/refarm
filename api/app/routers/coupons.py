@@ -24,17 +24,17 @@ def validate_coupon(coupon: Coupon | None, order_amount: Decimal) -> CouponValid
     if not coupon.is_active:
         return CouponValidateResponse(valid=False, code=coupon.code, message="このクーポンは無効です")
 
+    # 管理画面からの入力はJSTだがDBではUTCラベルで保存されるため
+    # タイムゾーンを剥がしてJSTの現在時刻と直接比較する
     JST = timezone(timedelta(hours=9))
-    now = datetime.now(JST)
+    now_local = datetime.now(JST).replace(tzinfo=None)
 
     if coupon.starts_at:
-        starts = coupon.starts_at.replace(tzinfo=JST) if coupon.starts_at.tzinfo is None else coupon.starts_at.astimezone(JST)
-        if now < starts:
+        if now_local < coupon.starts_at.replace(tzinfo=None):
             return CouponValidateResponse(valid=False, code=coupon.code, message="このクーポンはまだ利用できません")
 
     if coupon.expires_at:
-        expires = coupon.expires_at.replace(tzinfo=JST) if coupon.expires_at.tzinfo is None else coupon.expires_at.astimezone(JST)
-        if now > expires:
+        if now_local > coupon.expires_at.replace(tzinfo=None):
             return CouponValidateResponse(valid=False, code=coupon.code, message="このクーポンは有効期限が切れています")
 
     if coupon.max_uses is not None and coupon.used_count >= coupon.max_uses:

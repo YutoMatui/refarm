@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { productApi } from '@/services/api'
 import type { Product } from '@/types'
 import { useStore } from '@/store/useStore'
-import { ArrowLeft, Minus, Plus, Loader2, Salad, User, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Minus, Plus, Loader2, Salad, User, ChevronRight, ShoppingCart } from 'lucide-react'
 import { toast } from 'sonner'
 
 const LocalProductDetail = () => {
@@ -68,6 +68,7 @@ const LocalProductDetail = () => {
     }
 
     const cartItem = cart.find(item => item.product.id === product.id)
+    const cartItemCount = cart.reduce((sum, item) => sum + Number(item.quantity), 0)
 
     return (
         <div className="bg-white min-h-screen pb-24">
@@ -92,9 +93,22 @@ const LocalProductDetail = () => {
                     <ArrowLeft size={24} className="text-gray-700" />
                 </button>
 
+                {/* カートアイコン */}
+                {cartItemCount > 0 && (
+                    <button
+                        onClick={() => navigate('/local/cart')}
+                        className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-md hover:bg-white transition-colors z-10"
+                    >
+                        <ShoppingCart size={24} className="text-emerald-600" />
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                            {cartItemCount}
+                        </span>
+                    </button>
+                )}
+
                 {/* 訳ありバッジ */}
                 {product.is_wakeari === 1 && (
-                    <div className="absolute top-4 right-4">
+                    <div className={`absolute top-4 ${cartItemCount > 0 ? 'right-16' : 'right-4'}`}>
                         <span className="bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-md">
                             訳あり
                         </span>
@@ -128,7 +142,11 @@ const LocalProductDetail = () => {
                 {product.weight && (
                     <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                         <p className="text-sm text-gray-600">
-                            重量: <span className="font-bold text-gray-900">{product.weight}g</span>
+                            重量: <span className="font-bold text-gray-900">
+                                {Number(product.weight) >= 1000
+                                    ? `${(Number(product.weight) / 1000).toFixed(Number(product.weight) % 1000 === 0 ? 0 : 1)}kg`
+                                    : `${product.weight}g`}
+                            </span>
                         </p>
                     </div>
                 )}
