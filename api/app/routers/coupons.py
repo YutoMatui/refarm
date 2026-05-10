@@ -40,7 +40,7 @@ def validate_coupon(coupon: Coupon | None, order_amount: Decimal) -> CouponValid
             message=f"このクーポンは{int(coupon.min_order_amount):,}円以上の注文で利用できます"
         )
 
-    if coupon.discount_type == DiscountType.PERCENTAGE:
+    if coupon.discount_type == "percentage":
         discount_amount = (order_amount * coupon.discount_value / Decimal(100)).quantize(Decimal("1"), rounding=ROUND_DOWN)
     else:
         discount_amount = min(coupon.discount_value, order_amount)

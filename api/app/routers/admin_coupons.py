@@ -43,7 +43,7 @@ async def create_coupon(
     coupon = Coupon(
         code=coupon_data.code.upper(),
         description=coupon_data.description,
-        discount_type=coupon_data.discount_type,
+        discount_type=coupon_data.discount_type.value,
         discount_value=coupon_data.discount_value,
         min_order_amount=coupon_data.min_order_amount,
         max_uses=coupon_data.max_uses,

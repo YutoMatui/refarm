@@ -33,11 +33,11 @@ class CouponUpdate(BaseModel):
     expires_at: Optional[datetime] = None
 
 
-class CouponResponse(TimestampSchema, BaseSchema):
+class CouponResponse(BaseModel):
     id: int
     code: str
     description: Optional[str] = None
-    discount_type: DiscountType
+    discount_type: str
     discount_value: Decimal
     min_order_amount: Decimal
     max_uses: Optional[int] = None
@@ -45,6 +45,8 @@ class CouponResponse(TimestampSchema, BaseSchema):
     is_active: bool
     starts_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -63,7 +65,7 @@ class CouponValidateRequest(BaseModel):
 class CouponValidateResponse(BaseModel):
     valid: bool
     code: str
-    discount_type: Optional[DiscountType] = None
+    discount_type: Optional[str] = None
     discount_value: Optional[Decimal] = None
     discount_amount: Optional[Decimal] = None
     message: str
