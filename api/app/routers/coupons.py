@@ -1,7 +1,7 @@
 """
 Consumer-facing Coupon Router - クーポン検証
 """
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal, ROUND_DOWN
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,12 +24,18 @@ def validate_coupon(coupon: Coupon | None, order_amount: Decimal) -> CouponValid
     if not coupon.is_active:
         return CouponValidateResponse(valid=False, code=coupon.code, message="このクーポンは無効です")
 
-    now = datetime.now(tz=coupon.starts_at.tzinfo if coupon.starts_at else None)
-    if coupon.starts_at and now < coupon.starts_at:
-        return CouponValidateResponse(valid=False, code=coupon.code, message="このクーポンはまだ利用できません")
+    JST = timezone(timedelta(hours=9))
+    now = datetime.now(JST)
 
-    if coupon.expires_at and now > coupon.expires_at:
-        return CouponValidateResponse(valid=False, code=coupon.code, message="このクーポンは有効期限が切れています")
+    if coupon.starts_at:
+        starts = coupon.starts_at.replace(tzinfo=JST) if coupon.starts_at.tzinfo is None else coupon.starts_at.astimezone(JST)
+        if now < starts:
+            return CouponValidateResponse(valid=False, code=coupon.code, message="このクーポンはまだ利用できません")
+
+    if coupon.expires_at:
+        expires = coupon.expires_at.replace(tzinfo=JST) if coupon.expires_at.tzinfo is None else coupon.expires_at.astimezone(JST)
+        if now > expires:
+            return CouponValidateResponse(valid=False, code=coupon.code, message="このクーポンは有効期限が切れています")
 
     if coupon.max_uses is not None and coupon.used_count >= coupon.max_uses:
         return CouponValidateResponse(valid=False, code=coupon.code, message="このクーポンは利用上限に達しています")
