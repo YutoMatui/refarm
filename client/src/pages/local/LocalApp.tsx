@@ -158,10 +158,11 @@ const LocalApp = () => {
                 </Routes>
             </main>
 
-            {/* カート画面以外でフローティングカートボタンを表示 */}
-            {location.pathname !== '/local/cart' && <LocalFloatingCartButton />}
+            {/* カート画面・商品詳細画面以外でフローティングカートボタンを表示 */}
+            {location.pathname !== '/local/cart' && !location.pathname.startsWith('/local/products/') && <LocalFloatingCartButton />}
 
-            <LocalBottomNav />
+            {/* 商品詳細画面では独自のボトムバーがあるため非表示 */}
+            {!location.pathname.startsWith('/local/products/') && <LocalBottomNav />}
         </div>
     )
 }
