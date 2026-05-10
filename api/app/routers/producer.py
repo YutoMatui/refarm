@@ -505,9 +505,8 @@ async def create_producer_product(
     
     # Producer submission defaults
     if data.get("price") is None:
-        # 卸値から販売価格を自動計算 (卸値 / 0.7, 1の位四捨五入)
         if data.get("cost_price"):
-            data["price"] = calculate_retail_price(data["cost_price"])
+            data["price"] = calculate_retail_price(data["cost_price"], data.get("price_multiplier"))
         else:
             data["price"] = Decimal(0)
             
@@ -565,7 +564,8 @@ async def update_producer_product(
     
     # 卸値が更新された場合、販売価格を自動再計算
     if "cost_price" in update_data and "price" not in update_data:
-        update_data["price"] = calculate_retail_price(update_data["cost_price"])
+        multiplier = update_data.get("price_multiplier", product.price_multiplier)
+        update_data["price"] = calculate_retail_price(update_data["cost_price"], multiplier)
 
     for field, value in update_data.items():
         setattr(product, field, value)
