@@ -1,8 +1,9 @@
 """
 Consumer Orders Router - B2C注文管理
 """
+import stripe
 from decimal import Decimal
-from datetime import time
+from datetime import time, datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
@@ -10,10 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import get_current_consumer
 from app.models import ConsumerOrder, ConsumerOrderItem, Product, DeliverySlot, Consumer, Coupon
 from app.models.enums import OrderStatus, DeliverySlotType
+
+stripe.api_key = settings.STRIPE_SECRET_KEY
+
+# 消費者がキャンセル可能なステータス
+CONSUMER_CANCELLABLE_STATUSES = {OrderStatus.PENDING, OrderStatus.CONFIRMED}
 from app.schemas import (
     ConsumerOrderCreate,
     ConsumerOrderResponse,
@@ -326,4 +333,64 @@ async def update_consumer_order_status(
         return order
     else:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="このステータスには更新できません")
+
+
+@router.post("/{order_id}/cancel")
+async def cancel_consumer_order(
+    order_id: int,
+    background_tasks: BackgroundTasks,
+    consumer: Consumer = Depends(get_current_consumer),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    消費者が自分の注文をキャンセルする（PENDING/CONFIRMEDのみ可能）
+    """
+    stmt = select(ConsumerOrder).options(
+        selectinload(ConsumerOrder.order_items)
+        .selectinload(ConsumerOrderItem.product)
+        .selectinload(Product.farmer),
+        selectinload(ConsumerOrder.consumer),
+        selectinload(ConsumerOrder.delivery_slot),
+    ).where(ConsumerOrder.id == order_id, ConsumerOrder.consumer_id == consumer.id)
+
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="注文が見つかりません")
+
+    if order.status not in CONSUMER_CANCELLABLE_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="準備中以降の注文はキャンセルできません。公式LINEよりお問い合わせください。",
+        )
+
+    # Stripe返金
+    refund_id = None
+    if order.payment_method == "card" and order.stripe_payment_intent_id:
+        try:
+            refund = stripe.Refund.create(payment_intent=order.stripe_payment_intent_id)
+            refund_id = refund.id
+        except stripe.error.StripeError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"返金処理に失敗しました。公式LINEよりお問い合わせください。",
+            )
+
+    order.status = OrderStatus.CANCELLED
+    order.cancelled_at = datetime.now()
+    await db.commit()
+
+    # リロード
+    result = await db.execute(stmt)
+    order = result.scalar_one()
+
+    # LINE通知（農家・管理者にキャンセルを通知）
+    background_tasks.add_task(line_service.notify_admin_consumer_order, order)
+
+    return {
+        "message": "注文をキャンセルしました" + ("。返金処理を行いました。" if refund_id else ""),
+        "order_id": order.id,
+        "status": order.status.value,
+    }
 

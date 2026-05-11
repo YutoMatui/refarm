@@ -331,6 +331,9 @@ export const consumerOrderApi = {
 
   updateStatus: (id: number, status: string) =>
     apiClient.patch<ConsumerOrder>(`/consumer-orders/${id}/status`, { status }),
+
+  cancel: (id: number) =>
+    apiClient.post<{ message: string; order_id: number; status: string }>(`/consumer-orders/${id}/cancel`),
 }
 
 

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Package, MapPin, User, CheckCircle, Camera } from 'lucide-react'
+import { Package, MapPin, User, CheckCircle, Camera, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { useStore } from '@/store/useStore'
 import { consumerOrderApi, consumerApi } from '@/services/api'
@@ -44,6 +44,32 @@ const LocalMyPage = () => {
         if (window.confirm('受け取りを完了しますか？')) {
             await completeReceiptMutation.mutateAsync(orderId)
         }
+    }
+
+    // キャンセル処理
+    const cancelOrderMutation = useMutation({
+        mutationFn: async (orderId: number) => {
+            const response = await consumerOrderApi.cancel(orderId)
+            return response.data
+        },
+        onSuccess: (data) => {
+            toast.success(data.message)
+            queryClient.invalidateQueries({ queryKey: ['consumer-orders'] })
+        },
+        onError: (error: any) => {
+            toast.error(error?.response?.data?.detail || 'キャンセルに失敗しました')
+        }
+    })
+
+    const handleCancelOrder = async (orderId: number) => {
+        if (window.confirm('この注文をキャンセルしますか？カード決済の場合は返金されます。')) {
+            await cancelOrderMutation.mutateAsync(orderId)
+        }
+    }
+
+    const isCancellable = (status: string) => {
+        const s = status.toUpperCase()
+        return s === 'PENDING' || s === 'CONFIRMED'
     }
 
     const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -252,6 +278,18 @@ const LocalMyPage = () => {
                                             >
                                                 <CheckCircle size={18} />
                                                 受け取り完了
+                                            </button>
+                                        )}
+
+                                        {/* キャンセルボタン */}
+                                        {isCancellable(order.status) && (
+                                            <button
+                                                onClick={() => handleCancelOrder(order.id)}
+                                                disabled={cancelOrderMutation.isPending}
+                                                className="w-full mt-3 border border-red-200 text-red-600 font-semibold py-2 rounded-md hover:bg-red-50 flex items-center justify-center gap-2 disabled:opacity-60"
+                                            >
+                                                <XCircle size={18} />
+                                                {cancelOrderMutation.isPending ? 'キャンセル中...' : '注文をキャンセル'}
                                             </button>
                                         )}
                                     </div>
