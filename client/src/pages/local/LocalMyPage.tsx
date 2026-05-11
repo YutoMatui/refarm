@@ -13,6 +13,8 @@ const LocalMyPage = () => {
     const setConsumer = useStore(state => state.setConsumer)
     const queryClient = useQueryClient()
     const [uploadingImage, setUploadingImage] = useState(false)
+    const [confirmCancelId, setConfirmCancelId] = useState<number | null>(null)
+    const [confirmReceiptId, setConfirmReceiptId] = useState<number | null>(null)
 
     // 注文一覧を取得
     const { data: ordersData } = useQuery({
@@ -41,9 +43,8 @@ const LocalMyPage = () => {
     })
 
     const handleCompleteReceipt = async (orderId: number) => {
-        if (window.confirm('受け取りを完了しますか？')) {
-            await completeReceiptMutation.mutateAsync(orderId)
-        }
+        await completeReceiptMutation.mutateAsync(orderId)
+        setConfirmReceiptId(null)
     }
 
     // キャンセル処理
@@ -62,9 +63,8 @@ const LocalMyPage = () => {
     })
 
     const handleCancelOrder = async (orderId: number) => {
-        if (window.confirm('この注文をキャンセルしますか？カード決済の場合は返金されます。')) {
-            await cancelOrderMutation.mutateAsync(orderId)
-        }
+        await cancelOrderMutation.mutateAsync(orderId)
+        setConfirmCancelId(null)
     }
 
     const isCancellable = (order: ConsumerOrder) => {
@@ -281,25 +281,83 @@ const LocalMyPage = () => {
 
                                         {/* 受け取り完了ボタン */}
                                         {order.status.toUpperCase() === 'SHIPPED' && (
-                                            <button
-                                                onClick={() => handleCompleteReceipt(order.id)}
-                                                className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-md flex items-center justify-center gap-2"
-                                            >
-                                                <CheckCircle size={18} />
-                                                受け取り完了
-                                            </button>
+                                            <div className="mt-4">
+                                                {confirmReceiptId === order.id ? (
+                                                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-3">
+                                                        <p className="text-sm text-emerald-700 font-semibold">
+                                                            受け取りを完了しますか？
+                                                        </p>
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleCompleteReceipt(order.id)}
+                                                                disabled={completeReceiptMutation.isPending}
+                                                                className="flex-1 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-60"
+                                                            >
+                                                                {completeReceiptMutation.isPending ? '処理中...' : '完了する'}
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setConfirmReceiptId(null)}
+                                                                className="flex-1 py-2 bg-gray-200 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-300"
+                                                            >
+                                                                戻る
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setConfirmReceiptId(order.id)}
+                                                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-md flex items-center justify-center gap-2"
+                                                    >
+                                                        <CheckCircle size={18} />
+                                                        受け取り完了
+                                                    </button>
+                                                )}
+                                            </div>
                                         )}
 
                                         {/* キャンセルボタン */}
                                         {isCancellable(order) && (
-                                            <button
-                                                onClick={() => handleCancelOrder(order.id)}
-                                                disabled={cancelOrderMutation.isPending}
-                                                className="w-full mt-3 border border-red-200 text-red-600 font-semibold py-2 rounded-md hover:bg-red-50 flex items-center justify-center gap-2 disabled:opacity-60"
-                                            >
-                                                <XCircle size={18} />
-                                                {cancelOrderMutation.isPending ? 'キャンセル中...' : '注文をキャンセル'}
-                                            </button>
+                                            <div className="mt-3">
+                                                {confirmCancelId === order.id ? (
+                                                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-3">
+                                                        <p className="text-sm text-red-700 font-semibold">
+                                                            この注文をキャンセルしますか？
+                                                        </p>
+                                                        <p className="text-xs text-red-600">
+                                                            カード決済の場合は返金されます。
+                                                        </p>
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleCancelOrder(order.id)}
+                                                                disabled={cancelOrderMutation.isPending}
+                                                                className="flex-1 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 disabled:opacity-60"
+                                                            >
+                                                                {cancelOrderMutation.isPending ? 'キャンセル中...' : 'キャンセルする'}
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setConfirmCancelId(null)}
+                                                                className="flex-1 py-2 bg-gray-200 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-300"
+                                                            >
+                                                                戻る
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setConfirmCancelId(order.id)}
+                                                        className="w-full border border-red-200 text-red-600 font-semibold py-2 rounded-md hover:bg-red-50 flex items-center justify-center gap-2"
+                                                    >
+                                                        <XCircle size={18} />
+                                                        注文をキャンセル
+                                                    </button>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
                                 </div>
