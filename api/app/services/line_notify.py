@@ -546,7 +546,7 @@ No. {order.id}
                     "total_sales": Decimal(0)
                 }
             farmers_items[farmer_id]["items"].append(item)
-            farmers_items[farmer_id]["total_sales"] += Decimal(item.wholesale_price or 0) * item.quantity
+            farmers_items[farmer_id]["total_sales"] += Decimal(str(item.unit_price or 0)) * item.quantity
 
         if not farmers_items:
             return

@@ -244,10 +244,18 @@ async def create_consumer_order(
     order_result = await db.execute(stmt_reload)
     db_order = order_result.scalar_one()
 
-    # Notify via LINE (consumer + farmers)
-    background_tasks.add_task(line_service.notify_consumer_order, db_order)
-    background_tasks.add_task(line_service.notify_farmers_consumer_order, db_order)
-    background_tasks.add_task(line_service.notify_admin_consumer_order, db_order)
+    # Notify via LINE (consumer + farmers + admin)
+    async def _safe_notify(func, order):
+        try:
+            await func(order)
+        except Exception as e:
+            import traceback
+            print(f"LINE notification error in {func.__name__}: {e}")
+            traceback.print_exc()
+
+    background_tasks.add_task(_safe_notify, line_service.notify_consumer_order, db_order)
+    background_tasks.add_task(_safe_notify, line_service.notify_farmers_consumer_order, db_order)
+    background_tasks.add_task(_safe_notify, line_service.notify_admin_consumer_order, db_order)
 
     return db_order
 
@@ -364,6 +372,16 @@ async def cancel_consumer_order(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="準備中以降の注文はキャンセルできません。公式LINEよりお問い合わせください。",
         )
+
+    # お届け2日前までキャンセル可能
+    if order.delivery_slot and order.delivery_slot.date:
+        from datetime import date, timedelta
+        deadline = order.delivery_slot.date - timedelta(days=2)
+        if date.today() > deadline:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="お届け日の2日前を過ぎているためキャンセルできません。公式LINEよりお問い合わせください。",
+            )
 
     # Stripe返金
     refund_id = None

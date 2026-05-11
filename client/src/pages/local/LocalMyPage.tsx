@@ -67,9 +67,18 @@ const LocalMyPage = () => {
         }
     }
 
-    const isCancellable = (status: string) => {
-        const s = status.toUpperCase()
-        return s === 'PENDING' || s === 'CONFIRMED'
+    const isCancellable = (order: ConsumerOrder) => {
+        const s = order.status.toUpperCase()
+        if (s !== 'PENDING' && s !== 'CONFIRMED') return false
+
+        // お届け2日前を過ぎたらキャンセル不可
+        const deliveryDate = order.delivery_slot?.date
+        if (deliveryDate) {
+            const deadline = new Date(deliveryDate)
+            deadline.setDate(deadline.getDate() - 2)
+            if (new Date() > deadline) return false
+        }
+        return true
     }
 
     const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -282,7 +291,7 @@ const LocalMyPage = () => {
                                         )}
 
                                         {/* キャンセルボタン */}
-                                        {isCancellable(order.status) && (
+                                        {isCancellable(order) && (
                                             <button
                                                 onClick={() => handleCancelOrder(order.id)}
                                                 disabled={cancelOrderMutation.isPending}
