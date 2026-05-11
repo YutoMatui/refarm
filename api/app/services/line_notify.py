@@ -586,6 +586,101 @@ No. {order.id}
 
             await self.send_push_message(token, target_user_id, message)
 
+    async def notify_consumer_order_cancelled(self, order: ConsumerOrder):
+        """消費者にキャンセル通知を送信"""
+        consumer = getattr(order, "consumer", None)
+        if not consumer or not consumer.line_user_id:
+            return
+
+        consumer_channel_id = getattr(settings, 'LINE_CONSUMER_CHANNEL_ID', None)
+        consumer_access_token = getattr(settings, 'LINE_CONSUMER_ACCESS_TOKEN', None)
+        if not consumer_channel_id or not consumer_access_token:
+            consumer_channel_id = settings.LINE_RESTAURANT_CHANNEL_ID
+            consumer_access_token = settings.LINE_RESTAURANT_CHANNEL_ACCESS_TOKEN
+
+        token = await self.get_access_token(
+            consumer_channel_id,
+            getattr(settings, 'LINE_CONSUMER_CHANNEL_SECRET', ""),
+            consumer_access_token,
+        )
+        if not token:
+            return
+
+        consumer_name = consumer.name or "お客様"
+        total_text = self.format_currency_plain(order.total_amount)
+
+        message = f"""{consumer_name}様
+ご注文（注文番号: {order.id}）がキャンセルされました。
+
+お支払い済みの金額（{total_text}）は返金処理を行いました。カード会社の処理状況により、返金の反映まで数日かかる場合がございます。
+
+ご不明点がございましたら、公式LINEよりお問い合わせください。"""
+
+        await self.send_push_message(token, consumer.line_user_id, message)
+
+    async def notify_farmers_consumer_order_cancelled(self, order: ConsumerOrder):
+        """農家にキャンセル通知を送信"""
+        token = await self.get_access_token(
+            settings.LINE_PRODUCER_CHANNEL_ID,
+            settings.LINE_PRODUCER_CHANNEL_SECRET,
+            settings.LINE_PRODUCER_CHANNEL_ACCESS_TOKEN,
+        )
+        if not token:
+            return
+
+        for item in order.order_items:
+            product = getattr(item, "product", None)
+            farmer = getattr(product, "farmer", None) if product else None
+            if not farmer or not farmer.line_user_id:
+                continue
+
+            message = f"""【注文キャンセルのお知らせ】
+{farmer.name}さん
+注文がキャンセルされました。
+
+注文番号: {order.id}
+キャンセル内容:
+・{item.product_name} × {item.quantity}{item.product_unit}
+
+出荷準備をされていた場合はお手数ですがご確認ください。"""
+
+            await self.send_push_message(token, farmer.line_user_id, message)
+
+    async def notify_admin_consumer_order_cancelled(self, order: ConsumerOrder):
+        """管理者にキャンセル通知を送信"""
+        admin_user_ids = self._get_admin_user_ids()
+        if not admin_user_ids:
+            return
+
+        channel_id, channel_secret, channel_token = self._get_admin_token_params()
+        token = await self.get_access_token(channel_id, channel_secret, channel_token)
+        if not token:
+            return
+
+        consumer_name = "お客様"
+        if getattr(order, "consumer", None) and order.consumer.name:
+            consumer_name = order.consumer.name
+
+        items_text = ""
+        for item in order.order_items:
+            farmer_name = "農家不明"
+            if item.product and getattr(item.product, "farmer", None) and item.product.farmer.name:
+                farmer_name = item.product.farmer.name
+            items_text += f"・{item.product_name}（{farmer_name}） × {item.quantity}{item.product_unit}\n"
+        if not items_text:
+            items_text = "・（商品情報が取得できませんでした）\n"
+
+        message = f"""【管理通知】注文キャンセル（消費者）
+注文番号: {order.id}
+注文者: {consumer_name}
+合計: {self.format_currency(order.total_amount)}
+
+キャンセル内容:
+{items_text}"""
+
+        for user_id in admin_user_ids:
+            await self.send_push_message(token, user_id, message)
+
     async def send_invoice_message(self, order: Order, invoice_url: str):
         """Send invoice PDF link to restaurant"""
         target_user_id = settings.LINE_TEST_USER_ID

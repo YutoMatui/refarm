@@ -30,6 +30,17 @@ from app.services.line_notify import line_service
 
 router = APIRouter()
 
+
+async def _safe_notify(func, order):
+    """通知の例外を握りつぶしてログ出力する"""
+    try:
+        await func(order)
+    except Exception as e:
+        import traceback
+        print(f"LINE notification error in {func.__name__}: {e}")
+        traceback.print_exc()
+
+
 SHIPPING_FEE_HOME = Decimal(500)
 SHIPPING_FEE_UNIV = Decimal(0)
 DELIVERY_LABEL_MAP = {
@@ -245,14 +256,6 @@ async def create_consumer_order(
     db_order = order_result.scalar_one()
 
     # Notify via LINE (consumer + farmers + admin)
-    async def _safe_notify(func, order):
-        try:
-            await func(order)
-        except Exception as e:
-            import traceback
-            print(f"LINE notification error in {func.__name__}: {e}")
-            traceback.print_exc()
-
     background_tasks.add_task(_safe_notify, line_service.notify_consumer_order, db_order)
     background_tasks.add_task(_safe_notify, line_service.notify_farmers_consumer_order, db_order)
     background_tasks.add_task(_safe_notify, line_service.notify_admin_consumer_order, db_order)
@@ -403,8 +406,10 @@ async def cancel_consumer_order(
     result = await db.execute(stmt)
     order = result.scalar_one()
 
-    # LINE通知（農家・管理者にキャンセルを通知）
-    background_tasks.add_task(line_service.notify_admin_consumer_order, order)
+    # LINE通知（消費者・農家・管理者にキャンセルを通知）
+    background_tasks.add_task(_safe_notify, line_service.notify_consumer_order_cancelled, order)
+    background_tasks.add_task(_safe_notify, line_service.notify_farmers_consumer_order_cancelled, order)
+    background_tasks.add_task(_safe_notify, line_service.notify_admin_consumer_order_cancelled, order)
 
     return {
         "message": "注文をキャンセルしました" + ("。返金処理を行いました。" if refund_id else ""),
