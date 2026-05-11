@@ -92,9 +92,9 @@ const LocalOrderComplete = () => {
                 </div>
             </section>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-sm text-blue-900 space-y-2">
-                <p>カード決済の明細はStripe側の処理結果をご確認ください。</p>
-                <p>ご不明点がございましたら、LINEのメッセージからお問い合わせください。</p>
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-sm text-emerald-900 space-y-2">
+                <p className="font-semibold">クレジットカードでのお支払いが完了しました。</p>
+                <p>ご不明点がございましたら、公式LINEよりお気軽にお問い合わせください。</p>
             </div>
 
             <div className="flex flex-col sm:flex-row sm:justify-between gap-3">

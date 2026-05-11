@@ -136,12 +136,20 @@ export const consumerApi = {
 }
 
 // Payment API
+export type SavedCard = { id: string; brand: string; last4: string; exp_month: number; exp_year: number }
+
 export const paymentApi = {
   getConfig: () =>
     apiClient.get<{ publishable_key: string }>('/payments/config'),
 
-  createPaymentIntent: (data: { amount: number; save_card?: boolean }) =>
+  createPaymentIntent: (data: { amount: number; save_card?: boolean; payment_method_id?: string }) =>
     apiClient.post<{ client_secret: string; payment_intent_id: string; customer_id: string | null }>('/payments/create-payment-intent', data),
+
+  getSavedCards: () =>
+    apiClient.get<{ cards: SavedCard[] }>('/payments/saved-cards'),
+
+  deleteSavedCard: (paymentMethodId: string) =>
+    apiClient.delete(`/payments/saved-cards/${paymentMethodId}`),
 }
 
 // Restaurant API
@@ -624,6 +632,8 @@ export const adminConsumerApi = {
     apiClient.get(`/admin/consumers/${consumerId}/messages`),
   getOrders: (consumerId: number) =>
     apiClient.get(`/admin/consumers/${consumerId}/orders`),
+  cancelOrder: (orderId: number) =>
+    apiClient.post<{ message: string; order_id: number; refund_id: string | null; status: string }>(`/admin/consumer-orders/${orderId}/cancel`),
 }
 
 // Admin Organization API

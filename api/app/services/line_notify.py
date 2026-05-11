@@ -285,6 +285,10 @@ No. {order.id}
             settings.LINE_PRODUCER_CHANNEL_ACCESS_TOKEN
         )
 
+        if not token:
+            print("Failed to get producer channel access token")
+            return
+
         # Group items by farmer
         farmers_items = {}
         for item in order.order_items:
@@ -521,6 +525,10 @@ No. {order.id}
             settings.LINE_PRODUCER_CHANNEL_SECRET,
             settings.LINE_PRODUCER_CHANNEL_ACCESS_TOKEN
         )
+
+        if not token:
+            print("Failed to get producer channel access token for consumer order")
+            return
 
         farmers_items: Dict[int, Dict[str, Any]] = {}
         for item in order.order_items:

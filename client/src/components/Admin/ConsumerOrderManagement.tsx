@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Search, Calendar, Package, ChevronDown, ChevronUp } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Search, Calendar, Package, ChevronDown, ChevronUp, XCircle } from 'lucide-react'
+import { toast } from 'sonner'
 import { adminConsumerApi } from '@/services/api'
 import type { Consumer } from '@/types'
 
@@ -15,8 +16,11 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
 }
 
 const ConsumerOrderManagement = () => {
+    const queryClient = useQueryClient()
     const [searchQuery, setSearchQuery] = useState('')
     const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null)
+    const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null)
+    const [confirmCancelId, setConfirmCancelId] = useState<number | null>(null)
 
     // 全消費者を取得
     const { data: consumersData } = useQuery({
@@ -68,6 +72,21 @@ const ConsumerOrderManagement = () => {
 
     const toggleExpand = (orderId: number) => {
         setExpandedOrderId(prev => prev === orderId ? null : orderId)
+    }
+
+    const handleCancelOrder = async (orderId: number) => {
+        setCancellingOrderId(orderId)
+        try {
+            const res = await adminConsumerApi.cancelOrder(orderId)
+            toast.success(res.data.message)
+            queryClient.invalidateQueries({ queryKey: ['admin-all-consumer-orders'] })
+        } catch (error: any) {
+            const msg = error?.response?.data?.detail || '注文のキャンセルに失敗しました'
+            toast.error(msg)
+        } finally {
+            setCancellingOrderId(null)
+            setConfirmCancelId(null)
+        }
     }
 
     return (
@@ -187,6 +206,46 @@ const ConsumerOrderManagement = () => {
                                                         ¥{Math.round(Number(order.total_amount)).toLocaleString()}
                                                     </span>
                                                 </div>
+
+                                                {/* キャンセルボタン */}
+                                                {order.status?.toLowerCase() !== 'cancelled' && (
+                                                    <div className="border-t border-gray-200 pt-3">
+                                                        {confirmCancelId === order.id ? (
+                                                            <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
+                                                                <p className="text-sm text-red-700 font-semibold">
+                                                                    この注文をキャンセルしますか？
+                                                                    {order.payment_method === 'card' && 'カード決済の返金も行われます。'}
+                                                                </p>
+                                                                <div className="flex gap-2">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleCancelOrder(order.id)}
+                                                                        disabled={cancellingOrderId === order.id}
+                                                                        className="px-4 py-1.5 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 disabled:opacity-60"
+                                                                    >
+                                                                        {cancellingOrderId === order.id ? '処理中...' : 'キャンセル実行'}
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setConfirmCancelId(null)}
+                                                                        className="px-4 py-1.5 bg-gray-200 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-300"
+                                                                    >
+                                                                        戻る
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setConfirmCancelId(order.id)}
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-600 font-medium border border-red-200 rounded-lg hover:bg-red-50 transition"
+                                                            >
+                                                                <XCircle size={14} />
+                                                                注文をキャンセル
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     )}

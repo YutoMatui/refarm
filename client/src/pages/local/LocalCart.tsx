@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { MapPin, CreditCard, User, Calendar, ChevronLeft, ChevronRight, ShoppingCart, Minus, Plus, Trash2, Tag } from 'lucide-react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
-import { consumerOrderApi, consumerApi, paymentApi, deliverySlotApi, couponApi } from '@/services/api'
+import { consumerOrderApi, consumerApi, paymentApi, deliverySlotApi, couponApi, type SavedCard } from '@/services/api'
 import { useStore } from '@/store/useStore'
 import { DeliverySlotType, type ConsumerOrder, type ConsumerOrderCreateRequest, type DeliverySlot } from '@/types'
 import AvailabilityModal from '@/components/AvailabilityModal'
@@ -126,6 +126,11 @@ const LocalCart = () => {
     const [stripeInstance, setStripeInstance] = useState<Awaited<ReturnType<typeof loadStripe>> | null>(null)
     const [stripeError, setStripeError] = useState<string | null>(null)
 
+    // 保存済みカード
+    const [paymentMode, setPaymentMode] = useState<'saved' | 'new'>('saved')
+    const [selectedSavedCardId, setSelectedSavedCardId] = useState<string | null>(null)
+    const [isSavedCardProcessing, setIsSavedCardProcessing] = useState(false)
+
     // Coupon
     const [couponCode, setCouponCode] = useState('')
     const [appliedCoupon, setAppliedCoupon] = useState<{
@@ -148,6 +153,24 @@ const LocalCart = () => {
             return res.data
         },
     })
+
+    // --- 保存済みカードを取得 ---
+    const { data: savedCardsData, refetch: refetchSavedCards } = useQuery({
+        queryKey: ['saved-cards'],
+        queryFn: async () => {
+            const res = await paymentApi.getSavedCards()
+            return res.data.cards
+        },
+        enabled: !!consumer && !needsProfile,
+    })
+    const savedCards: SavedCard[] = savedCardsData ?? []
+
+    // 保存済みカードがない場合は新規入力モードに切り替え
+    useEffect(() => {
+        if (savedCardsData && savedCardsData.length === 0) {
+            setPaymentMode('new')
+        }
+    }, [savedCardsData])
 
     // 受取枠がある日付だけ抽出（minDate以降）
     const availableDates = useMemo(() => {
@@ -245,7 +268,7 @@ const LocalCart = () => {
                 }
                 setStripeInstance(stripe)
 
-                const res = await paymentApi.createPaymentIntent({ amount: grandTotal, save_card: false })
+                const res = await paymentApi.createPaymentIntent({ amount: grandTotal, save_card: true })
                 if (!cancelled) {
                     setClientSecret(res.data.client_secret)
                 }
@@ -294,12 +317,48 @@ const LocalCart = () => {
             delivery_type: DeliverySlotType.UNIVERSITY,
             delivery_notes: deliveryNotes || undefined,
             payment_method: 'card',
-            save_card_for_future: false,
+            save_card_for_future: true,
             stripe_payment_method_id: paymentMethodId,
             stripe_payment_intent_id: paymentIntentId,
             coupon_code: appliedCoupon?.code || undefined,
             items,
         })
+    }
+
+    const handleSavedCardPayment = async () => {
+        if (!stripeInstance || !clientSecret || !selectedSavedCardId || !consumer) return
+
+        setIsSavedCardProcessing(true)
+        try {
+            const { error, paymentIntent } = await stripeInstance.confirmCardPayment(clientSecret, {
+                payment_method: selectedSavedCardId,
+            })
+
+            if (error) {
+                toast.error(error.message ?? '決済に失敗しました')
+            } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+                handlePaymentSuccess(paymentIntent.id, paymentIntent.payment_method as string)
+            } else {
+                toast.error('決済処理を完了できませんでした')
+            }
+        } catch {
+            toast.error('決済処理中にエラーが発生しました')
+        } finally {
+            setIsSavedCardProcessing(false)
+        }
+    }
+
+    const handleDeleteSavedCard = async (cardId: string) => {
+        try {
+            await paymentApi.deleteSavedCard(cardId)
+            refetchSavedCards()
+            if (selectedSavedCardId === cardId) {
+                setSelectedSavedCardId(null)
+            }
+            toast.success('カードを削除しました')
+        } catch {
+            toast.error('カードの削除に失敗しました')
+        }
     }
 
     const handleConsolidate = (date: string) => {
@@ -667,13 +726,13 @@ const LocalCart = () => {
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                     <CreditCard className="text-emerald-600" size={20} />
-                    お支払い（クレジットカード）
+                    お支払い
                 </h2>
-                <p className="text-sm text-gray-600">ご不明点がございましたら、公式LINEよりお問い合わせください。</p>
+                <p className="text-sm text-gray-600">Google Pay・Apple Payもご利用いただけます。ご不明点がございましたら、公式LINEよりお問い合わせください。</p>
 
                 {!canSubmit && (
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-500 text-center">
-                        受取日と時間帯を選択するとカード入力フォームが表示されます
+                        受取日と時間帯を選択するとお支払い方法が表示されます
                     </div>
                 )}
 
@@ -685,19 +744,102 @@ const LocalCart = () => {
                 )}
 
                 {canSubmit && !stripeError && clientSecret && stripeInstance ? (
-                    <Elements stripe={stripeInstance} options={{
-                        clientSecret,
-                        appearance: {
-                            theme: 'stripe',
-                            variables: { colorPrimary: '#059669', borderRadius: '8px' },
-                        },
-                        locale: 'ja',
-                    }}>
-                        <CheckoutForm
-                            onPaymentSuccess={handlePaymentSuccess}
-                            isSubmitting={mutation.isPending}
-                        />
-                    </Elements>
+                    <div className="space-y-4">
+                        {/* 保存済みカードがある場合のみタブ表示 */}
+                        {savedCards.length > 0 && (
+                            <div className="flex border border-gray-200 rounded-xl overflow-hidden">
+                                <button
+                                    type="button"
+                                    onClick={() => setPaymentMode('saved')}
+                                    className={`flex-1 py-3 text-sm font-semibold transition-all ${
+                                        paymentMode === 'saved'
+                                            ? 'bg-emerald-600 text-white'
+                                            : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                                    }`}
+                                >
+                                    登録済みカード
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setPaymentMode('new')}
+                                    className={`flex-1 py-3 text-sm font-semibold transition-all ${
+                                        paymentMode === 'new'
+                                            ? 'bg-emerald-600 text-white'
+                                            : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                                    }`}
+                                >
+                                    新しいカード
+                                </button>
+                            </div>
+                        )}
+
+                        {/* 保存済みカード選択 */}
+                        {paymentMode === 'saved' && savedCards.length > 0 && (
+                            <div className="space-y-3">
+                                {savedCards.map(card => (
+                                    <label
+                                        key={card.id}
+                                        className={`flex items-center justify-between p-4 border rounded-xl cursor-pointer transition-all ${
+                                            selectedSavedCardId === card.id
+                                                ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500'
+                                                : 'border-gray-200 hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="radio"
+                                                name="savedCard"
+                                                value={card.id}
+                                                checked={selectedSavedCardId === card.id}
+                                                onChange={() => setSelectedSavedCardId(card.id)}
+                                                className="w-4 h-4 text-emerald-600 border-gray-300"
+                                            />
+                                            <div>
+                                                <p className="font-semibold text-gray-900">
+                                                    {card.brand.toUpperCase()} **** {card.last4}
+                                                </p>
+                                                <p className="text-xs text-gray-500">
+                                                    有効期限 {String(card.exp_month).padStart(2, '0')}/{card.exp_year}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => { e.preventDefault(); handleDeleteSavedCard(card.id) }}
+                                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </label>
+                                ))}
+                                <button
+                                    type="button"
+                                    onClick={handleSavedCardPayment}
+                                    disabled={!selectedSavedCardId || isSavedCardProcessing || mutation.isPending}
+                                    className="w-full py-4 bg-emerald-600 text-white font-bold text-lg rounded-xl hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+                                >
+                                    {isSavedCardProcessing || mutation.isPending ? '決済処理中...' : '注文を確定する'}
+                                </button>
+                            </div>
+                        )}
+
+                        {/* 新しいカード入力（Stripe Elements） */}
+                        {paymentMode === 'new' && (
+                            <Elements stripe={stripeInstance} options={{
+                                clientSecret,
+                                appearance: {
+                                    theme: 'stripe',
+                                    variables: { colorPrimary: '#059669', borderRadius: '8px' },
+                                },
+                                locale: 'ja',
+                            }}>
+                                <CheckoutForm
+                                    onPaymentSuccess={handlePaymentSuccess}
+                                    isSubmitting={mutation.isPending}
+                                />
+                            </Elements>
+                        )}
+                    </div>
                 ) : canSubmit && !stripeError ? (
                     <div className="text-center py-4 text-gray-500 text-sm">
                         決済フォームを読み込んでいます...
