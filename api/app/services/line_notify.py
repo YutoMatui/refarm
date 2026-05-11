@@ -186,7 +186,7 @@ class LineNotificationService:
         channel_id, channel_secret, channel_token = self._get_admin_token_params()
         token = await self.get_access_token(channel_id, channel_secret, channel_token)
 
-        consumer_name = "一般消費者"
+        consumer_name = "お客様"
         if getattr(order, "consumer", None) and order.consumer.name:
             consumer_name = order.consumer.name
 
@@ -546,7 +546,9 @@ No. {order.id}
                     "total_sales": Decimal(0)
                 }
             farmers_items[farmer_id]["items"].append(item)
-            farmers_items[farmer_id]["total_sales"] += Decimal(str(item.unit_price or 0)) * item.quantity
+            # 仕入れ値（農家手取り）で売上を計算
+            cost_price = Decimal(str(product.cost_price or 0)) if product and product.cost_price else Decimal(0)
+            farmers_items[farmer_id]["total_sales"] += cost_price * item.quantity
 
         if not farmers_items:
             return
@@ -570,7 +572,7 @@ No. {order.id}
 
             message = f"""【🎉 注文が入りました！】
 {data['farmer_name']}さん、お疲れ様です！
-一般消費者から注文が入りました。収穫・出荷の準備をお願いします。
+注文が入りました。収穫・出荷の準備をお願いします。
 
 ■ 受渡予定
 {delivery_date_str} {time_label}
