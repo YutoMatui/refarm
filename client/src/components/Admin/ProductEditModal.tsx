@@ -249,22 +249,9 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
 
                     <div className="grid grid-cols-1 gap-4">
                         <div>
-                            <div className="flex items-center justify-between mb-1">
-                                <label className="block text-sm font-bold text-gray-700">
-                                    販売価格 (税込)
-                                </label>
-                                <button
-                                    type="button"
-                                    onClick={handleToggleManualPrice}
-                                    className={`text-xs px-2.5 py-1 rounded-full font-bold transition-colors ${
-                                        isManualPrice
-                                            ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                                    }`}
-                                >
-                                    {isManualPrice ? '手動入力中' : '自動計算'}
-                                </button>
-                            </div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">
+                                販売価格 (税込)
+                            </label>
                             <input
                                 {...register('price')}
                                 type={isManualPrice ? 'number' : undefined}
@@ -275,11 +262,15 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
                                 }`}
                                 readOnly={!isManualPrice}
                             />
-                            <p className="text-xs text-gray-500 mt-1">
-                                {isManualPrice
-                                    ? '※手動で販売価格を入力してください（税込）'
-                                    : '※消費税込み、四捨五入後の価格です'}
-                            </p>
+                            <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={isManualPrice}
+                                    onChange={handleToggleManualPrice}
+                                    className="w-4 h-4 rounded border-gray-300 text-blue-600"
+                                />
+                                <span className="text-sm text-gray-600">販売価格を手動で変更する</span>
+                            </label>
                         </div>
                     </div>
 
