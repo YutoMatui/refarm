@@ -21,6 +21,8 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
     const [cropperImage, setCropperImage] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const [isManualPrice, setIsManualPrice] = useState(false);
+
     // Watch cost_price for auto-calculation
     const costPrice = watch('cost_price');
     const priceMultiplier = watch('price_multiplier');
@@ -36,6 +38,7 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
     });
 
     useEffect(() => {
+        setIsManualPrice(false);
         if (product) {
             reset({
                 name: product.name,
@@ -72,7 +75,7 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
 
     // Auto calculate selling price when cost price or multiplier changes
     useEffect(() => {
-        if (costPrice && priceMultiplier) {
+        if (!isManualPrice && costPrice && priceMultiplier) {
             const cost = Number(costPrice);
             const multiplier = Number(priceMultiplier);
             if (!isNaN(cost) && cost > 0 && !isNaN(multiplier) && multiplier > 0) {
@@ -82,7 +85,22 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
                 setValue('price', calculatedPrice.toString());
             }
         }
-    }, [costPrice, priceMultiplier, setValue]);
+    }, [costPrice, priceMultiplier, isManualPrice, setValue]);
+
+    const handleToggleManualPrice = () => {
+        const newIsManual = !isManualPrice;
+        setIsManualPrice(newIsManual);
+        // Switching back to auto → recalculate
+        if (!newIsManual && costPrice && priceMultiplier) {
+            const cost = Number(costPrice);
+            const multiplier = Number(priceMultiplier);
+            if (!isNaN(cost) && cost > 0 && !isNaN(multiplier) && multiplier > 0) {
+                const rawPrice = (cost / multiplier) * 1.08;
+                const calculatedPrice = Math.round(rawPrice);
+                setValue('price', calculatedPrice.toString());
+            }
+        }
+    };
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -231,15 +249,37 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
 
                     <div className="grid grid-cols-1 gap-4">
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">
-                                販売価格 (税込) <span className="text-xs font-normal text-gray-500">(自動計算)</span>
-                            </label>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="block text-sm font-bold text-gray-700">
+                                    販売価格 (税込)
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={handleToggleManualPrice}
+                                    className={`text-xs px-2.5 py-1 rounded-full font-bold transition-colors ${
+                                        isManualPrice
+                                            ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    {isManualPrice ? '手動入力中' : '自動計算'}
+                                </button>
+                            </div>
                             <input
                                 {...register('price')}
-                                className="w-full border border-gray-300 bg-gray-100 text-gray-600 rounded p-2 text-lg font-bold"
-                                readOnly
+                                type={isManualPrice ? 'number' : undefined}
+                                className={`w-full border rounded p-2 text-lg font-bold ${
+                                    isManualPrice
+                                        ? 'border-blue-400 bg-white text-gray-900 ring-1 ring-blue-200'
+                                        : 'border-gray-300 bg-gray-100 text-gray-600'
+                                }`}
+                                readOnly={!isManualPrice}
                             />
-                            <p className="text-xs text-gray-500 mt-1">※消費税込み、四捨五入後の価格です</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                                {isManualPrice
+                                    ? '※手動で販売価格を入力してください（税込）'
+                                    : '※消費税込み、四捨五入後の価格です'}
+                            </p>
                         </div>
                     </div>
 
