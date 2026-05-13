@@ -1,5 +1,6 @@
 import httpx
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from dateutil.relativedelta import relativedelta
 from decimal import Decimal
 from typing import Dict, List, Any
@@ -818,7 +819,7 @@ No. {order.id} の納品書をお送りします。
         channel_id, channel_secret, channel_token = self._get_admin_token_params()
         token = await self.get_access_token(channel_id, channel_secret, channel_token)
 
-        now = datetime.now()
+        now = datetime.now(ZoneInfo(settings.TZ))
         weekdays = ["月", "火", "水", "木", "金", "土", "日"]
         time_str = f"{now.month}月{now.day}日({weekdays[now.weekday()]}) {now.hour:02d}:{now.minute:02d}"
 
