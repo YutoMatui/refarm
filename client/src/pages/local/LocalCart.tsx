@@ -82,12 +82,21 @@ const CheckoutForm = ({ onPaymentSuccess, isSubmitting }: CheckoutFormProps) => 
 // --- メインカートコンポーネント ---
 const LocalCart = () => {
     const navigate = useNavigate()
-    const cart = useStore(state => state.cart)
+    // Retail cart (primary)
+    const retailCart = useStore(state => state.retailCart)
+    const clearRetailCart = useStore(state => state.clearRetailCart)
+    const updateRetailCartQuantity = useStore(state => state.updateRetailCartQuantity)
+    const removeFromRetailCart = useStore(state => state.removeFromRetailCart)
+    // Legacy cart (fallback for transition period)
+    const legacyCart = useStore(state => state.cart)
+    const clearLegacyCart = useStore(state => state.clearCart)
+    const updateLegacyCartQuantity = useStore(state => state.updateCartQuantity)
+    const removeFromLegacyCart = useStore(state => state.removeFromCart)
+    // Use retail cart if it has items, otherwise fall back to legacy cart
+    const useRetail = retailCart.length > 0 || legacyCart.length === 0
+
     const consumer = useStore(state => state.consumer)
     const setConsumer = useStore(state => state.setConsumer)
-    const clearCart = useStore(state => state.clearCart)
-    const updateCartQuantity = useStore(state => state.updateCartQuantity)
-    const removeFromCart = useStore(state => state.removeFromCart)
 
     // プロフィール未完了の場合の入力フィールド
     const needsProfile = !consumer?.name || !consumer?.phone_number
@@ -200,21 +209,33 @@ const LocalCart = () => {
     const { subtotal, taxAmount, productTotal } = useMemo(() => {
         let currentSubtotal = 0
         let currentTax = 0
-        cart.forEach(item => {
-            const price = parseFloat(String(item.product.price))
-            const quantity = Number(item.quantity)
-            const taxRate = item.product.tax_rate
-            const itemSubtotal = price * quantity
-            const itemTax = Math.round(itemSubtotal * (taxRate / 100))
-            currentSubtotal += itemSubtotal
-            currentTax += itemTax
-        })
+        if (useRetail) {
+            retailCart.forEach(item => {
+                const price = parseFloat(item.retailProduct.retail_price)
+                const quantity = item.quantity
+                const taxRate = item.retailProduct.tax_rate || 8
+                const itemSubtotal = price * quantity
+                const itemTax = Math.round(itemSubtotal * (taxRate / 100))
+                currentSubtotal += itemSubtotal
+                currentTax += itemTax
+            })
+        } else {
+            legacyCart.forEach(item => {
+                const price = parseFloat(String(item.product.price))
+                const quantity = Number(item.quantity)
+                const taxRate = item.product.tax_rate
+                const itemSubtotal = price * quantity
+                const itemTax = Math.round(itemSubtotal * (taxRate / 100))
+                currentSubtotal += itemSubtotal
+                currentTax += itemTax
+            })
+        }
         return {
             subtotal: Math.round(currentSubtotal),
             taxAmount: Math.round(currentTax),
             productTotal: Math.round(currentSubtotal + currentTax),
         }
-    }, [cart])
+    }, [retailCart, legacyCart, useRetail])
 
     const discountAmount = appliedCoupon?.discount_amount || 0
     const grandTotal = Math.max(0, productTotal - discountAmount)
@@ -291,7 +312,11 @@ const LocalCart = () => {
         },
         onSuccess: (order) => {
             toast.success('注文を受け付けました')
-            clearCart()
+            if (useRetail) {
+                clearRetailCart()
+            } else {
+                clearLegacyCart()
+            }
             navigate(`/local/order-complete/${order.id}`)
         },
         onError: (error) => {
@@ -304,10 +329,15 @@ const LocalCart = () => {
     const handlePaymentSuccess = (paymentIntentId: string, paymentMethodId: string) => {
         if (!consumer) return
 
-        const items = cart.map(item => ({
-            product_id: item.product.id,
-            quantity: Number(item.quantity),
-        }))
+        const items = useRetail
+            ? retailCart.map(item => ({
+                retail_product_id: item.retailProduct.id,
+                quantity: item.quantity,
+            }))
+            : legacyCart.map(item => ({
+                product_id: item.product.id,
+                quantity: Number(item.quantity),
+            }))
 
         mutation.mutate({
             consumer_id: consumer.id,
@@ -367,9 +397,13 @@ const LocalCart = () => {
     }
 
     const handleRemoveUnavailable = () => {
-        const removeFromCart = useStore.getState().removeFromCart
+        const store = useStore.getState()
         const idsToRemove = unavailableItems.map(item => item.productId)
-        idsToRemove.forEach(id => removeFromCart(id))
+        if (useRetail) {
+            idsToRemove.forEach(id => store.removeFromRetailCart(id))
+        } else {
+            idsToRemove.forEach(id => store.removeFromCart(id))
+        }
         setIsAvailModalOpen(false)
     }
 
@@ -383,7 +417,8 @@ const LocalCart = () => {
         )
     }
 
-    if (cart.length === 0) {
+    const cartIsEmpty = useRetail ? retailCart.length === 0 : legacyCart.length === 0
+    if (cartIsEmpty) {
         return (
             <div className="max-w-3xl mx-auto px-4 py-10 space-y-4 text-center">
                 <div className="bg-white border border-gray-200 rounded-xl p-8">
@@ -411,7 +446,54 @@ const LocalCart = () => {
                     カートの中身
                 </h2>
                 <div className="space-y-3">
-                    {cart.map(item => {
+                    {useRetail ? retailCart.map(item => {
+                        const price = parseFloat(item.retailProduct.retail_price)
+                        const quantity = item.quantity
+                        const taxRate = item.retailProduct.tax_rate || 8
+                        const itemSubtotal = Math.round(price * quantity)
+                        const itemTax = Math.round(itemSubtotal * (taxRate / 100))
+                        const itemTotal = itemSubtotal + itemTax
+                        return (
+                            <div key={item.retailProduct.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                {item.retailProduct.image_url ? (
+                                    <img src={item.retailProduct.image_url} alt={item.retailProduct.name}
+                                        className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+                                ) : (
+                                    <div className="w-16 h-16 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                        <span className="text-2xl">🥬</span>
+                                    </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-semibold text-gray-900 text-sm truncate">
+                                        {item.retailProduct.name}
+                                        {item.retailProduct.retail_quantity_label && (
+                                            <span className="text-xs text-gray-400 ml-1">({item.retailProduct.retail_quantity_label})</span>
+                                        )}
+                                    </p>
+                                    <p className="text-xs text-gray-500">¥{price.toLocaleString()}/{item.retailProduct.retail_unit}（税抜）</p>
+                                    <p className="text-sm font-semibold text-emerald-600 mt-1">¥{itemTotal.toLocaleString()}</p>
+                                </div>
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                    <button type="button"
+                                        onClick={() => updateRetailCartQuantity(item.retailProduct.id, quantity - 1)}
+                                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition">
+                                        <Minus size={14} className="text-gray-600" />
+                                    </button>
+                                    <span className="w-8 text-center font-bold text-gray-900 text-sm">{quantity}</span>
+                                    <button type="button"
+                                        onClick={() => updateRetailCartQuantity(item.retailProduct.id, quantity + 1)}
+                                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition">
+                                        <Plus size={14} className="text-gray-600" />
+                                    </button>
+                                </div>
+                                <button type="button"
+                                    onClick={() => removeFromRetailCart(item.retailProduct.id)}
+                                    className="w-8 h-8 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition flex-shrink-0">
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+                        )
+                    }) : legacyCart.map(item => {
                         const price = parseFloat(String(item.product.price))
                         const quantity = Number(item.quantity)
                         const taxRate = item.product.tax_rate
@@ -435,19 +517,19 @@ const LocalCart = () => {
                                 </div>
                                 <div className="flex items-center gap-1 flex-shrink-0">
                                     <button type="button"
-                                        onClick={() => updateCartQuantity(item.product.id, quantity - 1)}
+                                        onClick={() => updateLegacyCartQuantity(item.product.id, quantity - 1)}
                                         className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition">
                                         <Minus size={14} className="text-gray-600" />
                                     </button>
                                     <span className="w-8 text-center font-bold text-gray-900 text-sm">{quantity}</span>
                                     <button type="button"
-                                        onClick={() => updateCartQuantity(item.product.id, quantity + 1)}
+                                        onClick={() => updateLegacyCartQuantity(item.product.id, quantity + 1)}
                                         className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition">
                                         <Plus size={14} className="text-gray-600" />
                                     </button>
                                 </div>
                                 <button type="button"
-                                    onClick={() => removeFromCart(item.product.id)}
+                                    onClick={() => removeFromLegacyCart(item.product.id)}
                                     className="w-8 h-8 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition flex-shrink-0">
                                     <Trash2 size={16} />
                                 </button>
@@ -640,7 +722,20 @@ const LocalCart = () => {
             <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
                 <h2 className="text-lg font-bold text-gray-900">注文内容の確認</h2>
                 <div className="space-y-2">
-                    {cart.map(item => {
+                    {useRetail ? retailCart.map(item => {
+                        const price = parseFloat(item.retailProduct.retail_price)
+                        const quantity = item.quantity
+                        const taxRate = item.retailProduct.tax_rate || 8
+                        const itemSubtotal = Math.round(price * quantity)
+                        const itemTax = Math.round(itemSubtotal * (taxRate / 100))
+                        const itemTotal = itemSubtotal + itemTax
+                        return (
+                            <div key={item.retailProduct.id} className="flex justify-between text-sm text-gray-700 py-2 border-b border-gray-100">
+                                <span className="font-medium">{item.retailProduct.name} × {quantity}{item.retailProduct.retail_unit}</span>
+                                <span className="font-semibold">¥{itemTotal.toLocaleString()}</span>
+                            </div>
+                        )
+                    }) : legacyCart.map(item => {
                         const price = parseFloat(String(item.product.price))
                         const quantity = Number(item.quantity)
                         const taxRate = item.product.tax_rate

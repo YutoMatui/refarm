@@ -832,6 +832,51 @@ No. {order.id} の納品書をお送りします。
         for user_id in admin_user_ids:
             await self.send_push_message(token, user_id, message)
 
+    async def notify_farmer_procurement_order(self, farmer, items, delivery_slot=None):
+        """仕入れ集計に基づく農家への一括発注通知"""
+        if not farmer.line_user_id:
+            print(f"Farmer {farmer.id} has no LINE user ID, skipping procurement notification")
+            return
+
+        token = await self.get_access_token(
+            settings.LINE_PRODUCER_CHANNEL_ID,
+            settings.LINE_PRODUCER_CHANNEL_SECRET,
+            settings.LINE_PRODUCER_CHANNEL_ACCESS_TOKEN,
+        )
+        if not token:
+            print("Failed to get producer channel token for procurement notification")
+            return
+
+        delivery_info = ""
+        if delivery_slot and delivery_slot.date:
+            delivery_info = f"■ 出荷期限\n{self.format_date(delivery_slot.date)} 午前10時まで\n\n"
+
+        items_text = ""
+        total_cost = 0
+        for item in items:
+            sp = item.source_product
+            product_name = sp.name if sp else "不明"
+            unit = sp.unit if sp else ""
+            qty = item.ordered_farmer_qty
+            items_text += f"📦 {product_name}\n   数量: {qty}{unit}\n"
+            if item.unit_cost:
+                cost = int(item.unit_cost) * qty
+                total_cost += cost
+
+        message = f"""【🎉 発注のお知らせ】
+{farmer.name}さん、お疲れ様です！
+以下の出荷をお願いいたします。
+
+{delivery_info}■ 出荷リスト
+{items_text}
+------------------------
+💰 今回の売上予定: {self.format_currency(total_cost)}
+------------------------
+
+お野菜のご準備、よろしくお願いいたします！🚛"""
+
+        await self.send_push_message(token, farmer.line_user_id, message)
+
     async def notify_farmer_item_deleted(self, order: Order, item: OrderItem):
         """注文明細が削除されたことを農家に通知"""
         # Ensure farmer info is available

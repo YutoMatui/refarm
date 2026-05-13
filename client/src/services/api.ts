@@ -685,4 +685,52 @@ export const adminCouponApi = {
     apiClient.delete(`/admin/coupons/${id}`),
 }
 
+// Retail Product API (consumer-facing, public)
+export const retailProductApi = {
+  list: (params?: {
+    skip?: number; limit?: number; category?: string;
+    is_featured?: number; is_wakeari?: number; search?: string;
+  }) =>
+    apiClient.get<PaginatedResponse<any>>('/retail-products/', { params }),
+
+  getById: (id: number) =>
+    apiClient.get<any>(`/retail-products/${id}`),
+}
+
+// Admin Retail Product API
+export const adminRetailProductApi = {
+  list: (params?: { skip?: number; limit?: number; is_active?: number; search?: string }) =>
+    apiClient.get<PaginatedResponse<any>>('/admin/retail-products', { params }),
+
+  create: (data: any) =>
+    apiClient.post<any>('/admin/retail-products', data),
+
+  update: (id: number, data: any) =>
+    apiClient.put<any>(`/admin/retail-products/${id}`, data),
+
+  delete: (id: number) =>
+    apiClient.delete(`/admin/retail-products/${id}`),
+
+  suggestPrice: (data: { cost_price: number; conversion_factor: number; waste_margin_pct?: number; price_multiplier?: number }) =>
+    apiClient.post<{ suggested_price: string; cost_per_retail_unit: string; breakdown: string }>('/admin/retail-products/suggest-price', data),
+}
+
+// Admin Procurement API
+export const adminProcurementApi = {
+  list: (params?: { status?: string }) =>
+    apiClient.get<{ items: any[]; total: number }>('/admin/procurement', { params }),
+
+  getById: (id: number) =>
+    apiClient.get<any>(`/admin/procurement/${id}`),
+
+  aggregate: (data: { delivery_slot_id: number }) =>
+    apiClient.post<any>('/admin/procurement/aggregate', data),
+
+  updateItem: (batchId: number, itemId: number, data: { ordered_farmer_qty?: number; notes?: string }) =>
+    apiClient.put<any>(`/admin/procurement/${batchId}/items/${itemId}`, data),
+
+  orderFromFarmers: (batchId: number) =>
+    apiClient.post<any>(`/admin/procurement/${batchId}/order`),
+}
+
 export default apiClient

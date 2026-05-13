@@ -83,6 +83,21 @@ from app.schemas.access_log import (
     AccessLogResponse,
     AccessLogListResponse,
 )
+from app.schemas.retail_product import (
+    RetailProductCreate,
+    RetailProductUpdate,
+    RetailProductResponse,
+    RetailProductListResponse,
+    SuggestPriceRequest,
+    SuggestPriceResponse,
+)
+from app.schemas.procurement import (
+    ProcurementBatchResponse,
+    ProcurementBatchListResponse,
+    ProcurementItemResponse,
+    ProcurementItemUpdate,
+    AggregateRequest,
+)
 from app.schemas.coupon import (
     CouponCreate,
     CouponUpdate,

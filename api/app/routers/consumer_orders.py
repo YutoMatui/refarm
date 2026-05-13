@@ -15,7 +15,8 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import get_current_consumer
 from app.models import ConsumerOrder, ConsumerOrderItem, Product, DeliverySlot, Consumer, Coupon
-from app.models.enums import OrderStatus, DeliverySlotType
+from app.models.retail_product import RetailProduct, ProcurementBatch
+from app.models.enums import OrderStatus, DeliverySlotType, ProcurementStatus
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -177,43 +178,87 @@ async def create_consumer_order(
 
     subtotal = Decimal(0)
     tax_amount = Decimal(0)
+    has_retail_items = False
 
     for item_data in order_data.items:
-        stmt_product = select(Product).where(
-            Product.id == item_data.product_id,
-            Product.deleted_at.is_(None),
-        )
-        product_result = await db.execute(stmt_product)
-        product = product_result.scalar_one_or_none()
+        # 新フロー: retail_product_id 優先
+        if item_data.retail_product_id:
+            has_retail_items = True
+            rp_stmt = select(RetailProduct).where(
+                RetailProduct.id == item_data.retail_product_id,
+                RetailProduct.deleted_at.is_(None),
+            )
+            rp_result = await db.execute(rp_stmt)
+            rp = rp_result.scalar_one_or_none()
 
-        if not product:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"商品ID {item_data.product_id} が見つかりません")
-        if product.is_active != 1:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"商品『{product.name}』は現在購入できません")
-        if product.stock_quantity is not None and item_data.quantity > product.stock_quantity:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"商品『{product.name}』の在庫が不足しています（残り{product.stock_quantity}個）")
+            if not rp:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"商品ID {item_data.retail_product_id} が見つかりません")
+            if rp.is_active != 1:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"商品『{rp.name}』は現在購入できません")
 
-        quantity = Decimal(item_data.quantity)
-        unit_price = Decimal(product.price)
-        item_subtotal = unit_price * quantity
-        item_tax = item_subtotal * (Decimal(product.tax_rate.value) / Decimal(100))
-        item_total = item_subtotal + item_tax
+            quantity = Decimal(item_data.quantity)
+            unit_price = Decimal(rp.retail_price)
+            item_tax_rate = rp.tax_rate or 8
+            item_subtotal = unit_price * quantity
+            item_tax = item_subtotal * (Decimal(item_tax_rate) / Decimal(100))
+            item_total = item_subtotal + item_tax
 
-        db_item = ConsumerOrderItem(
-            order_id=db_order.id,
-            product_id=product.id,
-            quantity=int(quantity),
-            unit_price=unit_price,
-            tax_rate=product.tax_rate.value,
-            subtotal=item_subtotal,
-            tax_amount=item_tax,
-            total_amount=item_total,
-            product_name=product.name,
-            product_unit=product.unit,
-        )
-        db.add(db_item)
-        subtotal += item_subtotal
-        tax_amount += item_tax
+            db_item = ConsumerOrderItem(
+                order_id=db_order.id,
+                product_id=rp.source_product_id,
+                retail_product_id=rp.id,
+                quantity=int(quantity),
+                unit_price=unit_price,
+                tax_rate=item_tax_rate,
+                subtotal=item_subtotal,
+                tax_amount=item_tax,
+                total_amount=item_total,
+                product_name=rp.name,
+                product_unit=rp.retail_unit,
+            )
+            db.add(db_item)
+            subtotal += item_subtotal
+            tax_amount += item_tax
+
+        # 旧フロー: product_id（後方互換）
+        elif item_data.product_id:
+            stmt_product = select(Product).where(
+                Product.id == item_data.product_id,
+                Product.deleted_at.is_(None),
+            )
+            product_result = await db.execute(stmt_product)
+            product = product_result.scalar_one_or_none()
+
+            if not product:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"商品ID {item_data.product_id} が見つかりません")
+            if product.is_active != 1:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"商品『{product.name}』は現在購入できません")
+            if product.stock_quantity is not None and item_data.quantity > product.stock_quantity:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"商品『{product.name}』の在庫が不足しています（残り{product.stock_quantity}個）")
+
+            quantity = Decimal(item_data.quantity)
+            unit_price = Decimal(product.price)
+            item_subtotal = unit_price * quantity
+            item_tax = item_subtotal * (Decimal(product.tax_rate.value) / Decimal(100))
+            item_total = item_subtotal + item_tax
+
+            db_item = ConsumerOrderItem(
+                order_id=db_order.id,
+                product_id=product.id,
+                quantity=int(quantity),
+                unit_price=unit_price,
+                tax_rate=product.tax_rate.value,
+                subtotal=item_subtotal,
+                tax_amount=item_tax,
+                total_amount=item_total,
+                product_name=product.name,
+                product_unit=product.unit,
+            )
+            db.add(db_item)
+            subtotal += item_subtotal
+            tax_amount += item_tax
+        else:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="product_id または retail_product_id が必要です")
 
     db_order.subtotal = subtotal
     db_order.tax_amount = tax_amount
@@ -255,9 +300,28 @@ async def create_consumer_order(
     order_result = await db.execute(stmt_reload)
     db_order = order_result.scalar_one()
 
-    # Notify via LINE (consumer + farmers + admin)
+    # 小売商品経由の注文の場合: 仕入れバッチに紐付け、農家通知は行わない
+    if has_retail_items:
+        # 対象配送スロットの COLLECTING バッチを取得または作成
+        batch_stmt = select(ProcurementBatch).where(
+            ProcurementBatch.delivery_slot_id == slot.id,
+            ProcurementBatch.status == ProcurementStatus.COLLECTING,
+        )
+        batch_result = await db.execute(batch_stmt)
+        batch = batch_result.scalar_one_or_none()
+        if not batch:
+            batch = ProcurementBatch(
+                delivery_slot_id=slot.id,
+                status=ProcurementStatus.COLLECTING,
+            )
+            db.add(batch)
+            await db.commit()
+
+    # Notify via LINE (consumer + admin のみ。農家には仕入れ集計時に通知)
     background_tasks.add_task(_safe_notify, line_service.notify_consumer_order, db_order)
-    background_tasks.add_task(_safe_notify, line_service.notify_farmers_consumer_order, db_order)
+    if not has_retail_items:
+        # 旧フロー: 農家にも直接通知
+        background_tasks.add_task(_safe_notify, line_service.notify_farmers_consumer_order, db_order)
     background_tasks.add_task(_safe_notify, line_service.notify_admin_consumer_order, db_order)
 
     return db_order

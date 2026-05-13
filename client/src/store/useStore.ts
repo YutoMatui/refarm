@@ -3,7 +3,7 @@
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Restaurant, Farmer, Product, CartItem, Consumer } from '@/types'
+import type { Restaurant, Farmer, Product, CartItem, Consumer, RetailProduct, RetailCartItem } from '@/types'
 
 interface AppState {
   // User & Auth
@@ -32,6 +32,15 @@ interface AppState {
   addFavorite: (productId: number) => void
   removeFavorite: (productId: number) => void
   isFavorite: (productId: number) => boolean
+
+  // Retail Cart (消費者向け小売商品カート)
+  retailCart: RetailCartItem[]
+  addToRetailCart: (rp: RetailProduct, quantity: number) => void
+  removeFromRetailCart: (rpId: number) => void
+  updateRetailCartQuantity: (rpId: number, quantity: number) => void
+  clearRetailCart: () => void
+  getRetailCartTotal: () => number
+  getRetailCartItemCount: () => number
 
   // UI State
   currentTab: 'history' | 'favorites' | 'catalog' | 'farmers' | 'mypage'
@@ -123,6 +132,50 @@ export const useStore = create<AppState>()(
         return get().favoriteIds.has(productId)
       },
 
+      // Retail Cart
+      retailCart: [],
+      addToRetailCart: (rp, quantity) => {
+        const { retailCart } = get()
+        const existing = retailCart.find(item => item.retailProduct.id === rp.id)
+        if (existing) {
+          set({
+            retailCart: retailCart.map(item =>
+              item.retailProduct.id === rp.id
+                ? { ...item, quantity: item.quantity + quantity }
+                : item
+            ),
+          })
+        } else {
+          set({ retailCart: [...retailCart, { retailProduct: rp, quantity }] })
+        }
+      },
+      removeFromRetailCart: (rpId) => {
+        set({ retailCart: get().retailCart.filter(item => item.retailProduct.id !== rpId) })
+      },
+      updateRetailCartQuantity: (rpId, quantity) => {
+        if (quantity <= 0) {
+          get().removeFromRetailCart(rpId)
+        } else {
+          set({
+            retailCart: get().retailCart.map(item =>
+              item.retailProduct.id === rpId ? { ...item, quantity } : item
+            ),
+          })
+        }
+      },
+      clearRetailCart: () => set({ retailCart: [] }),
+      getRetailCartTotal: () => {
+        return Math.round(get().retailCart.reduce((total, item) => {
+          const price = parseFloat(item.retailProduct.retail_price)
+          const taxRate = item.retailProduct.tax_rate || 8
+          if (Number.isNaN(price)) return total
+          return total + price * (1 + taxRate / 100) * item.quantity
+        }, 0))
+      },
+      getRetailCartItemCount: () => {
+        return get().retailCart.reduce((count, item) => count + item.quantity, 0)
+      },
+
       // UI State
       currentTab: 'catalog',
       setCurrentTab: (tab) => set({ currentTab: tab }),
@@ -136,6 +189,7 @@ export const useStore = create<AppState>()(
         farmer: state.farmer,
         userRole: state.userRole,
         cart: state.cart,
+        retailCart: state.retailCart,
         favoriteIds: Array.from(state.favoriteIds), // Convert Set to Array for persistence
       }),
       onRehydrateStorage: () => (state) => {

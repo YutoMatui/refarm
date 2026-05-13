@@ -1,0 +1,452 @@
+import { useState, useMemo } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { Plus, Pencil, Trash2, ShoppingBag, X, Calculator, Loader2 } from 'lucide-react'
+import { adminRetailProductApi, productApi } from '@/services/api'
+import type { RetailProduct, Product } from '@/types'
+
+const initialForm = {
+  source_product_id: '',
+  name: '',
+  description: '',
+  retail_price: '',
+  tax_rate: '8',
+  retail_unit: '',
+  retail_quantity_label: '',
+  conversion_factor: '1',
+  waste_margin_pct: '5',
+  image_url: '',
+  category: '',
+  is_active: true,
+  is_featured: false,
+  is_wakeari: false,
+  display_order: '0',
+}
+
+export default function RetailProductManagement() {
+  const queryClient = useQueryClient()
+  const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [form, setForm] = useState(initialForm)
+  const [filterText, setFilterText] = useState('')
+
+  // Fetch retail products
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin', 'retail-products'],
+    queryFn: async () => {
+      const res = await adminRetailProductApi.list({ limit: 1000 })
+      return res.data
+    },
+  })
+
+  // Fetch source (farmer) products for dropdown
+  const { data: sourceProductsData } = useQuery({
+    queryKey: ['admin', 'source-products'],
+    queryFn: async () => {
+      const res = await productApi.list({ is_active: 1, limit: 1000 })
+      return res.data
+    },
+  })
+
+  const sourceProducts: Product[] = sourceProductsData?.items || []
+  const retailProducts: RetailProduct[] = data?.items || []
+
+  const filteredProducts = useMemo(() => {
+    if (!filterText) return retailProducts
+    return retailProducts.filter(p =>
+      p.name.includes(filterText) ||
+      p.source_product?.name?.includes(filterText) ||
+      p.source_product?.farmer_name?.includes(filterText)
+    )
+  }, [retailProducts, filterText])
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => adminRetailProductApi.create(data),
+    onSuccess: () => {
+      toast.success('小売商品を作成しました')
+      queryClient.invalidateQueries({ queryKey: ['admin', 'retail-products'] })
+      resetForm()
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail || '作成に失敗しました'),
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => adminRetailProductApi.update(id, data),
+    onSuccess: () => {
+      toast.success('小売商品を更新しました')
+      queryClient.invalidateQueries({ queryKey: ['admin', 'retail-products'] })
+      resetForm()
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail || '更新に失敗しました'),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => adminRetailProductApi.delete(id),
+    onSuccess: () => {
+      toast.success('小売商品を削除しました')
+      queryClient.invalidateQueries({ queryKey: ['admin', 'retail-products'] })
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail || '削除に失敗しました'),
+  })
+
+  const [isSuggestingPrice, setIsSuggestingPrice] = useState(false)
+
+  const handleSuggestPrice = async () => {
+    const sourceProduct = sourceProducts.find(p => p.id === Number(form.source_product_id))
+    if (!sourceProduct?.cost_price) {
+      toast.error('元商品の仕入れ値が設定されていません')
+      return
+    }
+    setIsSuggestingPrice(true)
+    try {
+      const res = await adminRetailProductApi.suggestPrice({
+        cost_price: sourceProduct.cost_price,
+        conversion_factor: parseFloat(form.conversion_factor) || 1,
+        waste_margin_pct: parseFloat(form.waste_margin_pct) || 5,
+      })
+      setForm(prev => ({ ...prev, retail_price: res.data.suggested_price }))
+      toast.success(`推奨価格: ${res.data.suggested_price}円 (${res.data.breakdown})`)
+    } catch (e: any) {
+      toast.error(e?.response?.data?.detail || '価格計算に失敗しました')
+    } finally {
+      setIsSuggestingPrice(false)
+    }
+  }
+
+  const resetForm = () => {
+    setForm(initialForm)
+    setEditingId(null)
+    setShowForm(false)
+  }
+
+  const startEdit = (product: RetailProduct) => {
+    setForm({
+      source_product_id: String(product.source_product_id),
+      name: product.name,
+      description: product.description || '',
+      retail_price: product.retail_price,
+      tax_rate: String(product.tax_rate),
+      retail_unit: product.retail_unit,
+      retail_quantity_label: product.retail_quantity_label || '',
+      conversion_factor: product.conversion_factor,
+      waste_margin_pct: String(product.waste_margin_pct),
+      image_url: product.image_url || '',
+      category: product.category || '',
+      is_active: product.is_active === 1,
+      is_featured: product.is_featured === 1,
+      is_wakeari: product.is_wakeari === 1,
+      display_order: String(product.display_order),
+    })
+    setEditingId(product.id)
+    setShowForm(true)
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.source_product_id || !form.name || !form.retail_price || !form.retail_unit) {
+      toast.error('元商品、商品名、小売価格、単位は必須です')
+      return
+    }
+
+    const payload: any = {
+      source_product_id: parseInt(form.source_product_id),
+      name: form.name,
+      description: form.description || null,
+      retail_price: form.retail_price,
+      tax_rate: parseInt(form.tax_rate),
+      retail_unit: form.retail_unit,
+      retail_quantity_label: form.retail_quantity_label || null,
+      conversion_factor: form.conversion_factor,
+      waste_margin_pct: parseFloat(form.waste_margin_pct) || 5,
+      image_url: form.image_url || null,
+      category: form.category || null,
+      is_active: form.is_active ? 1 : 0,
+      is_featured: form.is_featured ? 1 : 0,
+      is_wakeari: form.is_wakeari ? 1 : 0,
+      display_order: parseInt(form.display_order) || 0,
+    }
+
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, data: payload })
+    } else {
+      createMutation.mutate(payload)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+          <ShoppingBag className="w-5 h-5" />
+          小売商品管理
+        </h2>
+        <button
+          onClick={() => { resetForm(); setShowForm(!showForm) }}
+          className="flex items-center gap-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+        >
+          <Plus className="w-4 h-4" />
+          新規作成
+        </button>
+      </div>
+
+      {/* Create/Edit Form Modal */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
+              <h3 className="text-xl font-bold">{editingId ? '小売商品 編集' : '小売商品 新規作成'}</h3>
+              <button onClick={resetForm} className="text-gray-500 hover:text-gray-700">
+                <X size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              {/* Source Product */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700">元商品（農家商品） *</label>
+                <select
+                  value={form.source_product_id}
+                  onChange={e => {
+                    const pid = e.target.value
+                    setForm(prev => ({ ...prev, source_product_id: pid }))
+                    // Auto-fill name from source product if empty
+                    if (pid && !form.name) {
+                      const sp = sourceProducts.find(p => p.id === Number(pid))
+                      if (sp) setForm(prev => ({ ...prev, name: sp.name, source_product_id: pid }))
+                    }
+                  }}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="">選択してください</option>
+                  {sourceProducts.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.unit}) - {p.farmer?.name || `農家ID:${p.farmer_id}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">商品名 *</label>
+                  <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
+                    placeholder="例: 小松菜 1袋" className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">カテゴリ</label>
+                  <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
+                    className="w-full border rounded-lg px-3 py-2 text-sm">
+                    <option value="">未設定</option>
+                    <option value="leafy">葉物</option>
+                    <option value="root">根菜</option>
+                    <option value="fruit_veg">果菜</option>
+                    <option value="mushroom">きのこ</option>
+                    <option value="herb">ハーブ</option>
+                    <option value="other">その他</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700">説明</label>
+                <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
+                  rows={2} placeholder="商品の説明文" className="w-full border rounded-lg px-3 py-2 text-sm" />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">小売単位 *</label>
+                  <input type="text" value={form.retail_unit} onChange={e => setForm({ ...form, retail_unit: e.target.value })}
+                    placeholder="例: 袋, パック" className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">数量ラベル</label>
+                  <input type="text" value={form.retail_quantity_label} onChange={e => setForm({ ...form, retail_quantity_label: e.target.value })}
+                    placeholder="例: 約200g" className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">税率</label>
+                  <select value={form.tax_rate} onChange={e => setForm({ ...form, tax_rate: e.target.value })}
+                    className="w-full border rounded-lg px-3 py-2 text-sm">
+                    <option value="8">8% (軽減税率)</option>
+                    <option value="10">10% (標準税率)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">換算係数</label>
+                  <input type="number" step="0.01" value={form.conversion_factor} onChange={e => setForm({ ...form, conversion_factor: e.target.value })}
+                    placeholder="1.0" className="w-full border rounded-lg px-3 py-2 text-sm" />
+                  <p className="text-xs text-gray-400">農家1単位 = 小売 x 袋</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">ロスマージン (%)</label>
+                  <input type="number" step="1" value={form.waste_margin_pct} onChange={e => setForm({ ...form, waste_margin_pct: e.target.value })}
+                    placeholder="5" className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">小売価格 (税抜) *</label>
+                  <div className="flex gap-2">
+                    <input type="text" value={form.retail_price} onChange={e => setForm({ ...form, retail_price: e.target.value })}
+                      placeholder="300" className="flex-1 border rounded-lg px-3 py-2 text-sm font-bold" />
+                    <button
+                      type="button"
+                      onClick={handleSuggestPrice}
+                      disabled={isSuggestingPrice || !form.source_product_id}
+                      className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-medium disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {isSuggestingPrice ? <Loader2 className="w-3 h-3 animate-spin" /> : <Calculator className="w-3 h-3" />}
+                      価格計算
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">画像URL</label>
+                  <input type="text" value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })}
+                    placeholder="https://..." className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">表示順</label>
+                  <input type="number" value={form.display_order} onChange={e => setForm({ ...form, display_order: e.target.value })}
+                    placeholder="0" className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.is_active} onChange={e => setForm({ ...form, is_active: e.target.checked })}
+                    className="rounded border-gray-300" />
+                  <span className="text-sm text-gray-700">販売中</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.is_featured} onChange={e => setForm({ ...form, is_featured: e.target.checked })}
+                    className="rounded border-gray-300" />
+                  <span className="text-sm text-gray-700">おすすめ</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.is_wakeari} onChange={e => setForm({ ...form, is_wakeari: e.target.checked })}
+                    className="rounded border-gray-300" />
+                  <span className="text-sm text-gray-700">訳あり</span>
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <button type="button" onClick={resetForm}
+                  className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                  キャンセル
+                </button>
+                <button type="submit" disabled={createMutation.isPending || updateMutation.isPending}
+                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium disabled:opacity-60 flex items-center gap-2">
+                  {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {editingId ? '更新' : '作成'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Filter */}
+      <div className="flex-1">
+        <input
+          type="text"
+          placeholder="商品名・農家名で検索..."
+          className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm"
+          value={filterText}
+          onChange={(e) => setFilterText(e.target.value)}
+        />
+      </div>
+
+      {/* Product Table */}
+      {isLoading ? (
+        <div className="text-center py-8 text-gray-500">読み込み中...</div>
+      ) : filteredProducts.length === 0 ? (
+        <div className="text-center py-8 text-gray-500 bg-white rounded-xl border border-gray-200">
+          小売商品がありません
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">商品名</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">価格</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">単位</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">数量ラベル</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">元商品 (農家)</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-600">状態</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-600">おすすめ</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">操作</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredProducts.map(product => (
+                  <tr key={product.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        {product.image_url && (
+                          <img src={product.image_url} alt="" className="w-8 h-8 rounded object-cover" />
+                        )}
+                        <span className="font-medium text-gray-900">{product.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 font-bold text-gray-900">
+                      {Number(product.retail_price).toLocaleString()}円
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{product.retail_unit}</td>
+                    <td className="px-4 py-3 text-gray-600">{product.retail_quantity_label || '-'}</td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {product.source_product ? (
+                        <div>
+                          <span>{product.source_product.name}</span>
+                          {product.source_product.farmer_name && (
+                            <span className="text-xs text-gray-400 ml-1">({product.source_product.farmer_name})</span>
+                          )}
+                        </div>
+                      ) : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                        product.is_active === 1 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        {product.is_active === 1 ? '販売中' : '停止'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {product.is_featured === 1 ? (
+                        <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">おすすめ</span>
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1">
+                        <button onClick={() => startEdit(product)}
+                          className="p-1.5 rounded hover:bg-gray-100" title="編集">
+                          <Pencil className="w-4 h-4 text-gray-500" />
+                        </button>
+                        <button onClick={() => {
+                          if (confirm(`「${product.name}」を削除しますか？`))
+                            deleteMutation.mutate(product.id)
+                        }}
+                          className="p-1.5 rounded hover:bg-red-50" title="削除">
+                          <Trash2 className="w-4 h-4 text-red-400" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

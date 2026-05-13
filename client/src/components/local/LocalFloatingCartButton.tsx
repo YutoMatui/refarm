@@ -4,10 +4,20 @@ import { useStore } from '@/store/useStore'
 
 const LocalFloatingCartButton = () => {
     const navigate = useNavigate()
-    const cart = useStore(state => state.cart)
+    const retailCart = useStore(state => state.retailCart)
+    const legacyCart = useStore(state => state.cart)
+    const getRetailCartTotal = useStore(state => state.getRetailCartTotal)
+    const getRetailCartItemCount = useStore(state => state.getRetailCartItemCount)
 
-    const totalItems = cart.reduce((sum, item) => sum + Number(item.quantity), 0)
-    const totalPrice = cart.reduce((sum, item) => sum + parseFloat(String(item.product.price_with_tax ?? item.product.price)) * Number(item.quantity), 0)
+    // Use retail cart if it has items, otherwise fall back to legacy cart
+    const useRetail = retailCart.length > 0 || legacyCart.length === 0
+
+    const totalItems = useRetail
+        ? getRetailCartItemCount()
+        : legacyCart.reduce((sum, item) => sum + Number(item.quantity), 0)
+    const totalPrice = useRetail
+        ? getRetailCartTotal()
+        : legacyCart.reduce((sum, item) => sum + parseFloat(String(item.product.price_with_tax ?? item.product.price)) * Number(item.quantity), 0)
 
     if (totalItems === 0) return null
 

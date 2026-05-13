@@ -195,6 +195,9 @@ from app.routers import (
     public,
     admin_coupons,
     coupons as coupons_router,
+    retail_products,
+    admin_retail_products,
+    admin_procurement,
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -226,6 +229,9 @@ app.include_router(integrations_lp.router, prefix="/api/integrations/lp", tags=[
 app.include_router(public.router, prefix="/api/public", tags=["Public"])
 app.include_router(admin_coupons.router, prefix="/api/admin", tags=["Admin Coupons"])
 app.include_router(coupons_router.router, prefix="/api/coupons", tags=["Coupons"])
+app.include_router(retail_products.router, prefix="/api/retail-products", tags=["Retail Products"])
+app.include_router(admin_retail_products.router, prefix="/api/admin", tags=["Admin Retail Products"])
+app.include_router(admin_procurement.router, prefix="/api/admin", tags=["Admin Procurement"])
 
 
 # ----------------------------------------------------

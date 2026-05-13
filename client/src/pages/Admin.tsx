@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, ShoppingBag, Truck, ClipboardList, Store, Map, ShieldAlert, MessageCircle, UserCircle, Activity, Calendar, ChevronDown, Menu, X, Receipt, Tag } from 'lucide-react'
+import { Users, ShoppingBag, Truck, ClipboardList, Store, Map, ShieldAlert, MessageCircle, UserCircle, Activity, Calendar, ChevronDown, Menu, X, Receipt, Tag, Package } from 'lucide-react'
 import FarmerManagement from '@/components/Admin/FarmerManagement'
 import ProductManagement from '@/components/Admin/ProductManagement'
 import DeliveryManagement from '@/components/Admin/DeliveryManagement'
@@ -14,9 +14,11 @@ import ConsumerDeliverySlotManagement from '@/components/Admin/ConsumerDeliveryS
 import ConsumerOrderManagement from '@/components/Admin/ConsumerOrderManagement'
 import AccessLogManagement from '@/components/Admin/AccessLogManagement'
 import CouponManagement from '@/components/Admin/CouponManagement'
+import RetailProductManagement from '@/components/Admin/RetailProductManagement'
+import ConsumerProcurementManagement from '@/components/Admin/ConsumerProcurementManagement'
 import { adminApi } from '@/services/api'
 
-type TabId = 'consumers' | 'consumer_orders' | 'consumer_slots' | 'coupons' | 'restaurants' | 'delivery' | 'delivery_schedule' | 'farmers' | 'products' | 'procurement' | 'route' | 'guest' | 'access_logs' | 'admin_users'
+type TabId = 'consumers' | 'consumer_orders' | 'consumer_slots' | 'coupons' | 'retail_products' | 'consumer_procurement' | 'restaurants' | 'delivery' | 'delivery_schedule' | 'farmers' | 'products' | 'procurement' | 'route' | 'guest' | 'access_logs' | 'admin_users'
 
 interface TabItem {
     id: TabId
@@ -50,6 +52,8 @@ export default function Admin() {
                 { id: 'consumer_orders', label: '注文履歴', icon: Receipt },
                 { id: 'consumer_slots', label: '受取枠管理', icon: Calendar },
                 { id: 'coupons', label: 'クーポン管理', icon: Tag },
+                { id: 'retail_products', label: '小売商品管理', icon: Package },
+                { id: 'consumer_procurement', label: '仕入れ集計', icon: ClipboardList },
             ],
         },
         {
@@ -198,6 +202,8 @@ export default function Admin() {
                         {activeTab === 'consumer_orders' && <ConsumerOrderManagement />}
                         {activeTab === 'consumer_slots' && <ConsumerDeliverySlotManagement />}
                         {activeTab === 'coupons' && <CouponManagement />}
+                        {activeTab === 'retail_products' && <RetailProductManagement />}
+                        {activeTab === 'consumer_procurement' && <ConsumerProcurementManagement />}
                         {activeTab === 'restaurants' && <RestaurantManagement />}
                         {activeTab === 'delivery' && <DeliveryManagement />}
                         {activeTab === 'delivery_schedule' && <DeliveryScheduleManagement />}

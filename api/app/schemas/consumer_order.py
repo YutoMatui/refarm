@@ -48,7 +48,8 @@ class ProductInfoForOrder(BaseModel):
 # ==========================================
 
 class ConsumerOrderItemCreate(BaseModel):
-    product_id: int
+    product_id: Optional[int] = Field(None, description="農家商品ID（旧フロー用）")
+    retail_product_id: Optional[int] = Field(None, description="小売商品ID（新フロー用）")
     quantity: int = Field(..., gt=0, le=99, description="数量（1〜99）")
 
 
@@ -73,7 +74,8 @@ class ConsumerOrderCreate(BaseModel):
 class ConsumerOrderItemResponse(BaseSchema, TimestampSchema):
     id: int
     order_id: int
-    product_id: int
+    product_id: Optional[int] = None
+    retail_product_id: Optional[int] = None
     quantity: int
     unit_price: Decimal
     tax_rate: int

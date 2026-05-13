@@ -8,7 +8,8 @@ from app.models.enums import (
     DeliveryTimeSlot,
     DeliverySlotType,
     OrderStatus,
-    ProductCategory
+    ProductCategory,
+    ProcurementStatus,
 )
 from app.models.restaurant import Restaurant
 from app.models.farmer import Farmer
@@ -27,6 +28,7 @@ from app.models.farmer_schedule import FarmerSchedule
 from app.models.organization import Organization
 from app.models.settlement_status import SettlementStatus
 from app.models.coupon import Coupon, DiscountType
+from app.models.retail_product import RetailProduct, ProcurementBatch, ProcurementItem
 
 __all__ = [
     # Enums
@@ -59,4 +61,8 @@ __all__ = [
     "SettlementStatus",
     "Coupon",
     "DiscountType",
+    "ProcurementStatus",
+    "RetailProduct",
+    "ProcurementBatch",
+    "ProcurementItem",
 ]

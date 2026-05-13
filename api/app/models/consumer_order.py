@@ -219,9 +219,17 @@ class ConsumerOrderItem(Base, TimestampMixin):
     product_id = Column(
         Integer,
         ForeignKey("products.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
         index=True,
-        comment="商品ID"
+        comment="商品ID（旧フロー用、新フローではnull）"
+    )
+
+    retail_product_id = Column(
+        Integer,
+        ForeignKey("retail_products.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+        comment="小売商品ID（新フロー用）"
     )
 
     quantity = Column(
@@ -277,7 +285,8 @@ class ConsumerOrderItem(Base, TimestampMixin):
         back_populates="order_items"
     )
 
-    product = relationship("Product")
+    product = relationship("Product", foreign_keys=[product_id])
+    retail_product = relationship("RetailProduct", foreign_keys=[retail_product_id])
 
     __table_args__ = (
         {'comment': '一般消費者向け注文明細テーブル'}

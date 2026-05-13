@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Search, Sparkles, Grid3x3, TrendingUp } from 'lucide-react'
 import { toast } from 'sonner'
-import { productApi } from '@/services/api'
+import { retailProductApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
 import LocalProductCard from '@/components/local/LocalProductCard'
-import type { Product, PaginatedResponse } from '@/types'
+import type { RetailProduct, PaginatedResponse } from '@/types'
 
 type TabType = 'featured' | 'all' | 'wakeari'
 
@@ -13,7 +13,7 @@ const LocalSearch = () => {
     const [activeTab, setActiveTab] = useState<TabType>('featured')
     const [keyword, setKeyword] = useState('')
     const [searchQuery, setSearchQuery] = useState('')
-    const addToCart = useStore(state => state.addToCart)
+    const addToRetailCart = useStore(state => state.addToRetailCart)
 
     const tabs = [
         { id: 'featured' as TabType, label: 'おすすめ', icon: Sparkles, color: 'yellow' },
@@ -22,10 +22,10 @@ const LocalSearch = () => {
     ]
 
     // 商品を取得
-    const { data, isLoading } = useQuery<PaginatedResponse<Product>>({
-        queryKey: ['local-search', activeTab, searchQuery],
+    const { data, isLoading } = useQuery<PaginatedResponse<RetailProduct>>({
+        queryKey: ['local-retail-search', activeTab, searchQuery],
         queryFn: async () => {
-            const params: any = { is_active: 1, limit: 100 }
+            const params: any = { limit: 100 }
 
             if (searchQuery) {
                 params.search = searchQuery
@@ -38,15 +38,15 @@ const LocalSearch = () => {
             }
             // activeTab === 'all' の場合は特別なフィルターなし
 
-            const response = await productApi.list(params)
-            return response.data as PaginatedResponse<Product>
+            const response = await retailProductApi.list(params)
+            return response.data as PaginatedResponse<RetailProduct>
         },
     })
 
     const products = data?.items ?? []
 
-    const handleAddToCart = (product: Product, quantity: number) => {
-        addToCart(product, quantity)
+    const handleAddToCart = (product: RetailProduct, quantity: number) => {
+        addToRetailCart(product, quantity)
         toast.success(`${product.name} をカートに追加しました`)
     }
 

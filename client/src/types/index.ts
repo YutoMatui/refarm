@@ -204,6 +204,78 @@ export interface Product extends TimestampFields {
   is_kobe_veggie: boolean
 }
 
+// Retail Product (消費者向け小売商品)
+export interface RetailProduct extends TimestampFields {
+  id: number
+  source_product_id: number
+  name: string
+  description?: string | null
+  retail_price: string
+  tax_rate: number
+  retail_unit: string
+  retail_quantity_label?: string | null
+  conversion_factor: string
+  waste_margin_pct: number
+  image_url?: string | null
+  category?: string | null
+  is_active: number
+  is_featured: number
+  is_wakeari: number
+  display_order: number
+  source_product?: {
+    id: number
+    name: string
+    unit: string
+    cost_price?: number | null
+    farmer_id?: number | null
+    farmer_name?: string | null
+  } | null
+}
+
+// Retail Cart Item (Frontend only)
+export interface RetailCartItem {
+  retailProduct: RetailProduct
+  quantity: number
+}
+
+// Procurement
+export enum ProcurementStatus {
+  COLLECTING = 'COLLECTING',
+  AGGREGATED = 'AGGREGATED',
+  ORDERED = 'ORDERED',
+  FULFILLED = 'FULFILLED',
+}
+
+export interface ProcurementItem extends TimestampFields {
+  id: number
+  batch_id: number
+  source_product_id: number
+  retail_product_id: number
+  total_retail_qty: number
+  calculated_farmer_qty: string
+  ordered_farmer_qty: number
+  unit_cost?: string | null
+  notes?: string | null
+  source_product_name?: string | null
+  source_product_unit?: string | null
+  farmer_name?: string | null
+  retail_product_name?: string | null
+}
+
+export interface ProcurementBatch extends TimestampFields {
+  id: number
+  delivery_slot_id?: number | null
+  status: ProcurementStatus
+  cutoff_at?: string | null
+  aggregated_at?: string | null
+  ordered_at?: string | null
+  notes?: string | null
+  delivery_date?: string | null
+  delivery_time?: string | null
+  items: ProcurementItem[]
+  total_orders: number
+}
+
 // Order Item
 export interface OrderItem extends TimestampFields {
   id: number
@@ -351,7 +423,8 @@ export interface ConsumerOrderCreateRequest {
   stripe_payment_intent_id?: string
   coupon_code?: string
   items: Array<{
-    product_id: number
+    product_id?: number
+    retail_product_id?: number
     quantity: number
   }>
 }

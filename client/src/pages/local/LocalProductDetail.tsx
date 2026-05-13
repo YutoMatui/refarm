@@ -1,17 +1,21 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { productApi } from '@/services/api'
-import type { Product } from '@/types'
+import { retailProductApi } from '@/services/api'
+import type { RetailProduct } from '@/types'
 import { useStore } from '@/store/useStore'
 import { ArrowLeft, Minus, Plus, Loader2, Salad, User, ChevronRight, ShoppingCart } from 'lucide-react'
 import { toast } from 'sonner'
 
+/** 税込価格を計算 */
+const calcTaxIncPrice = (rp: RetailProduct) =>
+    Math.round(parseFloat(rp.retail_price) * (1 + rp.tax_rate / 100))
+
 const LocalProductDetail = () => {
     const { id } = useParams()
     const navigate = useNavigate()
-    const addToCart = useStore(state => state.addToCart)
-    const cart = useStore(state => state.cart)
-    const [product, setProduct] = useState<Product | null>(null)
+    const addToRetailCart = useStore(state => state.addToRetailCart)
+    const retailCart = useStore(state => state.retailCart)
+    const [product, setProduct] = useState<RetailProduct | null>(null)
     const [loading, setLoading] = useState(true)
     const [quantity, setQuantity] = useState(1)
 
@@ -23,7 +27,7 @@ const LocalProductDetail = () => {
 
     const loadProduct = async (productId: number) => {
         try {
-            const res = await productApi.getById(productId)
+            const res = await retailProductApi.getById(productId)
             setProduct(res.data)
         } catch (e) {
             console.error(e)
@@ -36,7 +40,7 @@ const LocalProductDetail = () => {
 
     const handleAddToCart = () => {
         if (product) {
-            addToCart(product, quantity)
+            addToRetailCart(product, quantity)
             toast.success(`${product.name} をカートに追加しました`)
             setQuantity(1)
         }
@@ -67,8 +71,8 @@ const LocalProductDetail = () => {
         )
     }
 
-    const cartItem = cart.find(item => item.product.id === product.id)
-    const cartItemCount = cart.reduce((sum, item) => sum + Number(item.quantity), 0)
+    const cartItem = retailCart.find(item => item.retailProduct.id === product.id)
+    const cartItemCount = retailCart.reduce((sum, item) => sum + item.quantity, 0)
 
     return (
         <div className="bg-white min-h-screen pb-24">
@@ -119,13 +123,19 @@ const LocalProductDetail = () => {
             <div className="p-5 space-y-6">
                 {/* Title & Price */}
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 mb-2">{product.name}</h1>
+                    <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                        {product.name}
+                        {product.retail_quantity_label && (
+                            <span className="text-base text-gray-500 ml-2">({product.retail_quantity_label})</span>
+                        )}
+                    </h1>
                     <div className="flex items-baseline gap-2">
                         <span className="text-3xl font-bold text-emerald-600">
-                            ¥{Math.round(parseFloat(product.price_with_tax || product.price)).toLocaleString()}
+                            ¥{calcTaxIncPrice(product).toLocaleString()}
                         </span>
-                        <span className="text-sm text-gray-500">税込 / {product.unit}</span>
+                        <span className="text-sm text-gray-500">税込 / {product.retail_unit}</span>
                     </div>
+                    <p className="text-xs text-gray-400 mt-1">税抜 ¥{parseFloat(product.retail_price).toLocaleString()}</p>
                 </div>
 
                 {/* Description */}
@@ -138,45 +148,24 @@ const LocalProductDetail = () => {
                     </div>
                 )}
 
-                {/* Weight Info */}
-                {product.weight && (
-                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                        <p className="text-sm text-gray-600">
-                            重量: <span className="font-bold text-gray-900">
-                                {Number(product.weight) >= 1000
-                                    ? `${(Number(product.weight) / 1000).toFixed(Number(product.weight) % 1000 === 0 ? 0 : 1)}kg`
-                                    : `${product.weight}g`}
-                            </span>
-                        </p>
-                    </div>
-                )}
-
-                {/* Farmer Info */}
-                {product.farmer && (
+                {/* Farmer Info (from source_product) */}
+                {product.source_product?.farmer_name && product.source_product?.farmer_id && (
                     <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
                         <div className="flex items-center gap-2 mb-3">
                             <User size={18} className="text-emerald-700" />
                             <h3 className="font-bold text-emerald-900">生産者情報</h3>
                         </div>
                         <Link
-                            to={`/local/farmers/${product.farmer.id}`}
+                            to={`/local/farmers/${product.source_product.farmer_id}`}
                             className="flex items-center justify-between group cursor-pointer hover:bg-emerald-100 p-2 rounded-lg transition-colors -mx-2"
                         >
                             <div className="flex items-center gap-3">
-                                {product.farmer.profile_photo_url ? (
-                                    <img
-                                        src={product.farmer.profile_photo_url}
-                                        alt={product.farmer.name}
-                                        className="w-12 h-12 rounded-full object-cover border-2 border-emerald-200"
-                                    />
-                                ) : (
-                                    <div className="w-12 h-12 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700">
-                                        <User size={24} />
-                                    </div>
-                                )}
+                                <div className="w-12 h-12 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700">
+                                    <User size={24} />
+                                </div>
                                 <div>
                                     <p className="font-bold text-gray-900 group-hover:text-emerald-800">
-                                        {product.farmer.name}
+                                        {product.source_product.farmer_name}
                                     </p>
                                 </div>
                             </div>
@@ -214,7 +203,7 @@ const LocalProductDetail = () => {
                 {cartItem && (
                     <div className="text-center mt-2">
                         <span className="text-xs text-emerald-600 font-medium bg-emerald-50 px-3 py-1 rounded-full">
-                            カートに {cartItem.quantity}{product.unit} 入っています
+                            カートに {cartItem.quantity}{product.retail_unit} 入っています
                         </span>
                     </div>
                 )}

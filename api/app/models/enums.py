@@ -61,3 +61,11 @@ class ProductCategory(str, enum.Enum):
     MUSHROOM = "mushroom"     # きのこ類
     HERB = "herb"             # ハーブ
     OTHER = "other"           # その他
+
+
+class ProcurementStatus(str, enum.Enum):
+    """仕入れバッチステータス (Procurement Batch Status)."""
+    COLLECTING = "COLLECTING"    # 注文受付中
+    AGGREGATED = "AGGREGATED"    # 集計済み
+    ORDERED = "ORDERED"          # 農家へ発注済み
+    FULFILLED = "FULFILLED"      # 仕入れ完了

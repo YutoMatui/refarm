@@ -141,6 +141,7 @@ const LocalApp = () => {
                     <Route index element={<LocalHome />} />
                     <Route path="search" element={<LocalSearch />} />
                     <Route path="products/:id" element={<LocalProductDetail />} />
+                    <Route path="retail-products/:id" element={<LocalProductDetail />} />
                     <Route path="farmers" element={<LocalFarmers />} />
                     <Route path="farmers/:id" element={<LocalFarmerDetail />} />
                     <Route path="mypage" element={<LocalMyPage />} />
@@ -159,10 +160,10 @@ const LocalApp = () => {
             </main>
 
             {/* カート画面・商品詳細画面以外でフローティングカートボタンを表示 */}
-            {location.pathname !== '/local/cart' && !location.pathname.startsWith('/local/products/') && <LocalFloatingCartButton />}
+            {location.pathname !== '/local/cart' && !location.pathname.startsWith('/local/products/') && !location.pathname.startsWith('/local/retail-products/') && <LocalFloatingCartButton />}
 
             {/* 商品詳細画面では独自のボトムバーがあるため非表示 */}
-            {!location.pathname.startsWith('/local/products/') && <LocalBottomNav />}
+            {!location.pathname.startsWith('/local/products/') && !location.pathname.startsWith('/local/retail-products/') && <LocalBottomNav />}
         </div>
     )
 }

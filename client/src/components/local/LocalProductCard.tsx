@@ -1,11 +1,15 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Minus, Plus } from 'lucide-react'
-import type { Product } from '@/types'
+import type { RetailProduct } from '@/types'
+
+/** 税込価格を計算 */
+const calcTaxIncPrice = (rp: RetailProduct) =>
+    Math.round(parseFloat(rp.retail_price) * (1 + rp.tax_rate / 100))
 
 interface LocalProductCardProps {
-    product: Product
-    onAddToCart: (product: Product, quantity: number) => void
+    product: RetailProduct
+    onAddToCart: (product: RetailProduct, quantity: number) => void
     compact?: boolean
 }
 
@@ -20,11 +24,13 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
         setQuantity(1)
     }
 
+    const priceWithTax = calcTaxIncPrice(product)
+
     // コンパクト表示（横長リスト）
     if (compact) {
         return (
             <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden flex">
-                <Link to={`/local/products/${product.id}`} className="w-24 h-24 bg-gray-100 flex-shrink-0">
+                <Link to={`/local/retail-products/${product.id}`} className="w-24 h-24 bg-gray-100 flex-shrink-0">
                     {product.image_url ? (
                         <img
                             src={product.image_url}
@@ -47,18 +53,18 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                                 </span>
                             </div>
                         )}
-                        <Link to={`/local/products/${product.id}`}>
+                        <Link to={`/local/retail-products/${product.id}`}>
                             <h3 className="text-sm font-bold text-gray-900 line-clamp-1 hover:text-emerald-600 transition-colors">
                                 {product.name}
+                                {product.retail_quantity_label && (
+                                    <span className="text-xs text-gray-500 ml-1">({product.retail_quantity_label})</span>
+                                )}
                             </h3>
                         </Link>
                         <p className="text-lg font-bold text-emerald-600 mt-1">
-                            ¥{Math.round(parseFloat(product.price_with_tax || product.price)).toLocaleString()}
-                            <span className="text-xs text-gray-500 ml-1">/ {product.unit}</span>
+                            ¥{priceWithTax.toLocaleString()}
+                            <span className="text-xs text-gray-500 ml-1">税込 / {product.retail_unit}</span>
                         </p>
-                        {product.weight && (
-                            <p className="text-xs text-gray-500 mt-0.5">重量: {product.weight}g</p>
-                        )}
                     </div>
                     <div className="flex items-center justify-between mt-2">
                         <div className="flex items-center space-x-2">
@@ -96,7 +102,7 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
     // 通常表示（グリッド）
     return (
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-            <Link to={`/local/products/${product.id}`} className="block">
+            <Link to={`/local/retail-products/${product.id}`} className="block">
                 <div className="h-40 bg-gray-100">
                     {product.image_url ? (
                         <img
@@ -120,9 +126,12 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                         </span>
                     </div>
                 )}
-                <Link to={`/local/products/${product.id}`}>
+                <Link to={`/local/retail-products/${product.id}`}>
                     <h3 className="text-lg font-semibold text-gray-900 hover:text-emerald-600 transition-colors">
                         {product.name}
+                        {product.retail_quantity_label && (
+                            <span className="text-sm text-gray-500 ml-1">({product.retail_quantity_label})</span>
+                        )}
                     </h3>
                 </Link>
                 {product.description && (
@@ -130,12 +139,9 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                 )}
                 <div>
                     <p className="text-xl font-bold text-emerald-600">
-                        ¥{Math.round(parseFloat(product.price_with_tax || product.price)).toLocaleString()}
+                        ¥{priceWithTax.toLocaleString()}
                     </p>
-                    <p className="text-xs text-gray-500">税込 / {product.unit}</p>
-                    {product.weight && (
-                        <p className="text-xs text-gray-500 mt-1">重量: {product.weight}g</p>
-                    )}
+                    <p className="text-xs text-gray-500">税込 / {product.retail_unit}</p>
                 </div>
                 <div className="flex items-center justify-center space-x-3 py-2">
                     <button

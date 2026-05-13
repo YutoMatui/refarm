@@ -1,9 +1,13 @@
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { productApi, farmerApi } from '@/services/api'
+import { retailProductApi, farmerApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
-import { Product } from '@/types'
+import { RetailProduct } from '@/types'
 import { Leaf, Sparkles, Clock, User, AlertCircle } from 'lucide-react'
+
+/** 税込価格を計算 */
+const calcTaxIncPrice = (rp: RetailProduct) =>
+    Math.round(parseFloat(rp.retail_price) * (1 + rp.tax_rate / 100))
 
 export default function LocalHome() {
     const { consumer } = useStore()
@@ -12,9 +16,9 @@ export default function LocalHome() {
     // --- Data Fetching ---
     // 訳あり・お買い得商品
     const { data: wakeariData, isLoading: isWakeariLoading, error: wakeariError } = useQuery({
-        queryKey: ['local-wakeari-products'],
+        queryKey: ['local-wakeari-retail-products'],
         queryFn: async () => {
-            const response = await productApi.list({ is_active: 1, is_wakeari: 1, limit: 6 })
+            const response = await retailProductApi.list({ is_wakeari: 1, limit: 6 })
             return response.data
         },
         retry: 2,
@@ -23,9 +27,9 @@ export default function LocalHome() {
 
     // 旬のおすすめ商品
     const { data: featuredData, isLoading: isFeaturedLoading } = useQuery({
-        queryKey: ['local-featured-products'],
+        queryKey: ['local-featured-retail-products'],
         queryFn: async () => {
-            const response = await productApi.list({ is_active: 1, is_featured: 1, limit: 6 })
+            const response = await retailProductApi.list({ is_featured: 1, limit: 6 })
             return response.data
         },
         retry: 2,
@@ -34,9 +38,9 @@ export default function LocalHome() {
 
     // 新着商品
     const { data: newProductsData, isLoading: isNewProductsLoading } = useQuery({
-        queryKey: ['local-new-products'],
+        queryKey: ['local-new-retail-products'],
         queryFn: async () => {
-            const response = await productApi.list({ is_active: 1, limit: 6 })
+            const response = await retailProductApi.list({ limit: 6 })
             return response.data
         },
         retry: 2,
@@ -129,15 +133,15 @@ export default function LocalHome() {
                         </div>
 
                         <div className="flex overflow-x-auto space-x-3 pb-4 -mx-5 px-5 scrollbar-hide">
-                            {wakeariData.items.map((product: Product) => (
+                            {wakeariData.items.map((rp: RetailProduct) => (
                                 <div
-                                    key={product.id}
-                                    onClick={() => navigate(`/local/products/${product.id}`)}
+                                    key={rp.id}
+                                    onClick={() => navigate(`/local/retail-products/${rp.id}`)}
                                     className="flex-shrink-0 w-36 cursor-pointer active:scale-95 transition-transform"
                                 >
                                     <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 shadow-sm">
-                                        {product.image_url ? (
-                                            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                                        {rp.image_url ? (
+                                            <img src={rp.image_url} alt={rp.name} className="w-full h-full object-cover" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center bg-gray-50">
                                                 <Leaf className="w-8 h-8 text-gray-300" />
@@ -154,8 +158,8 @@ export default function LocalHome() {
 
                                         {/* テキスト情報 */}
                                         <div className="absolute bottom-2 left-2 right-2 text-white">
-                                            <p className="font-bold text-sm truncate drop-shadow-md">{product.name}</p>
-                                            <p className="text-xs font-medium opacity-90">¥{Math.round(parseFloat(String(product.price_with_tax || product.price))).toLocaleString()}</p>
+                                            <p className="font-bold text-sm truncate drop-shadow-md">{rp.name}</p>
+                                            <p className="text-xs font-medium opacity-90">¥{calcTaxIncPrice(rp).toLocaleString()}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -177,15 +181,15 @@ export default function LocalHome() {
                         </div>
 
                         <div className="flex overflow-x-auto space-x-3 pb-4 -mx-5 px-5 scrollbar-hide">
-                            {featuredData.items.map((product: Product) => (
+                            {featuredData.items.map((rp: RetailProduct) => (
                                 <div
-                                    key={product.id}
-                                    onClick={() => navigate(`/local/products/${product.id}`)}
+                                    key={rp.id}
+                                    onClick={() => navigate(`/local/retail-products/${rp.id}`)}
                                     className="flex-shrink-0 w-36 cursor-pointer active:scale-95 transition-transform"
                                 >
                                     <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 shadow-sm">
-                                        {product.image_url ? (
-                                            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                                        {rp.image_url ? (
+                                            <img src={rp.image_url} alt={rp.name} className="w-full h-full object-cover" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center bg-gray-50">
                                                 <Leaf className="w-8 h-8 text-gray-300" />
@@ -196,8 +200,8 @@ export default function LocalHome() {
 
                                         {/* テキスト情報 */}
                                         <div className="absolute bottom-2 left-2 right-2 text-white">
-                                            <p className="font-bold text-sm truncate drop-shadow-md">{product.name}</p>
-                                            <p className="text-xs font-medium opacity-90">¥{Math.round(parseFloat(String(product.price_with_tax || product.price))).toLocaleString()}</p>
+                                            <p className="font-bold text-sm truncate drop-shadow-md">{rp.name}</p>
+                                            <p className="text-xs font-medium opacity-90">¥{calcTaxIncPrice(rp).toLocaleString()}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -219,15 +223,15 @@ export default function LocalHome() {
                         </div>
 
                         <div className="flex overflow-x-auto space-x-6 pb-2 -mx-5 px-5 scrollbar-hide">
-                            {newProductsData.items.slice(0, 6).map((product: Product) => (
+                            {newProductsData.items.slice(0, 6).map((rp: RetailProduct) => (
                                 <div
-                                    key={product.id}
-                                    onClick={() => navigate(`/local/products/${product.id}`)}
+                                    key={rp.id}
+                                    onClick={() => navigate(`/local/retail-products/${rp.id}`)}
                                     className="flex-shrink-0 flex flex-col items-center space-y-2 cursor-pointer w-20 active:opacity-80 transition-opacity"
                                 >
                                     <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 shadow-sm border border-gray-100">
-                                        {product.image_url ? (
-                                            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                                        {rp.image_url ? (
+                                            <img src={rp.image_url} alt={rp.name} className="w-full h-full object-cover" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center bg-gray-50">
                                                 <Leaf className="w-6 h-6 text-gray-300" />
@@ -235,8 +239,8 @@ export default function LocalHome() {
                                         )}
                                     </div>
                                     <div className="text-center w-full">
-                                        <p className="font-bold text-sm text-gray-900 truncate w-full">{product.name}</p>
-                                        <p className="text-[10px] text-gray-500">今日の収穫</p>
+                                        <p className="font-bold text-sm text-gray-900 truncate w-full">{rp.name}</p>
+                                        <p className="text-[10px] text-gray-500">新着</p>
                                     </div>
                                 </div>
                             ))}
