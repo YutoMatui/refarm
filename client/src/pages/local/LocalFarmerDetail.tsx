@@ -15,8 +15,6 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { farmerApi, productApi, supportMessageApi } from '@/services/api'
-import { useStore } from '@/store/useStore'
-import LocalProductCard from '@/components/local/LocalProductCard'
 import type { Farmer, Product, Commitment, Achievement } from '@/types'
 
 interface SupportMessage {
@@ -35,7 +33,6 @@ const LocalFarmerDetail = () => {
     const [nickname, setNickname] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
 
-    const addToCart = useStore(state => state.addToCart)
     const queryClient = useQueryClient()
 
     useEffect(() => {
@@ -90,11 +87,6 @@ const LocalFarmerDetail = () => {
             toast.error(error?.response?.data?.detail || '送信に失敗しました')
         }
     })
-
-    const handleAddToCart = (product: Product, quantity: number) => {
-        addToCart(product, quantity)
-        toast.success(`${product.name} をカートに追加しました`)
-    }
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -256,13 +248,28 @@ const LocalFarmerDetail = () => {
                                     販売中の野菜
                                 </h2>
                                 <div className="grid grid-cols-2 gap-3">
-                                    {products.map((product: Product) => (
-                                        <LocalProductCard
-                                            key={product.id}
-                                            product={product}
-                                            onAddToCart={handleAddToCart}
-                                        />
-                                    ))}
+                                    {products.map((product: Product) => {
+                                        const priceWithTax = Math.round(parseFloat(product.price) * (1 + (product.tax_rate || 8) / 100))
+                                        return (
+                                            <div
+                                                key={product.id}
+                                                className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                                                onClick={() => navigate(`/local/products/${product.id}`)}
+                                            >
+                                                <div className="h-32 bg-gray-100 overflow-hidden">
+                                                    {product.image_url ? (
+                                                        <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-3xl">🥬</div>
+                                                    )}
+                                                </div>
+                                                <div className="p-3">
+                                                    <h3 className="font-bold text-sm text-gray-900 line-clamp-2 mb-1">{product.name}</h3>
+                                                    <p className="text-emerald-700 font-bold text-base">¥{priceWithTax}<span className="text-xs text-gray-500 font-normal ml-1">/{product.unit}</span></p>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
                             </div>
                         ) : (
