@@ -519,11 +519,19 @@ async def create_producer_product(
     db_product = Product(**data)
     db.add(db_product)
     await db.commit()
-    
+
     # Re-fetch with farmer loaded for response serialization
     stmt = select(Product).options(selectinload(Product.farmer)).where(Product.id == db_product.id)
     result = await db.execute(stmt)
-    return result.scalar_one()
+    created_product = result.scalar_one()
+
+    # 管理者へLINE通知（農家が商品を新規登録）
+    try:
+        await line_service.notify_admin_product_updated(farmer.name, created_product.name, action="新規登録")
+    except Exception as e:
+        print(f"Failed to send admin notification for product create: {e}")
+
+    return created_product
 
 
 @router.put("/products/{product_id}", response_model=ProductResponse)
@@ -569,13 +577,21 @@ async def update_producer_product(
 
     for field, value in update_data.items():
         setattr(product, field, value)
-    
+
     await db.commit()
-    
+
     # Re-fetch with farmer loaded for response serialization
     stmt = select(Product).options(selectinload(Product.farmer)).where(Product.id == product.id)
     result = await db.execute(stmt)
-    return result.scalar_one()
+    updated_product = result.scalar_one()
+
+    # 管理者へLINE通知（農家が商品を更新）
+    try:
+        await line_service.notify_admin_product_updated(farmer.name, updated_product.name, action="更新")
+    except Exception as e:
+        print(f"Failed to send admin notification for product update: {e}")
+
+    return updated_product
 
 
 @router.get("/profile", response_model=FarmerResponse)

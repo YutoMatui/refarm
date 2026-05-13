@@ -808,6 +808,29 @@ No. {order.id} の納品書をお送りします。
 
         await self.send_push_message(token, target_user_id, message)
 
+    async def notify_admin_product_updated(self, farmer_name: str, product_name: str, action: str = "更新"):
+        """農家が商品を更新/登録した時に管理者へLINE通知"""
+        admin_user_ids = self._get_admin_user_ids()
+        if not admin_user_ids:
+            print("No LINE admin user IDs configured, skipping product update notification")
+            return
+
+        channel_id, channel_secret, channel_token = self._get_admin_token_params()
+        token = await self.get_access_token(channel_id, channel_secret, channel_token)
+
+        now = datetime.now()
+        weekdays = ["月", "火", "水", "木", "金", "土", "日"]
+        time_str = f"{now.month}月{now.day}日({weekdays[now.weekday()]}) {now.hour:02d}:{now.minute:02d}"
+
+        message = f"""【管理通知】商品{action}
+{farmer_name}さんが商品を{action}しました。
+
+■ 商品名: {product_name}
+■ 日時: {time_str}"""
+
+        for user_id in admin_user_ids:
+            await self.send_push_message(token, user_id, message)
+
     async def notify_farmer_item_deleted(self, order: Order, item: OrderItem):
         """注文明細が削除されたことを農家に通知"""
         # Ensure farmer info is available
