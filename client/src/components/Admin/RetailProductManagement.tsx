@@ -528,7 +528,7 @@ export default function RetailProductManagement() {
         <div className="text-center py-8 text-gray-500">読み込み中...</div>
       ) : filteredProducts.length === 0 ? (
         <div className="text-center py-8 text-gray-500 bg-white rounded-xl border border-gray-200">
-          小売商品がありません
+          商品がありません
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -537,72 +537,78 @@ export default function RetailProductManagement() {
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">商品名</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">種別</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">価格</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">単位</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">数量ラベル</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">元商品 (農家)</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">農家</th>
                   <th className="px-4 py-3 text-center font-medium text-gray-600">状態</th>
                   <th className="px-4 py-3 text-center font-medium text-gray-600">おすすめ</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filteredProducts.map(product => (
-                  <tr key={product.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {product.image_url && (
-                          <img src={product.image_url} alt="" className="w-8 h-8 rounded object-cover" />
-                        )}
-                        <span className="font-medium text-gray-900">{product.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 font-bold text-gray-900">
-                      {Number(product.retail_price).toLocaleString()}円
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{product.retail_unit}</td>
-                    <td className="px-4 py-3 text-gray-600">{product.retail_quantity_label || '-'}</td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {product.source_product ? (
-                        <div>
-                          <span>{product.source_product.name}</span>
-                          {product.source_product.farmer_name && (
-                            <span className="text-xs text-gray-400 ml-1">({product.source_product.farmer_name})</span>
+                {filteredProducts.map((product: any) => {
+                  const isFarmerProduct = product._is_farmer_product === true
+                  return (
+                    <tr key={`${isFarmerProduct ? 'p' : 'rp'}-${product.id}`} className="hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {product.image_url && (
+                            <img src={product.image_url} alt="" className="w-8 h-8 rounded object-cover" />
                           )}
+                          <span className="font-medium text-gray-900">{product.name}</span>
                         </div>
-                      ) : '-'}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                        product.is_active === 1 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                      }`}>
-                        {product.is_active === 1 ? '販売中' : '停止'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {product.is_featured === 1 ? (
-                        <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">おすすめ</span>
-                      ) : (
-                        <span className="text-gray-300">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1">
-                        <button onClick={() => startEdit(product)}
-                          className="p-1.5 rounded hover:bg-gray-100" title="編集">
-                          <Pencil className="w-4 h-4 text-gray-500" />
-                        </button>
-                        <button onClick={() => {
-                          if (confirm(`「${product.name}」を削除しますか？`))
-                            deleteMutation.mutate(product.id)
-                        }}
-                          className="p-1.5 rounded hover:bg-red-50" title="削除">
-                          <Trash2 className="w-4 h-4 text-red-400" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-4 py-3">
+                        {isFarmerProduct ? (
+                          <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-600">農家商品</span>
+                        ) : (
+                          <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-50 text-purple-600">小売商品</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-bold text-gray-900">
+                        {Number(product.retail_price).toLocaleString()}円
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">{product.retail_unit}</td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {product.source_product?.farmer_name || '-'}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                          product.is_active === 1 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {product.is_active === 1 ? '販売中' : '停止'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {product.is_featured === 1 ? (
+                          <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">おすすめ</span>
+                        ) : (
+                          <span className="text-gray-300">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {isFarmerProduct ? (
+                          <span className="text-xs text-gray-400">農家管理</span>
+                        ) : (
+                          <div className="flex gap-1">
+                            <button onClick={() => startEdit(product)}
+                              className="p-1.5 rounded hover:bg-gray-100" title="編集">
+                              <Pencil className="w-4 h-4 text-gray-500" />
+                            </button>
+                            <button onClick={() => {
+                              if (confirm(`「${product.name}」を削除しますか？`))
+                                deleteMutation.mutate(product.id)
+                            }}
+                              className="p-1.5 rounded hover:bg-red-50" title="削除">
+                              <Trash2 className="w-4 h-4 text-red-400" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
