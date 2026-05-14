@@ -78,6 +78,97 @@ def _format_batch_response(batch, total_orders=0):
     )
 
 
+@router.get("/procurement/calendar")
+async def get_procurement_calendar(
+    month: str = Query(..., description="対象月 (YYYY-MM)"),
+    db: AsyncSession = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    """月内の注文がある日付一覧（B2B/B2C両方）+ バッチステータス"""
+    try:
+        year, mon = month.split("-")
+        start_date = date_type(int(year), int(mon), 1)
+        if int(mon) == 12:
+            end_date = date_type(int(year) + 1, 1, 1)
+        else:
+            end_date = date_type(int(year), int(mon) + 1, 1)
+    except (ValueError, IndexError):
+        raise HTTPException(status_code=400, detail="月の形式はYYYY-MMである必要があります")
+
+    b2b_query = (
+        select(
+            func.date(Order.delivery_date).label("d"),
+            func.count(Order.id.distinct()).label("order_count"),
+        )
+        .where(
+            func.date(Order.delivery_date) >= start_date,
+            func.date(Order.delivery_date) < end_date,
+            Order.status != OrderStatus.CANCELLED,
+        )
+        .group_by(func.date(Order.delivery_date))
+    )
+    b2b_result = await db.execute(b2b_query)
+    b2b_by_date = {str(r.d): r.order_count for r in b2b_result.all()}
+
+    b2c_query = (
+        select(
+            DeliverySlot.date.label("d"),
+            func.count(ConsumerOrder.id.distinct()).label("order_count"),
+        )
+        .join(DeliverySlot, DeliverySlot.id == ConsumerOrder.delivery_slot_id)
+        .where(
+            DeliverySlot.date >= start_date,
+            DeliverySlot.date < end_date,
+            ConsumerOrder.status != OrderStatus.CANCELLED,
+        )
+        .group_by(DeliverySlot.date)
+    )
+    b2c_result = await db.execute(b2c_query)
+    b2c_by_date = {str(r.d): r.order_count for r in b2c_result.all()}
+
+    farmer_query = (
+        select(
+            func.date(Order.delivery_date).label("d"),
+            func.count(Farmer.id.distinct()).label("farmer_count"),
+        )
+        .select_from(Order)
+        .join(OrderItem, Order.id == OrderItem.order_id)
+        .join(Product, OrderItem.product_id == Product.id)
+        .join(Farmer, Product.farmer_id == Farmer.id)
+        .where(
+            func.date(Order.delivery_date) >= start_date,
+            func.date(Order.delivery_date) < end_date,
+            Order.status != OrderStatus.CANCELLED,
+        )
+        .group_by(func.date(Order.delivery_date))
+    )
+    farmer_result = await db.execute(farmer_query)
+    farmers_by_date = {str(r.d): r.farmer_count for r in farmer_result.all()}
+
+    batch_query = (
+        select(ProcurementBatch.delivery_date, ProcurementBatch.status)
+        .where(
+            ProcurementBatch.delivery_date >= start_date,
+            ProcurementBatch.delivery_date < end_date,
+        )
+    )
+    batch_result = await db.execute(batch_query)
+    batch_by_date = {str(r.delivery_date): r.status for r in batch_result.all()}
+
+    all_dates = set(b2b_by_date.keys()) | set(b2c_by_date.keys())
+    entries = []
+    for d in sorted(all_dates):
+        entries.append({
+            "date": d,
+            "b2b_order_count": b2b_by_date.get(d, 0),
+            "b2c_order_count": b2c_by_date.get(d, 0),
+            "farmer_count": farmers_by_date.get(d, 0),
+            "batch_status": batch_by_date.get(d),
+        })
+
+    return entries
+
+
 @router.get("/procurement", response_model=ProcurementBatchListResponse)
 async def list_procurement_batches(
     status_filter: str = Query(None, alias="status", description="ステータスで絞り込み"),
@@ -283,102 +374,6 @@ async def aggregate_unified_procurement(
     ) or 0
 
     return _format_batch_response(batch, b2b_cnt + b2c_cnt)
-
-
-@router.get("/procurement/calendar")
-async def get_procurement_calendar(
-    month: str = Query(..., description="対象月 (YYYY-MM)"),
-    db: AsyncSession = Depends(get_db),
-    current_admin=Depends(get_current_admin),
-):
-    """月内の注文がある日付一覧（B2B/B2C両方）+ バッチステータス"""
-    try:
-        year, mon = month.split("-")
-        start_date = date_type(int(year), int(mon), 1)
-        if int(mon) == 12:
-            end_date = date_type(int(year) + 1, 1, 1)
-        else:
-            end_date = date_type(int(year), int(mon) + 1, 1)
-    except (ValueError, IndexError):
-        raise HTTPException(status_code=400, detail="月の形式はYYYY-MMである必要があります")
-
-    # B2B: delivery_date ごとの注文数
-    b2b_query = (
-        select(
-            func.date(Order.delivery_date).label("d"),
-            func.count(Order.id.distinct()).label("order_count"),
-        )
-        .where(
-            func.date(Order.delivery_date) >= start_date,
-            func.date(Order.delivery_date) < end_date,
-            Order.status != OrderStatus.CANCELLED,
-        )
-        .group_by(func.date(Order.delivery_date))
-    )
-    b2b_result = await db.execute(b2b_query)
-    b2b_by_date = {str(r.d): r.order_count for r in b2b_result.all()}
-
-    # B2C: delivery_slot.date ごとの注文数
-    b2c_query = (
-        select(
-            DeliverySlot.date.label("d"),
-            func.count(ConsumerOrder.id.distinct()).label("order_count"),
-        )
-        .join(DeliverySlot, DeliverySlot.id == ConsumerOrder.delivery_slot_id)
-        .where(
-            DeliverySlot.date >= start_date,
-            DeliverySlot.date < end_date,
-            ConsumerOrder.status != OrderStatus.CANCELLED,
-        )
-        .group_by(DeliverySlot.date)
-    )
-    b2c_result = await db.execute(b2c_query)
-    b2c_by_date = {str(r.d): r.order_count for r in b2c_result.all()}
-
-    # B2B: 農家数（日別）
-    farmer_query = (
-        select(
-            func.date(Order.delivery_date).label("d"),
-            func.count(Farmer.id.distinct()).label("farmer_count"),
-        )
-        .select_from(Order)
-        .join(OrderItem, Order.id == OrderItem.order_id)
-        .join(Product, OrderItem.product_id == Product.id)
-        .join(Farmer, Product.farmer_id == Farmer.id)
-        .where(
-            func.date(Order.delivery_date) >= start_date,
-            func.date(Order.delivery_date) < end_date,
-            Order.status != OrderStatus.CANCELLED,
-        )
-        .group_by(func.date(Order.delivery_date))
-    )
-    farmer_result = await db.execute(farmer_query)
-    farmers_by_date = {str(r.d): r.farmer_count for r in farmer_result.all()}
-
-    # バッチステータス（日別）
-    batch_query = (
-        select(ProcurementBatch.delivery_date, ProcurementBatch.status)
-        .where(
-            ProcurementBatch.delivery_date >= start_date,
-            ProcurementBatch.delivery_date < end_date,
-        )
-    )
-    batch_result = await db.execute(batch_query)
-    batch_by_date = {str(r.delivery_date): r.status for r in batch_result.all()}
-
-    # マージ
-    all_dates = set(b2b_by_date.keys()) | set(b2c_by_date.keys())
-    entries = []
-    for d in sorted(all_dates):
-        entries.append({
-            "date": d,
-            "b2b_order_count": b2b_by_date.get(d, 0),
-            "b2c_order_count": b2c_by_date.get(d, 0),
-            "farmer_count": farmers_by_date.get(d, 0),
-            "batch_status": batch_by_date.get(d),
-        })
-
-    return entries
 
 
 @router.put("/procurement/{batch_id}/items/{item_id}", response_model=ResponseMessage)
