@@ -411,6 +411,7 @@ async def update_consumer_order_status(
 async def cancel_consumer_order(
     order_id: int,
     background_tasks: BackgroundTasks,
+    force: bool = Query(False, description="返金失敗でもキャンセルを続行する"),
     consumer: Consumer = Depends(get_current_consumer),
     db: AsyncSession = Depends(get_db),
 ):
@@ -449,15 +450,18 @@ async def cancel_consumer_order(
 
     # Stripe返金
     refund_id = None
+    refund_failed = False
     if order.payment_method == "card" and order.stripe_payment_intent_id:
         try:
             refund = stripe.Refund.create(payment_intent=order.stripe_payment_intent_id)
             refund_id = refund.id
         except stripe.error.StripeError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"返金処理に失敗しました。公式LINEよりお問い合わせください。",
-            )
+            if not force:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="REFUND_FAILED",
+                )
+            refund_failed = True
 
     order.status = OrderStatus.CANCELLED
     order.cancelled_at = datetime.now()
@@ -467,14 +471,20 @@ async def cancel_consumer_order(
     result = await db.execute(stmt)
     order = result.scalar_one()
 
-    # LINE通知（消費者・農家・管理者にキャンセルを通知）
+    # LINE通知（消費者・管理者にキャンセルを通知）
     background_tasks.add_task(_safe_notify, line_service.notify_consumer_order_cancelled, order)
-    background_tasks.add_task(_safe_notify, line_service.notify_farmers_consumer_order_cancelled, order)
     background_tasks.add_task(_safe_notify, line_service.notify_admin_consumer_order_cancelled, order)
 
+    msg = "注文をキャンセルしました"
+    if refund_id:
+        msg += "。返金処理を行いました。"
+    elif refund_failed:
+        msg += "。返金処理は失敗しましたので、別途対応が必要です。"
+
     return {
-        "message": "注文をキャンセルしました" + ("。返金処理を行いました。" if refund_id else ""),
+        "message": msg,
         "order_id": order.id,
         "status": order.status.value,
+        "refund_failed": refund_failed,
     }
 

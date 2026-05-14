@@ -15,6 +15,7 @@ const LocalMyPage = () => {
     const [uploadingImage, setUploadingImage] = useState(false)
     const [confirmCancelId, setConfirmCancelId] = useState<number | null>(null)
     const [confirmReceiptId, setConfirmReceiptId] = useState<number | null>(null)
+    const [showRefundFailedConfirm, setShowRefundFailedConfirm] = useState<number | null>(null)
 
     // 注文一覧を取得
     const { data: ordersData } = useQuery({
@@ -49,22 +50,34 @@ const LocalMyPage = () => {
 
     // キャンセル処理
     const cancelOrderMutation = useMutation({
-        mutationFn: async (orderId: number) => {
-            const response = await consumerOrderApi.cancel(orderId)
+        mutationFn: async ({ orderId, force }: { orderId: number; force?: boolean }) => {
+            const response = await consumerOrderApi.cancel(orderId, force)
             return response.data
         },
         onSuccess: (data) => {
             toast.success(data.message)
             queryClient.invalidateQueries({ queryKey: ['consumer-orders'] })
+            setShowRefundFailedConfirm(null)
         },
         onError: (error: any) => {
-            toast.error(error?.response?.data?.detail || 'キャンセルに失敗しました')
+            const detail = error?.response?.data?.detail
+            if (error?.response?.status === 409 && detail === 'REFUND_FAILED') {
+                // 返金失敗 → 強制キャンセル確認ダイアログを表示
+                setShowRefundFailedConfirm(confirmCancelId)
+                setConfirmCancelId(null)
+                return
+            }
+            toast.error(typeof detail === 'string' && detail !== 'REFUND_FAILED' ? detail : 'キャンセルに失敗しました')
         }
     })
 
     const handleCancelOrder = async (orderId: number) => {
-        await cancelOrderMutation.mutateAsync(orderId)
+        await cancelOrderMutation.mutateAsync({ orderId })
         setConfirmCancelId(null)
+    }
+
+    const handleForceCancelOrder = async (orderId: number) => {
+        await cancelOrderMutation.mutateAsync({ orderId, force: true })
     }
 
     const isCancellable = (order: ConsumerOrder) => {
@@ -321,7 +334,33 @@ const LocalMyPage = () => {
                                         {/* キャンセルボタン */}
                                         {isCancellable(order) && (
                                             <div className="mt-3">
-                                                {confirmCancelId === order.id ? (
+                                                {showRefundFailedConfirm === order.id ? (
+                                                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 space-y-3">
+                                                        <p className="text-sm text-orange-800 font-semibold">
+                                                            返金処理に失敗しました
+                                                        </p>
+                                                        <p className="text-xs text-orange-700">
+                                                            返金なしでキャンセルしますか？返金は別途対応が必要になります。
+                                                        </p>
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleForceCancelOrder(order.id)}
+                                                                disabled={cancelOrderMutation.isPending}
+                                                                className="flex-1 py-2 bg-orange-600 text-white text-sm font-semibold rounded-lg hover:bg-orange-700 disabled:opacity-60"
+                                                            >
+                                                                {cancelOrderMutation.isPending ? 'キャンセル中...' : '返金なしでキャンセル'}
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setShowRefundFailedConfirm(null)}
+                                                                className="flex-1 py-2 bg-gray-200 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-300"
+                                                            >
+                                                                戻る
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ) : confirmCancelId === order.id ? (
                                                     <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-3">
                                                         <p className="text-sm text-red-700 font-semibold">
                                                             この注文をキャンセルしますか？

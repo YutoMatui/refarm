@@ -332,8 +332,8 @@ export const consumerOrderApi = {
   updateStatus: (id: number, status: string) =>
     apiClient.patch<ConsumerOrder>(`/consumer-orders/${id}/status`, { status }),
 
-  cancel: (id: number) =>
-    apiClient.post<{ message: string; order_id: number; status: string }>(`/consumer-orders/${id}/cancel`),
+  cancel: (id: number, force?: boolean) =>
+    apiClient.post<{ message: string; order_id: number; status: string; refund_failed?: boolean }>(`/consumer-orders/${id}/cancel`, null, { params: force ? { force: true } : undefined }),
 }
 
 
