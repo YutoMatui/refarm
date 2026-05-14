@@ -168,13 +168,6 @@ class Product(Base, TimestampMixin, SoftDeleteMixin):
         comment="訳ありフラグ (0: 通常, 1: 訳あり)"
     )
 
-    is_consumer_visible = Column(
-        Integer,
-        nullable=False,
-        default=0,
-        comment="消費者向け表示フラグ (0: 非表示, 1: 表示)"
-    )
-
     # Sorting
     display_order = Column(
         Integer,

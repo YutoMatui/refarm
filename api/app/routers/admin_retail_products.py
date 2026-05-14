@@ -44,7 +44,7 @@ def _build_source_product_info(retail_product):
 @router.get("/retail-products", response_model=RetailProductListResponse)
 async def list_retail_products(
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(100, ge=1, le=2000),
     is_active: int = Query(None),
     search: str = Query(None),
     db: AsyncSession = Depends(get_db),
