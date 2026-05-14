@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, ShoppingBag, X, Calculator, Loader2 } from 'lucide-react'
-import { adminRetailProductApi, productApi } from '@/services/api'
+import { Plus, Pencil, Trash2, ShoppingBag, X, Calculator, Loader2, Upload, Search } from 'lucide-react'
+import { adminRetailProductApi, productApi, uploadApi } from '@/services/api'
+import { compressImage } from '@/utils/imageUtils'
 import type { RetailProduct, Product } from '@/types'
 
 const initialForm = {
@@ -20,7 +21,6 @@ const initialForm = {
   is_active: true,
   is_featured: false,
   is_wakeari: false,
-  display_order: '0',
 }
 
 export default function RetailProductManagement() {
@@ -29,6 +29,9 @@ export default function RetailProductManagement() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState(initialForm)
   const [filterText, setFilterText] = useState('')
+  const [sourceSearchText, setSourceSearchText] = useState('')
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch retail products
   const { data, isLoading } = useQuery({
@@ -50,6 +53,16 @@ export default function RetailProductManagement() {
 
   const sourceProducts: Product[] = sourceProductsData?.items || []
   const retailProducts: RetailProduct[] = data?.items || []
+
+  // 元商品の検索フィルタリング
+  const filteredSourceProducts = useMemo(() => {
+    if (!sourceSearchText) return sourceProducts
+    const q = sourceSearchText.toLowerCase()
+    return sourceProducts.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      (p.farmer?.name || '').toLowerCase().includes(q)
+    )
+  }, [sourceProducts, sourceSearchText])
 
   const filteredProducts = useMemo(() => {
     if (!filterText) return retailProducts
@@ -113,10 +126,28 @@ export default function RetailProductManagement() {
     }
   }
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setIsUploading(true)
+    try {
+      const compressed = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.85 })
+      const res = await uploadApi.uploadImage(compressed)
+      setForm(prev => ({ ...prev, image_url: res.data.url }))
+      toast.success('画像をアップロードしました')
+    } catch (e: any) {
+      toast.error('画像のアップロードに失敗しました')
+    } finally {
+      setIsUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   const resetForm = () => {
     setForm(initialForm)
     setEditingId(null)
     setShowForm(false)
+    setSourceSearchText('')
   }
 
   const startEdit = (product: RetailProduct) => {
@@ -135,10 +166,10 @@ export default function RetailProductManagement() {
       is_active: product.is_active === 1,
       is_featured: product.is_featured === 1,
       is_wakeari: product.is_wakeari === 1,
-      display_order: String(product.display_order),
     })
     setEditingId(product.id)
     setShowForm(true)
+    setSourceSearchText('')
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -163,7 +194,7 @@ export default function RetailProductManagement() {
       is_active: form.is_active ? 1 : 0,
       is_featured: form.is_featured ? 1 : 0,
       is_wakeari: form.is_wakeari ? 1 : 0,
-      display_order: parseInt(form.display_order) || 0,
+      display_order: form.is_featured ? 0 : 99,
     }
 
     if (editingId) {
@@ -172,6 +203,8 @@ export default function RetailProductManagement() {
       createMutation.mutate(payload)
     }
   }
+
+  const selectedSourceProduct = sourceProducts.find(p => p.id === Number(form.source_product_id))
 
   return (
     <div className="space-y-6">
@@ -201,29 +234,58 @@ export default function RetailProductManagement() {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              {/* Source Product */}
+              {/* Source Product with Search */}
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">元商品（農家商品） *</label>
-                <select
-                  value={form.source_product_id}
-                  onChange={e => {
-                    const pid = e.target.value
-                    setForm(prev => ({ ...prev, source_product_id: pid }))
-                    // Auto-fill name from source product if empty
-                    if (pid && !form.name) {
-                      const sp = sourceProducts.find(p => p.id === Number(pid))
-                      if (sp) setForm(prev => ({ ...prev, name: sp.name, source_product_id: pid }))
-                    }
-                  }}
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="">選択してください</option>
-                  {sourceProducts.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.unit}) - {p.farmer?.name || `農家ID:${p.farmer_id}`}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                  <input
+                    type="text"
+                    value={sourceSearchText}
+                    onChange={e => setSourceSearchText(e.target.value)}
+                    placeholder="野菜名・農家名で検索..."
+                    className="w-full border rounded-lg pl-9 pr-3 py-2 text-sm mb-1"
+                  />
+                </div>
+                {selectedSourceProduct && !sourceSearchText && (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm">
+                    <span className="font-medium text-green-800">
+                      {selectedSourceProduct.name} ({selectedSourceProduct.unit}) - {selectedSourceProduct.farmer?.name || `農家ID:${selectedSourceProduct.farmer_id}`}
+                    </span>
+                    <button type="button" onClick={() => setForm(prev => ({ ...prev, source_product_id: '' }))}
+                      className="ml-auto text-green-600 hover:text-green-800">
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
+                {(sourceSearchText || !form.source_product_id) && (
+                  <div className="border rounded-lg max-h-40 overflow-y-auto">
+                    {filteredSourceProducts.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-gray-400">該当する商品がありません</div>
+                    ) : (
+                      filteredSourceProducts.map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            setForm(prev => ({
+                              ...prev,
+                              source_product_id: String(p.id),
+                              name: prev.name || p.name,
+                              image_url: prev.image_url || p.image_url || '',
+                            }))
+                            setSourceSearchText('')
+                          }}
+                          className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b last:border-b-0 ${
+                            Number(form.source_product_id) === p.id ? 'bg-green-50 font-medium' : ''
+                          }`}
+                        >
+                          {p.name} ({p.unit}) - {p.farmer?.name || `農家ID:${p.farmer_id}`}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -304,16 +366,48 @@ export default function RetailProductManagement() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">画像URL</label>
-                  <input type="text" value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })}
-                    placeholder="https://..." className="w-full border rounded-lg px-3 py-2 text-sm" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">表示順</label>
-                  <input type="number" value={form.display_order} onChange={e => setForm({ ...form, display_order: e.target.value })}
-                    placeholder="0" className="w-full border rounded-lg px-3 py-2 text-sm" />
+              {/* Image Upload */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700">商品画像</label>
+                <div className="flex items-start gap-4">
+                  {form.image_url ? (
+                    <div className="relative w-24 h-24 rounded-lg overflow-hidden border bg-gray-50 flex-shrink-0">
+                      <img src={form.image_url} alt="プレビュー" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setForm(prev => ({ ...prev, image_url: '' }))}
+                        className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/70"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 flex-shrink-0">
+                      <Upload className="w-6 h-6 text-gray-300" />
+                    </div>
+                  )}
+                  <div className="flex-1 space-y-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                      className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
+                    >
+                      {isUploading ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" />アップロード中...</>
+                      ) : (
+                        <><Upload className="w-4 h-4" />画像を選択</>
+                      )}
+                    </button>
+                    <p className="text-xs text-gray-400">JPG, PNG 推奨。自動で圧縮されます。</p>
+                  </div>
                 </div>
               </div>
 
@@ -326,7 +420,7 @@ export default function RetailProductManagement() {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={form.is_featured} onChange={e => setForm({ ...form, is_featured: e.target.checked })}
                     className="rounded border-gray-300" />
-                  <span className="text-sm text-gray-700">おすすめ</span>
+                  <span className="text-sm text-gray-700">おすすめに表示</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={form.is_wakeari} onChange={e => setForm({ ...form, is_wakeari: e.target.checked })}
