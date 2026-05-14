@@ -16,7 +16,6 @@ const initialForm = {
   retail_unit: '',
   retail_quantity_label: '',
   conversion_factor: '1',
-  waste_margin_pct: '5',
   image_url: '',
   category: '',
   is_active: true,
@@ -161,7 +160,6 @@ export default function RetailProductManagement() {
       const res = await adminRetailProductApi.suggestPrice({
         cost_price: sp.cost_price,
         conversion_factor: parseFloat(form.conversion_factor) || 1,
-        waste_margin_pct: parseFloat(form.waste_margin_pct) || 5,
       })
       setForm(prev => ({ ...prev, retail_price: res.data.suggested_price }))
       toast.success(`推奨価格: ${res.data.suggested_price}円`)
@@ -199,7 +197,7 @@ export default function RetailProductManagement() {
       name: product.name, description: product.description || '',
       retail_price: product.retail_price, tax_rate: String(product.tax_rate),
       retail_unit: product.retail_unit, retail_quantity_label: product.retail_quantity_label || '',
-      conversion_factor: product.conversion_factor, waste_margin_pct: String(product.waste_margin_pct),
+      conversion_factor: product.conversion_factor,
       image_url: product.image_url || '', category: product.category || '',
       is_active: product.is_active === 1, is_featured: product.is_featured === 1, is_wakeari: product.is_wakeari === 1,
     })
@@ -217,7 +215,7 @@ export default function RetailProductManagement() {
       retail_price: parseFloat(form.retail_price), tax_rate: parseInt(form.tax_rate),
       retail_unit: form.retail_unit, retail_quantity_label: form.retail_quantity_label || null,
       conversion_factor: parseFloat(form.conversion_factor) || 1,
-      waste_margin_pct: parseInt(form.waste_margin_pct) || 5,
+      waste_margin_pct: 0,
       image_url: form.image_url || null, category: form.category || null,
       is_active: form.is_active ? 1 : 0, is_featured: form.is_featured ? 1 : 0,
       is_wakeari: form.is_wakeari ? 1 : 0, display_order: form.is_featured ? 0 : 99,
@@ -315,19 +313,13 @@ export default function RetailProductManagement() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700 flex items-center">
                     換算係数<InfoTooltip text={"農家から1単位（例: 1kg）仕入れたら、消費者向けに何パック作れるかの数値です。\n\n例:\n・トマト1kg≒6個 → 3個入りパック2つ → 2.0\n・ほうれん草1束 → そのまま1袋 → 1.0\n・にんじん1kg≒5本 → 2本入り2.5パック → 2.5"} />
                   </label>
                   <input type="number" step="0.01" value={form.conversion_factor} onChange={e => setForm({ ...form, conversion_factor: e.target.value })} placeholder="1.0" className="w-full border rounded-lg px-3 py-2 text-sm" />
                   <p className="text-xs text-gray-400">農家1単位 = 小売 x 袋</p>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700 flex items-center">
-                    ロスマージン (%)<InfoTooltip text={"仕入れ時に見込む廃棄・ロス分の余裕割合です。\n\n例: 5%に設定すると、必要数量の5%多く農家に発注します。\n傷み・規格外品・すりながし転用分を含めて設定してください。"} />
-                  </label>
-                  <input type="number" step="1" value={form.waste_margin_pct} onChange={e => setForm({ ...form, waste_margin_pct: e.target.value })} placeholder="5" className="w-full border rounded-lg px-3 py-2 text-sm" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">小売価格 (税抜) *</label>

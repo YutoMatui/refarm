@@ -194,17 +194,23 @@ export default function UnifiedProcurementManagement() {
                 onClick={() => setSelectedDate(dateStr)}
                 className={`
                   h-24 p-1 border-r border-b cursor-pointer transition-colors relative
-                  ${isCurrentMonth ? 'bg-white hover:bg-green-50' : 'bg-gray-50 text-gray-400'}
-                  ${isSelected ? 'bg-green-100 ring-2 ring-inset ring-green-500' : ''}
+                  ${!isCurrentMonth ? 'bg-gray-50 text-gray-400' :
+                    isSelected ? 'bg-green-100 ring-2 ring-inset ring-green-500' :
+                    hasOrders ? 'bg-amber-50 hover:bg-amber-100' : 'bg-white hover:bg-green-50'}
                 `}
               >
-                <span className={`text-sm w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-blue-600 text-white' : ''}`}>
-                  {format(date, 'd')}
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className={`text-sm w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-blue-600 text-white' : ''}`}>
+                    {format(date, 'd')}
+                  </span>
+                  {hasOrders && isCurrentMonth && (
+                    <span className="w-2 h-2 rounded-full bg-orange-400 flex-shrink-0" />
+                  )}
+                </div>
 
                 {hasOrders && isCurrentMonth && (
                   <div className="absolute bottom-1 left-1 right-1 space-y-0.5">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 flex-wrap">
                       {info.b2b_order_count > 0 && (
                         <span className="inline-flex items-center px-1 py-0 rounded text-[9px] font-bold bg-blue-100 text-blue-700">
                           B2B:{info.b2b_order_count}
