@@ -115,6 +115,7 @@ async def get_procurement_calendar(
             DeliverySlot.date.label("d"),
             func.count(ConsumerOrder.id.distinct()).label("order_count"),
         )
+        .select_from(ConsumerOrder)
         .join(DeliverySlot, DeliverySlot.id == ConsumerOrder.delivery_slot_id)
         .where(
             DeliverySlot.date >= start_date,
