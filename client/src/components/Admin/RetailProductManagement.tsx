@@ -1,9 +1,10 @@
 import { useState, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, ShoppingBag, X, Calculator, Loader2, Upload, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, ShoppingBag, X, Calculator, Loader2, Upload, Search, Info } from 'lucide-react'
 import { adminRetailProductApi, productApi, uploadApi } from '@/services/api'
 import { compressImage } from '@/utils/imageUtils'
+import ImageCropperModal from '@/components/ImageCropperModal'
 import type { RetailProduct, Product } from '@/types'
 
 const initialForm = {
@@ -23,6 +24,29 @@ const initialForm = {
   is_wakeari: false,
 }
 
+function InfoTooltip({ text }: { text: string }) {
+  const [show, setShow] = useState(false)
+  return (
+    <span className="relative inline-block ml-1">
+      <button
+        type="button"
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        onClick={() => setShow(prev => !prev)}
+        className="text-gray-400 hover:text-blue-500 transition-colors"
+      >
+        <Info size={14} />
+      </button>
+      {show && (
+        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-gray-800 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-pre-wrap leading-relaxed">
+          {text}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+        </div>
+      )}
+    </span>
+  )
+}
+
 export default function RetailProductManagement() {
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
@@ -31,6 +55,7 @@ export default function RetailProductManagement() {
   const [filterText, setFilterText] = useState('')
   const [sourceSearchText, setSourceSearchText] = useState('')
   const [isUploading, setIsUploading] = useState(false)
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch retail products
@@ -40,6 +65,8 @@ export default function RetailProductManagement() {
       const res = await adminRetailProductApi.list({ limit: 1000 })
       return res.data
     },
+    refetchOnMount: 'always',
+    staleTime: 0,
   })
 
   // Fetch source (farmer) products for dropdown
@@ -74,13 +101,18 @@ export default function RetailProductManagement() {
   }, [retailProducts, filterText])
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => adminRetailProductApi.create(data),
+    mutationFn: (payload: any) => adminRetailProductApi.create(payload),
     onSuccess: () => {
       toast.success('小売商品を作成しました')
       queryClient.invalidateQueries({ queryKey: ['admin', 'retail-products'] })
+      queryClient.refetchQueries({ queryKey: ['admin', 'retail-products'] })
       resetForm()
     },
-    onError: (e: any) => toast.error(e?.response?.data?.detail || '作成に失敗しました'),
+    onError: (e: any) => {
+      const detail = e?.response?.data?.detail
+      toast.error(typeof detail === 'string' ? detail : '作成に失敗しました')
+      console.error('Create retail product error:', e?.response?.data || e)
+    },
   })
 
   const updateMutation = useMutation({
@@ -88,9 +120,13 @@ export default function RetailProductManagement() {
     onSuccess: () => {
       toast.success('小売商品を更新しました')
       queryClient.invalidateQueries({ queryKey: ['admin', 'retail-products'] })
+      queryClient.refetchQueries({ queryKey: ['admin', 'retail-products'] })
       resetForm()
     },
-    onError: (e: any) => toast.error(e?.response?.data?.detail || '更新に失敗しました'),
+    onError: (e: any) => {
+      const detail = e?.response?.data?.detail
+      toast.error(typeof detail === 'string' ? detail : '更新に失敗しました')
+    },
   })
 
   const deleteMutation = useMutation({
@@ -98,6 +134,7 @@ export default function RetailProductManagement() {
     onSuccess: () => {
       toast.success('小売商品を削除しました')
       queryClient.invalidateQueries({ queryKey: ['admin', 'retail-products'] })
+      queryClient.refetchQueries({ queryKey: ['admin', 'retail-products'] })
     },
     onError: (e: any) => toast.error(e?.response?.data?.detail || '削除に失敗しました'),
   })
@@ -126,20 +163,32 @@ export default function RetailProductManagement() {
     }
   }
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 画像ファイル選択 → トリミングモーダルを開く
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      setCropImageSrc(reader.result as string)
+    }
+    reader.readAsDataURL(file)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  // トリミング完了 → アップロード
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    setCropImageSrc(null)
     setIsUploading(true)
     try {
+      const file = new File([croppedBlob], 'cropped.jpg', { type: 'image/jpeg' })
       const compressed = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.85 })
       const res = await uploadApi.uploadImage(compressed)
       setForm(prev => ({ ...prev, image_url: res.data.url }))
       toast.success('画像をアップロードしました')
-    } catch (e: any) {
+    } catch {
       toast.error('画像のアップロードに失敗しました')
     } finally {
       setIsUploading(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
@@ -148,6 +197,7 @@ export default function RetailProductManagement() {
     setEditingId(null)
     setShowForm(false)
     setSourceSearchText('')
+    setCropImageSrc(null)
   }
 
   const startEdit = (product: RetailProduct) => {
@@ -183,12 +233,12 @@ export default function RetailProductManagement() {
       source_product_id: parseInt(form.source_product_id),
       name: form.name,
       description: form.description || null,
-      retail_price: form.retail_price,
+      retail_price: parseFloat(form.retail_price),
       tax_rate: parseInt(form.tax_rate),
       retail_unit: form.retail_unit,
       retail_quantity_label: form.retail_quantity_label || null,
-      conversion_factor: form.conversion_factor,
-      waste_margin_pct: parseFloat(form.waste_margin_pct) || 5,
+      conversion_factor: parseFloat(form.conversion_factor) || 1,
+      waste_margin_pct: parseInt(form.waste_margin_pct) || 5,
       image_url: form.image_url || null,
       category: form.category || null,
       is_active: form.is_active ? 1 : 0,
@@ -338,13 +388,19 @@ export default function RetailProductManagement() {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">換算係数</label>
+                  <label className="text-sm font-medium text-gray-700 flex items-center">
+                    換算係数
+                    <InfoTooltip text={"農家から1単位（例: 1kg）仕入れたら、消費者向けに何パック作れるかの数値です。\n\n例:\n・トマト1kg≒6個 → 3個入りパック2つ → 2.0\n・ほうれん草1束 → そのまま1袋 → 1.0\n・にんじん1kg≒5本 → 2本入り2.5パック → 2.5"} />
+                  </label>
                   <input type="number" step="0.01" value={form.conversion_factor} onChange={e => setForm({ ...form, conversion_factor: e.target.value })}
                     placeholder="1.0" className="w-full border rounded-lg px-3 py-2 text-sm" />
                   <p className="text-xs text-gray-400">農家1単位 = 小売 x 袋</p>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">ロスマージン (%)</label>
+                  <label className="text-sm font-medium text-gray-700 flex items-center">
+                    ロスマージン (%)
+                    <InfoTooltip text={"仕入れ時に見込む廃棄・ロス分の余裕割合です。\n\n例: 5%に設定すると、必要数量の5%多く農家に発注します。\n\n傷み・規格外品・すりながし転用分を含めて設定してください。多めに設定するほど余裕がありますが、余剰が出やすくなります。"} />
+                  </label>
                   <input type="number" step="1" value={form.waste_margin_pct} onChange={e => setForm({ ...form, waste_margin_pct: e.target.value })}
                     placeholder="5" className="w-full border rounded-lg px-3 py-2 text-sm" />
                 </div>
@@ -366,7 +422,7 @@ export default function RetailProductManagement() {
                 </div>
               </div>
 
-              {/* Image Upload */}
+              {/* Image Upload with Crop */}
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">商品画像</label>
                 <div className="flex items-start gap-4">
@@ -391,7 +447,7 @@ export default function RetailProductManagement() {
                       ref={fileInputRef}
                       type="file"
                       accept="image/*"
-                      onChange={handleImageUpload}
+                      onChange={handleFileSelect}
                       className="hidden"
                     />
                     <button
@@ -406,7 +462,7 @@ export default function RetailProductManagement() {
                         <><Upload className="w-4 h-4" />画像を選択</>
                       )}
                     </button>
-                    <p className="text-xs text-gray-400">JPG, PNG 推奨。自動で圧縮されます。</p>
+                    <p className="text-xs text-gray-400">JPG, PNG 推奨。選択後にトリミングできます。</p>
                   </div>
                 </div>
               </div>
@@ -443,6 +499,17 @@ export default function RetailProductManagement() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Image Cropper Modal */}
+      {cropImageSrc && (
+        <ImageCropperModal
+          imageSrc={cropImageSrc}
+          aspectRatio={1}
+          onCancel={() => setCropImageSrc(null)}
+          onCropComplete={handleCropComplete}
+          title="商品画像をトリミング"
+        />
       )}
 
       {/* Filter */}
