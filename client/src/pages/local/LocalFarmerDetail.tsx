@@ -14,8 +14,10 @@ import {
     Heart
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { farmerApi, productApi, supportMessageApi } from '@/services/api'
-import type { Farmer, Product, Commitment, Achievement } from '@/types'
+import { farmerApi, retailProductApi, supportMessageApi } from '@/services/api'
+import { useStore } from '@/store/useStore'
+import LocalProductCard from '@/components/local/LocalProductCard'
+import type { Farmer, RetailProduct, Commitment, Achievement } from '@/types'
 
 interface SupportMessage {
     id: number
@@ -32,6 +34,7 @@ const LocalFarmerDetail = () => {
     const [message, setMessage] = useState('')
     const [nickname, setNickname] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const addToRetailCart = useStore(state => state.addToRetailCart)
 
     const queryClient = useQueryClient()
 
@@ -50,12 +53,16 @@ const LocalFarmerDetail = () => {
         enabled: !!id
     })
 
-    // 商品一覧取得
+    // 消費者向け商品一覧を取得し、この農家の商品だけフィルタ
     const { data: productsData } = useQuery({
-        queryKey: ['local-farmer-products', id],
+        queryKey: ['local-farmer-retail-products', id],
         queryFn: async () => {
             if (!id) return null
-            return (await productApi.list({ farmer_id: parseInt(id), is_active: 1, limit: 100 })).data
+            const res = await retailProductApi.list({ limit: 500 })
+            const allItems = res.data?.items || []
+            const farmerId = parseInt(id)
+            const filtered = allItems.filter((p: any) => p.source_product?.farmer_id === farmerId)
+            return { items: filtered }
         },
         enabled: !!id
     })
@@ -131,7 +138,12 @@ const LocalFarmerDetail = () => {
         )
     }
 
-    const products = productsData?.items || []
+    const products: RetailProduct[] = productsData?.items || []
+
+    const handleAddToCart = (product: RetailProduct, quantity: number) => {
+        addToRetailCart(product, quantity)
+        toast.success(`${product.name} をカートに追加しました`)
+    }
     const commitments = (farmer.commitments || []) as Commitment[]
     const videoUrls = (farmer.video_url || []) as string[]
     const articleUrls = (farmer.article_url || []) as string[]
@@ -248,28 +260,13 @@ const LocalFarmerDetail = () => {
                                     販売中の野菜
                                 </h2>
                                 <div className="grid grid-cols-2 gap-3">
-                                    {products.map((product: Product) => {
-                                        const priceWithTax = Math.round(parseFloat(product.price) * (1 + (product.tax_rate || 8) / 100))
-                                        return (
-                                            <div
-                                                key={product.id}
-                                                className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
-                                                onClick={() => navigate(`/local/products/${product.id}`)}
-                                            >
-                                                <div className="h-32 bg-gray-100 overflow-hidden">
-                                                    {product.image_url ? (
-                                                        <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center text-3xl">🥬</div>
-                                                    )}
-                                                </div>
-                                                <div className="p-3">
-                                                    <h3 className="font-bold text-sm text-gray-900 line-clamp-2 mb-1">{product.name}</h3>
-                                                    <p className="text-emerald-700 font-bold text-base">¥{priceWithTax}<span className="text-xs text-gray-500 font-normal ml-1">/{product.unit}</span></p>
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
+                                    {products.map((product) => (
+                                        <LocalProductCard
+                                            key={product.id}
+                                            product={product}
+                                            onAddToCart={handleAddToCart}
+                                        />
+                                    ))}
                                 </div>
                             </div>
                         ) : (
