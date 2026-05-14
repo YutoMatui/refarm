@@ -26,22 +26,42 @@ const initialForm = {
 
 function InfoTooltip({ text }: { text: string }) {
   const [show, setShow] = useState(false)
+  const [pos, setPos] = useState({ x: 0, y: 0 })
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  const handleToggle = () => {
+    if (!show && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      setPos({ x: rect.left + rect.width / 2, y: rect.top })
+    }
+    setShow(prev => !prev)
+  }
+
   return (
-    <span className="relative inline-block ml-1">
+    <span className="inline-block ml-1">
       <button
+        ref={btnRef}
         type="button"
-        onMouseEnter={() => setShow(true)}
-        onMouseLeave={() => setShow(false)}
-        onClick={() => setShow(prev => !prev)}
+        onClick={handleToggle}
         className="text-gray-400 hover:text-blue-500 transition-colors"
       >
         <Info size={14} />
       </button>
       {show && (
-        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-gray-800 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-pre-wrap leading-relaxed">
-          {text}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
-        </div>
+        <>
+          <div className="fixed inset-0 z-[100]" onClick={() => setShow(false)} />
+          <div
+            className="fixed z-[101] w-64 bg-gray-800 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-pre-wrap leading-relaxed"
+            style={{
+              left: `${Math.max(16, Math.min(pos.x - 128, window.innerWidth - 272))}px`,
+              top: `${pos.y - 8}px`,
+              transform: 'translateY(-100%)',
+            }}
+          >
+            {text}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+          </div>
+        </>
       )}
     </span>
   )
