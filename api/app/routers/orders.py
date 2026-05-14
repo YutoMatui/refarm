@@ -131,9 +131,8 @@ async def create_order(
     result = await db.execute(stmt)
     db_order = result.scalar_one()
     
-    # Send LINE Notifications
+    # Send LINE Notifications (農家への通知は管理者が統合集計後に一括発注時に送信)
     background_tasks.add_task(line_service.notify_restaurant, db_order)
-    background_tasks.add_task(line_service.notify_farmers, db_order)
     background_tasks.add_task(line_service.notify_admin_order, db_order)
     
     return db_order
@@ -667,7 +666,6 @@ async def update_order_status(
     order = result.scalar_one()
 
     if status_update.status == OrderStatus.CANCELLED and not was_cancelled:
-        background_tasks.add_task(line_service.notify_farmers_order_cancelled, order)
         background_tasks.add_task(line_service.notify_admin_order_cancelled, order)
     
     return order
@@ -705,9 +703,8 @@ async def cancel_order(
     result = await db.execute(stmt)
     order = result.scalar_one()
 
-    background_tasks.add_task(line_service.notify_farmers_order_cancelled, order)
     background_tasks.add_task(line_service.notify_admin_order_cancelled, order)
-    
+
     return ResponseMessage(message="注文をキャンセルしました", success=True)
 
 
@@ -719,9 +716,6 @@ async def delete_order_item(
 ):
     """注文明細を削除し、合計金額を再計算する"""
     from decimal import Decimal
-    from app.services.line_notify import line_service
-    import logging
-    logger = logging.getLogger(__name__)
 
     # 1. Fetch order with items
     stmt = select(Order).options(
@@ -730,13 +724,13 @@ async def delete_order_item(
     ).where(Order.id == order_id)
     result = await db.execute(stmt)
     order = result.scalar_one_or_none()
-    
+
     if not order:
         raise HTTPException(status_code=404, detail="注文が見つかりません")
-    
+
     if order.status in [OrderStatus.SHIPPED, OrderStatus.DELIVERED, OrderStatus.CANCELLED]:
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail="配送中、配達完了、またはキャンセル済みの注文は変更できません"
         )
 
@@ -746,17 +740,9 @@ async def delete_order_item(
         if item.id == item_id:
             item_to_delete = item
             break
-    
+
     if not item_to_delete:
         raise HTTPException(status_code=404, detail="注文明細が見つかりません")
-
-    # Store item data for notification before deleting
-    # Re-fetch item with product and farmer to ensure we have data for notification
-    stmt_item = select(OrderItem).options(
-        joinedload(OrderItem.product).joinedload(Product.farmer)
-    ).where(OrderItem.id == item_id)
-    result_item = await db.execute(stmt_item)
-    item_for_notify = result_item.scalar_one()
 
     # 3. Delete the item
     await db.delete(item_to_delete)
@@ -775,13 +761,7 @@ async def delete_order_item(
     
     await db.commit()
 
-    # 5. Notify farmer (using the pre-fetched item data)
-    try:
-        await line_service.notify_farmer_item_deleted(order, item_for_notify)
-    except Exception as e:
-        logger.error(f"Failed to notify farmer about deleted item: {e}")
-
-    # 6. Re-fetch order with items for response serialization
+    # 5. Re-fetch order with items for response serialization
     stmt = select(Order).options(
         selectinload(Order.order_items).selectinload(OrderItem.product).selectinload(Product.farmer),
         selectinload(Order.restaurant)

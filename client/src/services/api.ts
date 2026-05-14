@@ -726,6 +726,12 @@ export const adminProcurementApi = {
   aggregate: (data: { delivery_slot_id: number }) =>
     apiClient.post<any>('/admin/procurement/aggregate', data),
 
+  aggregateUnified: (data: { delivery_date: string }) =>
+    apiClient.post<any>('/admin/procurement/aggregate-unified', data),
+
+  getCalendar: (month: string) =>
+    apiClient.get<any[]>('/admin/procurement/calendar', { params: { month } }),
+
   updateItem: (batchId: number, itemId: number, data: { ordered_farmer_qty?: number; notes?: string }) =>
     apiClient.put<any>(`/admin/procurement/${batchId}/items/${itemId}`, data),
 

@@ -250,8 +250,9 @@ export interface ProcurementItem extends TimestampFields {
   id: number
   batch_id: number
   source_product_id: number
-  retail_product_id: number
+  retail_product_id?: number | null
   total_retail_qty: number
+  b2b_direct_qty: number
   calculated_farmer_qty: string
   ordered_farmer_qty: number
   unit_cost?: string | null
@@ -259,7 +260,16 @@ export interface ProcurementItem extends TimestampFields {
   source_product_name?: string | null
   source_product_unit?: string | null
   farmer_name?: string | null
+  farmer_id?: number | null
   retail_product_name?: string | null
+}
+
+export interface CalendarDateEntry {
+  date: string
+  b2b_order_count: number
+  b2c_order_count: number
+  farmer_count: number
+  batch_status?: string | null
 }
 
 export interface ProcurementBatch extends TimestampFields {

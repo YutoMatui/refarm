@@ -317,11 +317,8 @@ async def create_consumer_order(
             db.add(batch)
             await db.commit()
 
-    # Notify via LINE (consumer + admin のみ。農家には仕入れ集計時に通知)
+    # Notify via LINE (consumer + admin のみ。農家には管理者が統合集計後に一括発注時に通知)
     background_tasks.add_task(_safe_notify, line_service.notify_consumer_order, db_order)
-    if not has_retail_items:
-        # 旧フロー: 農家にも直接通知
-        background_tasks.add_task(_safe_notify, line_service.notify_farmers_consumer_order, db_order)
     background_tasks.add_task(_safe_notify, line_service.notify_admin_consumer_order, db_order)
 
     return db_order

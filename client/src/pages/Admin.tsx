@@ -3,7 +3,7 @@ import { Users, ShoppingBag, Truck, ClipboardList, Store, Map, ShieldAlert, Mess
 import FarmerManagement from '@/components/Admin/FarmerManagement'
 import ProductManagement from '@/components/Admin/ProductManagement'
 import DeliveryManagement from '@/components/Admin/DeliveryManagement'
-import ProcurementManagement from '@/components/Admin/ProcurementManagement'
+import UnifiedProcurementManagement from '@/components/Admin/UnifiedProcurementManagement'
 import RestaurantManagement from '@/components/Admin/RestaurantManagement'
 import RoutePlanning from '@/components/Admin/RoutePlanning'
 import AdminUserManagement from '@/components/Admin/AdminUserManagement'
@@ -15,10 +15,10 @@ import ConsumerOrderManagement from '@/components/Admin/ConsumerOrderManagement'
 import AccessLogManagement from '@/components/Admin/AccessLogManagement'
 import CouponManagement from '@/components/Admin/CouponManagement'
 import RetailProductManagement from '@/components/Admin/RetailProductManagement'
-import ConsumerProcurementManagement from '@/components/Admin/ConsumerProcurementManagement'
+// ConsumerProcurementManagement は UnifiedProcurementManagement に統合済み
 import { adminApi } from '@/services/api'
 
-type TabId = 'consumers' | 'consumer_orders' | 'consumer_slots' | 'coupons' | 'retail_products' | 'consumer_procurement' | 'restaurants' | 'delivery' | 'delivery_schedule' | 'farmers' | 'products' | 'procurement' | 'route' | 'guest' | 'access_logs' | 'admin_users'
+type TabId = 'consumers' | 'consumer_orders' | 'consumer_slots' | 'coupons' | 'retail_products' | 'restaurants' | 'delivery' | 'delivery_schedule' | 'farmers' | 'products' | 'procurement' | 'route' | 'guest' | 'access_logs' | 'admin_users'
 
 interface TabItem {
     id: TabId
@@ -53,7 +53,6 @@ export default function Admin() {
                 { id: 'consumer_slots', label: '受取枠管理', icon: Calendar },
                 { id: 'coupons', label: 'クーポン管理', icon: Tag },
                 { id: 'retail_products', label: '小売商品管理', icon: Package },
-                { id: 'consumer_procurement', label: '仕入れ集計', icon: ClipboardList },
             ],
         },
         {
@@ -69,7 +68,7 @@ export default function Admin() {
             tabs: [
                 { id: 'farmers', label: '農家管理', icon: Users },
                 { id: 'products', label: '商品・在庫管理', icon: ShoppingBag },
-                { id: 'procurement', label: '仕入れ集計', icon: ClipboardList },
+                { id: 'procurement', label: '統合仕入れ管理', icon: ClipboardList },
                 { id: 'route', label: 'ルート最適化', icon: Map },
             ],
         },
@@ -203,13 +202,13 @@ export default function Admin() {
                         {activeTab === 'consumer_slots' && <ConsumerDeliverySlotManagement />}
                         {activeTab === 'coupons' && <CouponManagement />}
                         {activeTab === 'retail_products' && <RetailProductManagement />}
-                        {activeTab === 'consumer_procurement' && <ConsumerProcurementManagement />}
+                        {/* consumer_procurement は procurement に統合済み */}
                         {activeTab === 'restaurants' && <RestaurantManagement />}
                         {activeTab === 'delivery' && <DeliveryManagement />}
                         {activeTab === 'delivery_schedule' && <DeliveryScheduleManagement />}
                         {activeTab === 'farmers' && <FarmerManagement />}
                         {activeTab === 'products' && <ProductManagement />}
-                        {activeTab === 'procurement' && <ProcurementManagement />}
+                        {activeTab === 'procurement' && <UnifiedProcurementManagement />}
                         {activeTab === 'route' && <RoutePlanning />}
                         {activeTab === 'guest' && <GuestManagement />}
                         {activeTab === 'access_logs' && <AccessLogManagement />}

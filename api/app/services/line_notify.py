@@ -832,8 +832,8 @@ No. {order.id} の納品書をお送りします。
         for user_id in admin_user_ids:
             await self.send_push_message(token, user_id, message)
 
-    async def notify_farmer_procurement_order(self, farmer, items, delivery_slot=None):
-        """仕入れ集計に基づく農家への一括発注通知"""
+    async def notify_farmer_procurement_order(self, farmer, items, delivery_slot=None, delivery_date=None):
+        """仕入れ集計に基づく農家への一括発注通知（B2B+B2C統合対応）"""
         if not farmer.line_user_id:
             print(f"Farmer {farmer.id} has no LINE user ID, skipping procurement notification")
             return
@@ -850,6 +850,8 @@ No. {order.id} の納品書をお送りします。
         delivery_info = ""
         if delivery_slot and delivery_slot.date:
             delivery_info = f"■ 出荷期限\n{self.format_date(delivery_slot.date)} 午前10時まで\n\n"
+        elif delivery_date:
+            delivery_info = f"■ 出荷期限\n{self.format_date(delivery_date)} 午前10時まで\n\n"
 
         items_text = ""
         total_cost = 0

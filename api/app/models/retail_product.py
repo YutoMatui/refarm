@@ -2,7 +2,7 @@
 RetailProduct, ProcurementBatch, ProcurementItem models - 消費者向け小売商品 & 仕入れ管理
 """
 from sqlalchemy import (
-    Column, Integer, Numeric, DateTime, ForeignKey, String, Text
+    Column, Integer, Numeric, DateTime, Date, ForeignKey, String, Text
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -53,7 +53,7 @@ class RetailProduct(Base, TimestampMixin, SoftDeleteMixin):
 
 class ProcurementBatch(Base, TimestampMixin):
     """仕入れバッチ (ProcurementBatch) モデル.
-    配送スロットごとに消費者注文を集約し、農家への一括発注を管理する。
+    配送日ごとにB2B・B2C注文を統合集約し、農家への一括発注を管理する。
     """
     __tablename__ = "procurement_batches"
 
@@ -65,6 +65,7 @@ class ProcurementBatch(Base, TimestampMixin):
         index=True,
         comment="対象配送スロット"
     )
+    delivery_date = Column(Date, nullable=True, index=True, comment="対象配送日")
     status = Column(String(20), nullable=False, default="COLLECTING", comment="ステータス")
     cutoff_at = Column(DateTime(timezone=True), nullable=True, comment="注文締切日時")
     aggregated_at = Column(DateTime(timezone=True), nullable=True, comment="集計実行日時")
@@ -103,10 +104,11 @@ class ProcurementItem(Base, TimestampMixin):
     retail_product_id = Column(
         Integer,
         ForeignKey("retail_products.id", ondelete="RESTRICT"),
-        nullable=False,
-        comment="小売商品"
+        nullable=True,
+        comment="小売商品（B2Cの場合のみ）"
     )
     total_retail_qty = Column(Integer, nullable=False, default=0, comment="消費者注文合計（小売単位）")
+    b2b_direct_qty = Column(Integer, nullable=False, default=0, comment="B2B飲食店注文の直接数量")
     calculated_farmer_qty = Column(Numeric(10, 2), nullable=False, default=0, comment="計算上の農家単位数")
     ordered_farmer_qty = Column(Integer, nullable=False, default=0, comment="実際発注数")
     unit_cost = Column(Numeric(10, 2), nullable=True, comment="仕入値スナップショット")

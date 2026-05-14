@@ -13,8 +13,9 @@ class ProcurementItemResponse(BaseSchema, TimestampSchema):
     id: int
     batch_id: int
     source_product_id: int
-    retail_product_id: int
+    retail_product_id: Optional[int] = None
     total_retail_qty: int
+    b2b_direct_qty: int = 0
     calculated_farmer_qty: Decimal
     ordered_farmer_qty: int
     unit_cost: Optional[Decimal] = None
@@ -23,6 +24,7 @@ class ProcurementItemResponse(BaseSchema, TimestampSchema):
     source_product_name: Optional[str] = None
     source_product_unit: Optional[str] = None
     farmer_name: Optional[str] = None
+    farmer_id: Optional[int] = None
     retail_product_name: Optional[str] = None
 
 
@@ -52,3 +54,15 @@ class ProcurementBatchListResponse(BaseModel):
 
 class AggregateRequest(BaseModel):
     delivery_slot_id: int = Field(..., description="集計対象の配送スロットID")
+
+
+class UnifiedAggregateRequest(BaseModel):
+    delivery_date: str = Field(..., description="集計対象の配送日 (YYYY-MM-DD)")
+
+
+class CalendarDateEntry(BaseModel):
+    date: str
+    b2b_order_count: int = 0
+    b2c_order_count: int = 0
+    farmer_count: int = 0
+    batch_status: Optional[str] = None

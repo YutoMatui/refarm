@@ -1,7 +1,7 @@
 """
 Admin Procurement API Router - 仕入れ集計・発注管理
 """
-from datetime import datetime
+from datetime import datetime, date as date_type
 from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,9 +13,7 @@ from app.core.config import settings
 from app.routers.admin_auth import get_current_admin
 from app.models.retail_product import ProcurementBatch, ProcurementItem
 from app.models.consumer_order import ConsumerOrder, ConsumerOrderItem
-from app.models.product import Product
-from app.models.farmer import Farmer
-from app.models.delivery_slot import DeliverySlot
+from app.models import Order, OrderItem, Product, Farmer, DeliverySlot
 from app.models.enums import ProcurementStatus, OrderStatus
 from app.schemas.procurement import (
     ProcurementBatchResponse,
@@ -23,9 +21,11 @@ from app.schemas.procurement import (
     ProcurementItemResponse,
     ProcurementItemUpdate,
     AggregateRequest,
+    UnifiedAggregateRequest,
+    CalendarDateEntry,
 )
 from app.schemas.base import ResponseMessage
-from app.services.procurement_service import aggregate_batch
+from app.services.procurement_service import aggregate_batch, aggregate_unified_batch
 from app.services.line_notify import line_service
 
 router = APIRouter()
@@ -43,6 +43,7 @@ def _format_batch_response(batch, total_orders=0):
             source_product_id=item.source_product_id,
             retail_product_id=item.retail_product_id,
             total_retail_qty=item.total_retail_qty,
+            b2b_direct_qty=item.b2b_direct_qty or 0,
             calculated_farmer_qty=item.calculated_farmer_qty,
             ordered_farmer_qty=item.ordered_farmer_qty,
             unit_cost=item.unit_cost,
@@ -52,10 +53,14 @@ def _format_batch_response(batch, total_orders=0):
             source_product_name=sp.name if sp else None,
             source_product_unit=sp.unit if sp else None,
             farmer_name=sp.farmer.name if sp and sp.farmer else None,
+            farmer_id=sp.farmer.id if sp and sp.farmer else None,
             retail_product_name=rp.name if rp else None,
         ))
 
     slot = batch.delivery_slot
+    delivery_date_str = str(batch.delivery_date) if batch.delivery_date else (
+        str(slot.date) if slot and slot.date else None
+    )
     return ProcurementBatchResponse(
         id=batch.id,
         delivery_slot_id=batch.delivery_slot_id,
@@ -66,7 +71,7 @@ def _format_batch_response(batch, total_orders=0):
         notes=batch.notes,
         created_at=batch.created_at,
         updated_at=batch.updated_at,
-        delivery_date=str(slot.date) if slot and slot.date else None,
+        delivery_date=delivery_date_str,
         delivery_time=slot.time_text if slot else None,
         items=items_data,
         total_orders=total_orders,
@@ -126,17 +131,35 @@ async def get_procurement_batch(
     if not batch:
         raise HTTPException(status_code=404, detail="バッチが見つかりません")
 
-    # 対象スロットの注文数をカウント
+    # 注文数カウント（B2B + B2C）
     total_orders = 0
+    if batch.delivery_date:
+        b2b_cnt = await db.scalar(
+            select(func.count()).select_from(Order).where(
+                func.date(Order.delivery_date) == batch.delivery_date,
+                Order.status != OrderStatus.CANCELLED,
+            )
+        )
+        total_orders += b2b_cnt or 0
     if batch.delivery_slot_id:
-        cnt = await db.scalar(
-            select(func.count())
-            .where(
+        b2c_cnt = await db.scalar(
+            select(func.count()).select_from(ConsumerOrder).where(
                 ConsumerOrder.delivery_slot_id == batch.delivery_slot_id,
                 ConsumerOrder.status != OrderStatus.CANCELLED,
             )
         )
-        total_orders = cnt or 0
+        total_orders += b2c_cnt or 0
+    elif batch.delivery_date:
+        # delivery_slot_id がなくても delivery_date で B2C カウント
+        b2c_cnt = await db.scalar(
+            select(func.count()).select_from(ConsumerOrder)
+            .join(DeliverySlot, DeliverySlot.id == ConsumerOrder.delivery_slot_id)
+            .where(
+                DeliverySlot.date == batch.delivery_date,
+                ConsumerOrder.status != OrderStatus.CANCELLED,
+            )
+        )
+        total_orders += b2c_cnt or 0
 
     return _format_batch_response(batch, total_orders)
 
@@ -147,7 +170,7 @@ async def aggregate_procurement(
     db: AsyncSession = Depends(get_db),
     current_admin=Depends(get_current_admin),
 ):
-    """消費者注文を集計して仕入れバッチを作成/更新"""
+    """消費者注文を集計して仕入れバッチを作成/更新（B2Cスロット指定）"""
     slot_id = data.delivery_slot_id
 
     # 配送スロット存在確認
@@ -166,6 +189,7 @@ async def aggregate_procurement(
     if not batch:
         batch = ProcurementBatch(
             delivery_slot_id=slot_id,
+            delivery_date=slot.date,
             status=ProcurementStatus.COLLECTING,
         )
         db.add(batch)
@@ -192,6 +216,169 @@ async def aggregate_procurement(
     batch = result.scalar_one()
 
     return _format_batch_response(batch)
+
+
+@router.post("/procurement/aggregate-unified", response_model=ProcurementBatchResponse)
+async def aggregate_unified_procurement(
+    data: UnifiedAggregateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    """B2B+B2C注文を配送日で統合集計して仕入れバッチを作成/更新"""
+    try:
+        target_date = datetime.strptime(data.delivery_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="日付の形式はYYYY-MM-DDである必要があります")
+
+    # 既存のCOLLECTINGまたはAGGREGATEDバッチを検索（delivery_date ベース）
+    stmt = select(ProcurementBatch).where(
+        ProcurementBatch.delivery_date == target_date,
+        ProcurementBatch.status.in_([ProcurementStatus.COLLECTING, ProcurementStatus.AGGREGATED]),
+    )
+    result = await db.execute(stmt)
+    batch = result.scalar_one_or_none()
+
+    if not batch:
+        batch = ProcurementBatch(
+            delivery_date=target_date,
+            status=ProcurementStatus.COLLECTING,
+        )
+        db.add(batch)
+        await db.commit()
+        await db.refresh(batch)
+
+    # 統合集計実行
+    batch = await aggregate_unified_batch(batch.id, db)
+
+    # Re-fetch with full relationships
+    stmt = (
+        select(ProcurementBatch)
+        .options(
+            selectinload(ProcurementBatch.delivery_slot),
+            selectinload(ProcurementBatch.items)
+            .selectinload(ProcurementItem.source_product)
+            .selectinload(Product.farmer),
+            selectinload(ProcurementBatch.items)
+            .selectinload(ProcurementItem.retail_product),
+        )
+        .where(ProcurementBatch.id == batch.id)
+    )
+    result = await db.execute(stmt)
+    batch = result.scalar_one()
+
+    # 注文数カウント
+    b2b_cnt = await db.scalar(
+        select(func.count()).select_from(Order).where(
+            func.date(Order.delivery_date) == target_date,
+            Order.status != OrderStatus.CANCELLED,
+        )
+    ) or 0
+    b2c_cnt = await db.scalar(
+        select(func.count()).select_from(ConsumerOrder)
+        .join(DeliverySlot, DeliverySlot.id == ConsumerOrder.delivery_slot_id)
+        .where(
+            DeliverySlot.date == target_date,
+            ConsumerOrder.status != OrderStatus.CANCELLED,
+        )
+    ) or 0
+
+    return _format_batch_response(batch, b2b_cnt + b2c_cnt)
+
+
+@router.get("/procurement/calendar", response_model=list[CalendarDateEntry])
+async def get_procurement_calendar(
+    month: str = Query(..., description="対象月 (YYYY-MM)"),
+    db: AsyncSession = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    """月内の注文がある日付一覧（B2B/B2C両方）+ バッチステータス"""
+    try:
+        year, mon = month.split("-")
+        start_date = date_type(int(year), int(mon), 1)
+        if int(mon) == 12:
+            end_date = date_type(int(year) + 1, 1, 1)
+        else:
+            end_date = date_type(int(year), int(mon) + 1, 1)
+    except (ValueError, IndexError):
+        raise HTTPException(status_code=400, detail="月の形式はYYYY-MMである必要があります")
+
+    # B2B: delivery_date ごとの注文数
+    b2b_query = (
+        select(
+            func.date(Order.delivery_date).label("d"),
+            func.count(Order.id.distinct()).label("order_count"),
+        )
+        .where(
+            func.date(Order.delivery_date) >= start_date,
+            func.date(Order.delivery_date) < end_date,
+            Order.status != OrderStatus.CANCELLED,
+        )
+        .group_by(func.date(Order.delivery_date))
+    )
+    b2b_result = await db.execute(b2b_query)
+    b2b_by_date = {str(r.d): r.order_count for r in b2b_result.all()}
+
+    # B2C: delivery_slot.date ごとの注文数
+    b2c_query = (
+        select(
+            DeliverySlot.date.label("d"),
+            func.count(ConsumerOrder.id.distinct()).label("order_count"),
+        )
+        .join(DeliverySlot, DeliverySlot.id == ConsumerOrder.delivery_slot_id)
+        .where(
+            DeliverySlot.date >= start_date,
+            DeliverySlot.date < end_date,
+            ConsumerOrder.status != OrderStatus.CANCELLED,
+        )
+        .group_by(DeliverySlot.date)
+    )
+    b2c_result = await db.execute(b2c_query)
+    b2c_by_date = {str(r.d): r.order_count for r in b2c_result.all()}
+
+    # B2B: 農家数（日別）
+    farmer_query = (
+        select(
+            func.date(Order.delivery_date).label("d"),
+            func.count(Farmer.id.distinct()).label("farmer_count"),
+        )
+        .select_from(Order)
+        .join(OrderItem, Order.id == OrderItem.order_id)
+        .join(Product, OrderItem.product_id == Product.id)
+        .join(Farmer, Product.farmer_id == Farmer.id)
+        .where(
+            func.date(Order.delivery_date) >= start_date,
+            func.date(Order.delivery_date) < end_date,
+            Order.status != OrderStatus.CANCELLED,
+        )
+        .group_by(func.date(Order.delivery_date))
+    )
+    farmer_result = await db.execute(farmer_query)
+    farmers_by_date = {str(r.d): r.farmer_count for r in farmer_result.all()}
+
+    # バッチステータス（日別）
+    batch_query = (
+        select(ProcurementBatch.delivery_date, ProcurementBatch.status)
+        .where(
+            ProcurementBatch.delivery_date >= start_date,
+            ProcurementBatch.delivery_date < end_date,
+        )
+    )
+    batch_result = await db.execute(batch_query)
+    batch_by_date = {str(r.delivery_date): r.status for r in batch_result.all()}
+
+    # マージ
+    all_dates = set(b2b_by_date.keys()) | set(b2c_by_date.keys())
+    entries = []
+    for d in sorted(all_dates):
+        entries.append(CalendarDateEntry(
+            date=d,
+            b2b_order_count=b2b_by_date.get(d, 0),
+            b2c_order_count=b2c_by_date.get(d, 0),
+            farmer_count=farmers_by_date.get(d, 0),
+            batch_status=batch_by_date.get(d),
+        ))
+
+    return entries
 
 
 @router.put("/procurement/{batch_id}/items/{item_id}", response_model=ResponseMessage)
@@ -276,6 +463,7 @@ async def order_from_farmers(
                 farmer=farmer,
                 items=items,
                 delivery_slot=delivery_slot,
+                delivery_date=batch.delivery_date,
             )
         except Exception as e:
             print(f"Failed to send procurement notification to farmer {fid}: {e}")
