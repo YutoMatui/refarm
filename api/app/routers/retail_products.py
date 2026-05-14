@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.models.retail_product import RetailProduct
 from app.models.product import Product
 from app.models.farmer import Farmer
+from app.models.enums import HarvestStatus
 from app.schemas.retail_product import RetailProductResponse, RetailProductListResponse
 
 router = APIRouter()
@@ -109,6 +110,7 @@ async def list_retail_products(
         .where(
             Product.deleted_at.is_(None),
             Product.is_active == 1,
+            Product.harvest_status != HarvestStatus.ENDED.value,
         )
     )
     if covered_product_ids:
