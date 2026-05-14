@@ -59,7 +59,7 @@ export default function RetailProductManagement() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch retail products
-  const { data, isLoading } = useQuery({
+  const { data, isLoading: isRetailLoading } = useQuery({
     queryKey: ['admin', 'retail-products'],
     queryFn: async () => {
       const res = await adminRetailProductApi.list({ limit: 1000 })
@@ -69,8 +69,8 @@ export default function RetailProductManagement() {
     staleTime: 0,
   })
 
-  // Fetch source (farmer) products for dropdown
-  const { data: sourceProductsData } = useQuery({
+  // Fetch source (farmer) products
+  const { data: sourceProductsData, isLoading: isSourceLoading } = useQuery({
     queryKey: ['admin', 'source-products'],
     queryFn: async () => {
       const res = await productApi.list({ is_active: 1, limit: 1000 })
@@ -78,8 +78,48 @@ export default function RetailProductManagement() {
     },
   })
 
+  const isLoading = isRetailLoading || isSourceLoading
   const sourceProducts: Product[] = sourceProductsData?.items || []
-  const retailProducts: RetailProduct[] = data?.items || []
+  const retailProductsRaw: RetailProduct[] = data?.items || []
+
+  // 小売商品でカバー済みの source_product_id
+  const coveredIds = useMemo(() => new Set(retailProductsRaw.map(rp => rp.source_product_id)), [retailProductsRaw])
+
+  // 農家商品を小売形式に変換（小売商品でカバーされていないもの）
+  const farmerAsRetail: any[] = useMemo(() => {
+    return sourceProducts
+      .filter(p => !coveredIds.has(p.id))
+      .map(p => ({
+        id: p.id,
+        source_product_id: p.id,
+        name: p.name,
+        description: p.description || null,
+        retail_price: p.price,
+        tax_rate: typeof p.tax_rate === 'object' ? (p.tax_rate as any) : p.tax_rate,
+        retail_unit: p.unit || '個',
+        retail_quantity_label: null,
+        conversion_factor: '1',
+        waste_margin_pct: 0,
+        image_url: p.image_url || null,
+        category: p.category || null,
+        is_active: p.is_active,
+        is_featured: p.is_featured,
+        is_wakeari: p.is_wakeari,
+        display_order: p.display_order || 0,
+        source_product: {
+          id: p.id,
+          name: p.name,
+          unit: p.unit,
+          cost_price: p.cost_price || null,
+          farmer_id: p.farmer_id,
+          farmer_name: p.farmer?.name || null,
+        },
+        _is_farmer_product: true,
+      }))
+  }, [sourceProducts, coveredIds])
+
+  // 統合リスト: 小売商品 + 農家商品
+  const allProducts = useMemo(() => [...retailProductsRaw, ...farmerAsRetail], [retailProductsRaw, farmerAsRetail])
 
   // 元商品の検索フィルタリング
   const filteredSourceProducts = useMemo(() => {
@@ -92,13 +132,14 @@ export default function RetailProductManagement() {
   }, [sourceProducts, sourceSearchText])
 
   const filteredProducts = useMemo(() => {
-    if (!filterText) return retailProducts
-    return retailProducts.filter(p =>
-      p.name.includes(filterText) ||
-      p.source_product?.name?.includes(filterText) ||
-      p.source_product?.farmer_name?.includes(filterText)
+    if (!filterText) return allProducts
+    const q = filterText.toLowerCase()
+    return allProducts.filter((p: any) =>
+      p.name?.toLowerCase().includes(q) ||
+      p.source_product?.name?.toLowerCase().includes(q) ||
+      p.source_product?.farmer_name?.toLowerCase().includes(q)
     )
-  }, [retailProducts, filterText])
+  }, [allProducts, filterText])
 
   const createMutation = useMutation({
     mutationFn: (payload: any) => adminRetailProductApi.create(payload),
