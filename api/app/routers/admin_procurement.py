@@ -285,7 +285,7 @@ async def aggregate_unified_procurement(
     return _format_batch_response(batch, b2b_cnt + b2c_cnt)
 
 
-@router.get("/procurement/calendar", response_model=list[CalendarDateEntry])
+@router.get("/procurement/calendar")
 async def get_procurement_calendar(
     month: str = Query(..., description="対象月 (YYYY-MM)"),
     db: AsyncSession = Depends(get_db),
@@ -370,13 +370,13 @@ async def get_procurement_calendar(
     all_dates = set(b2b_by_date.keys()) | set(b2c_by_date.keys())
     entries = []
     for d in sorted(all_dates):
-        entries.append(CalendarDateEntry(
-            date=d,
-            b2b_order_count=b2b_by_date.get(d, 0),
-            b2c_order_count=b2c_by_date.get(d, 0),
-            farmer_count=farmers_by_date.get(d, 0),
-            batch_status=batch_by_date.get(d),
-        ))
+        entries.append({
+            "date": d,
+            "b2b_order_count": b2b_by_date.get(d, 0),
+            "b2c_order_count": b2c_by_date.get(d, 0),
+            "farmer_count": farmers_by_date.get(d, 0),
+            "batch_status": batch_by_date.get(d),
+        })
 
     return entries
 
