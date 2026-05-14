@@ -30,6 +30,7 @@ class ProductBase(BaseModel):
     is_active: int = Field(default=1, description="販売可否")
     is_featured: int = Field(default=0, description="おすすめフラグ")
     is_wakeari: int = Field(default=0, description="訳ありフラグ")
+    is_consumer_visible: int = Field(default=0, description="消費者向け表示フラグ")
     display_order: int = Field(default=0, description="表示順序")
 
     @field_validator('harvest_status', mode='before')
@@ -71,6 +72,7 @@ class ProductUpdate(BaseModel):
     is_active: Optional[int] = None
     is_featured: Optional[int] = None
     is_wakeari: Optional[int] = None
+    is_consumer_visible: Optional[int] = None
     display_order: Optional[int] = None
     farmer_id: Optional[int] = None
 
