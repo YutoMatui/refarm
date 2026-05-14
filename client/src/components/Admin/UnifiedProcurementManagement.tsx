@@ -187,7 +187,6 @@ export default function UnifiedProcurementManagement() {
             const isSelected = selectedDate === dateStr
             const isToday = isSameDay(date, new Date())
             const hasOrders = Boolean(info)
-            const totalOrders = info ? info.b2b_order_count + info.b2c_order_count : 0
 
             return (
               <div
