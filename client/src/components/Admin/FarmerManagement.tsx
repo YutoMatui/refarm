@@ -158,6 +158,34 @@ export default function FarmerManagement() {
         });
     };
 
+    const confirmInfoMutation = useMutation({
+        mutationFn: async (id: number) => {
+            await farmerApi.confirmInfo(id);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['admin-farmers'] });
+            toast.success('最新情報を更新済みにしました');
+        },
+        onError: () => {
+            toast.error('更新に失敗しました');
+        },
+    });
+
+    const handleConfirmInfo = (farmer: Farmer, e: React.MouseEvent) => {
+        e.stopPropagation();
+        confirmInfoMutation.mutate(farmer.id);
+    };
+
+    const getInfoStatus = (farmer: Farmer) => {
+        if (!farmer.info_confirmed_at) return 'stale';
+        const confirmed = new Date(farmer.info_confirmed_at);
+        const now = new Date();
+        const diffDays = (now.getTime() - confirmed.getTime()) / (1000 * 60 * 60 * 24);
+        if (diffDays >= 14) return 'stale';
+        if (diffDays >= 7) return 'warning';
+        return 'ok';
+    };
+
     const handleDelete = async (farmer: Farmer) => {
         if (confirm(`${farmer.name}さんを削除しますか？\nこの操作は取り消せません。`)) {
             deleteFarmerMutation.mutate(farmer.id);
@@ -433,6 +461,7 @@ export default function FarmerManagement() {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">連携状況</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">対象月（ステータス）</th>
                                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">操作</th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">最新情報</th>
                                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">表示/非表示</th>
                             </tr>
                         </thead>
@@ -535,6 +564,33 @@ export default function FarmerManagement() {
                                                 <CheckCircle size={16} />
                                                 <span className="text-xs font-bold">振込操作</span>
                                             </button>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            {(() => {
+                                                const status = getInfoStatus(farmer);
+                                                return (
+                                                    <div className="flex flex-col items-center gap-1">
+                                                        <button
+                                                            onClick={(e) => handleConfirmInfo(farmer, e)}
+                                                            className={`px-2 py-1 rounded text-xs font-bold border transition-colors ${
+                                                                status === 'ok'
+                                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                                                    : status === 'warning'
+                                                                    ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                                                                    : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                                                            }`}
+                                                            title="クリックで更新済みにする"
+                                                        >
+                                                            {status === 'ok' ? '✓ 確認済' : status === 'warning' ? '⚠ 1週間経過' : '⚠ 要更新'}
+                                                        </button>
+                                                        {farmer.info_confirmed_at && (
+                                                            <span className="text-[10px] text-gray-400">
+                                                                {new Date(farmer.info_confirmed_at).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             <button

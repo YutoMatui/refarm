@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { retailProductApi } from '@/services/api'
 import type { RetailProduct } from '@/types'
@@ -18,6 +18,8 @@ const LocalProductDetail = () => {
     const [product, setProduct] = useState<RetailProduct | null>(null)
     const [loading, setLoading] = useState(true)
     const [quantity, setQuantity] = useState(1)
+    const [currentImg, setCurrentImg] = useState(0)
+    const scrollRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
         if (id) {
@@ -76,49 +78,83 @@ const LocalProductDetail = () => {
 
     return (
         <div className="bg-white min-h-screen pb-24">
-            {/* Header Image */}
-            <div className="relative aspect-square w-full bg-gray-100">
-                {product.image_url ? (
-                    <img
-                        src={product.image_url}
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                    />
-                ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
-                        <Salad size={48} className="mb-2 opacity-50" />
-                        <span>画像なし</span>
-                    </div>
-                )}
-                <button
-                    onClick={() => navigate(-1)}
-                    className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-md hover:bg-white transition-colors"
-                >
-                    <ArrowLeft size={24} className="text-gray-700" />
-                </button>
+            {/* Image Carousel */}
+            {(() => {
+                const images = (product.image_urls && product.image_urls.length > 0)
+                    ? product.image_urls
+                    : (product.image_url ? [product.image_url] : [])
 
-                {/* カートアイコン */}
-                {cartItemCount > 0 && (
-                    <button
-                        onClick={() => navigate('/local/cart')}
-                        className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-md hover:bg-white transition-colors z-10"
-                    >
-                        <ShoppingCart size={24} className="text-emerald-600" />
-                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
-                            {cartItemCount}
-                        </span>
-                    </button>
-                )}
+                const handleScroll = () => {
+                    if (!scrollRef.current) return
+                    const idx = Math.round(scrollRef.current.scrollLeft / scrollRef.current.clientWidth)
+                    setCurrentImg(idx)
+                }
 
-                {/* 訳ありバッジ */}
-                {product.is_wakeari === 1 && (
-                    <div className={`absolute top-4 ${cartItemCount > 0 ? 'right-16' : 'right-4'}`}>
-                        <span className="bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-md">
-                            訳あり
-                        </span>
+                return (
+                    <div className="relative w-full bg-gray-100">
+                        {images.length > 0 ? (
+                            <>
+                                <div
+                                    ref={scrollRef}
+                                    onScroll={handleScroll}
+                                    className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+                                    style={{ WebkitOverflowScrolling: 'touch' }}
+                                >
+                                    {images.map((url, idx) => (
+                                        <div key={idx} className="w-full flex-shrink-0 snap-center aspect-square">
+                                            <img src={url} alt={`${product.name} ${idx + 1}`} className="w-full h-full object-cover" />
+                                        </div>
+                                    ))}
+                                </div>
+                                {images.length > 1 && (
+                                    <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
+                                        {images.map((_, idx) => (
+                                            <span key={idx} className={`w-2 h-2 rounded-full transition-colors ${idx === currentImg ? 'bg-white' : 'bg-white/40'}`} />
+                                        ))}
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <div className="aspect-square w-full flex flex-col items-center justify-center text-gray-400">
+                                <Salad size={48} className="mb-2 opacity-50" />
+                                <span>画像なし</span>
+                            </div>
+                        )}
+
+                        <button
+                            onClick={() => navigate(-1)}
+                            className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-md hover:bg-white transition-colors z-10"
+                        >
+                            <ArrowLeft size={24} className="text-gray-700" />
+                        </button>
+
+                        {cartItemCount > 0 && (
+                            <button
+                                onClick={() => navigate('/local/cart')}
+                                className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-md hover:bg-white transition-colors z-10"
+                            >
+                                <ShoppingCart size={24} className="text-emerald-600" />
+                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                                    {cartItemCount}
+                                </span>
+                            </button>
+                        )}
+
+                        {product.farming_method === 'organic' && (
+                            <span className="absolute top-4 left-16 bg-green-600 text-white px-3 py-1 rounded-full text-sm font-bold shadow-md z-10">
+                                有機
+                            </span>
+                        )}
+                        {product.is_wakeari === 1 && (
+                            <div className={`absolute top-4 ${cartItemCount > 0 ? 'right-16' : 'right-4'} z-10`}>
+                                <span className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-md">
+                                    目玉商品!!
+                                </span>
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
+                )
+            })()}
 
             <div className="p-5 space-y-6">
                 {/* Title & Price */}
@@ -136,7 +172,42 @@ const LocalProductDetail = () => {
                         <span className="text-sm text-gray-500">税込 / {product.retail_unit}</span>
                     </div>
                     <p className="text-xs text-gray-400 mt-1">税抜 ¥{parseFloat(product.retail_price).toLocaleString()}</p>
+                    {/* 重量・在庫・価格有効期限 */}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 mt-2">
+                        {product.weight != null && product.weight > 0 && (
+                            <span>重量: {product.weight}g</span>
+                        )}
+                        {product.stock_quantity != null && (
+                            <span>在庫: {product.stock_quantity}{product.retail_unit}</span>
+                        )}
+                        {product.info_confirmed_at && (() => {
+                            const confirmed = new Date(product.info_confirmed_at)
+                            const now = new Date()
+                            const diffDays = Math.max(0, Math.floor((now.getTime() - confirmed.getTime()) / (1000 * 60 * 60 * 24)))
+                            const weeksPassed = Math.floor(diffDays / 7)
+                            const validUntil = new Date(confirmed.getTime() + (weeksPassed + 1) * 7 * 24 * 60 * 60 * 1000)
+                            return <span>{validUntil.getMonth() + 1}/{validUntil.getDate()}までの価格</span>
+                        })()}
+                    </div>
                 </div>
+
+                {/* 目玉商品の説明 */}
+                {product.is_wakeari === 1 && (
+                    <div className="bg-red-50 border border-red-100 rounded-xl p-4">
+                        <p className="text-sm text-red-600 font-medium">規格外品などのためお安く提供しています</p>
+                    </div>
+                )}
+
+                {/* 2週間以上未更新の警告 */}
+                {(() => {
+                    const stale = !product.info_confirmed_at ||
+                        (new Date().getTime() - new Date(product.info_confirmed_at).getTime()) / (1000 * 60 * 60 * 24) >= 14
+                    return stale ? (
+                        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                            <p className="text-sm text-amber-600 font-medium">在庫がなくなっている恐れがございます</p>
+                        </div>
+                    ) : null
+                })()}
 
                 {/* Description */}
                 {product.description && (

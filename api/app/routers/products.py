@@ -45,17 +45,20 @@ async def list_products(
     is_active: int = Query(None, description="販売状態で絞り込み"),
     is_featured: int = Query(None, description="おすすめ商品のみ"),
     is_wakeari: int = Query(None, description="訳あり商品のみ"),
+    farmer_active_only: int = Query(None, description="表示中の農家の商品のみ"),
     search: str = Query(None, description="商品名で検索"),
     db: AsyncSession = Depends(get_db)
 ):
     """商品一覧を取得（カタログ用）"""
-    # Join with Farmer to check active status
+    # Join with Farmer for filtering
     query = select(Product).join(Product.farmer).options(selectinload(Product.farmer)).where(
         Product.deleted_at.is_(None),
         Farmer.deleted_at.is_(None),
-        Farmer.is_active == 1,
         Product.harvest_status != "ended"  # Hide 'Ended' items
     )
+    # 消費者向けの場合のみ農家の表示状態でフィルタ
+    if farmer_active_only is not None:
+        query = query.where(Farmer.is_active == farmer_active_only)
     
     if stock_type:
         query = query.where(Product.stock_type == stock_type)

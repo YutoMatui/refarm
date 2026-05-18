@@ -259,6 +259,25 @@ async def check_farmer_availability(
         "reason": reason
     }
     
+@router.post("/{farmer_id}/confirm-info", response_model=FarmerResponse)
+async def confirm_farmer_info(
+    farmer_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """農家の最新情報を確認済みとしてマーク"""
+    stmt = select(Farmer).where(Farmer.id == farmer_id, Farmer.deleted_at.is_(None))
+    result = await db.execute(stmt)
+    farmer = result.scalar_one_or_none()
+
+    if not farmer:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="生産者が見つかりません")
+
+    farmer.info_confirmed_at = datetime.now()
+    await db.commit()
+    await db.refresh(farmer)
+    return farmer
+
+
 @router.post("/availability/bulk", response_model=dict)
 async def check_farmer_availability_bulk(
     params: dict, # { "farmer_ids": [int], "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD" }
@@ -354,6 +373,35 @@ async def check_farmer_availability_bulk(
             "all_available": len(unavailable) == 0
         }
         curr += timedelta(days=1)
-        
+
     return results
+
+
+@router.post("/check-stale-info", response_model=ResponseMessage)
+async def check_stale_farmer_info(
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    1週間以上情報が更新されていない農家を検出し、管理者にLINE通知を送信。
+    外部cronや管理画面から呼び出し可能。
+    """
+    from app.services.line_notify import line_service
+
+    threshold = datetime.now() - timedelta(days=7)
+    stmt = select(Farmer).where(
+        Farmer.deleted_at.is_(None),
+        Farmer.is_active == 1,
+        (Farmer.info_confirmed_at.is_(None)) | (Farmer.info_confirmed_at < threshold)
+    )
+    result = await db.execute(stmt)
+    stale_farmers = result.scalars().all()
+
+    if stale_farmers:
+        await line_service.notify_admin_farmer_info_stale(stale_farmers)
+        return ResponseMessage(
+            message=f"{len(stale_farmers)}件の農家の情報更新リマインドを送信しました",
+            success=True
+        )
+
+    return ResponseMessage(message="未更新の農家はありません", success=True)
 

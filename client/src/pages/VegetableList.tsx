@@ -26,7 +26,7 @@ export default function VegetableList() {
   const { data: productData, isLoading: isProductsLoading } = useQuery({
     queryKey: ['products', activeTab, debouncedSearchQuery],
     queryFn: async () => {
-      const params: any = { is_active: 1, limit: 100 }
+      const params: any = { is_active: 1, farmer_active_only: 1, limit: 100 }
       if (debouncedSearchQuery) params.search = debouncedSearchQuery
 
       if (activeTab === 'wakeari') {

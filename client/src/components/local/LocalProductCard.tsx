@@ -7,6 +7,26 @@ import type { RetailProduct } from '@/types'
 const calcTaxIncPrice = (rp: RetailProduct) =>
     Math.round(parseFloat(rp.retail_price) * (1 + rp.tax_rate / 100))
 
+/** 価格有効期限を計算（info_confirmed_at から1週間刻みでローリング） */
+const calcPriceValidUntil = (infoConfirmedAt: string | null | undefined): string | null => {
+    if (!infoConfirmedAt) return null
+    const confirmed = new Date(infoConfirmedAt)
+    const now = new Date()
+    const diffMs = now.getTime() - confirmed.getTime()
+    const diffDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)))
+    const weeksPassed = Math.floor(diffDays / 7)
+    const validUntil = new Date(confirmed.getTime() + (weeksPassed + 1) * 7 * 24 * 60 * 60 * 1000)
+    return `${validUntil.getMonth() + 1}/${validUntil.getDate()}`
+}
+
+/** 2週間以上未更新か判定 */
+const isStale = (infoConfirmedAt: string | null | undefined): boolean => {
+    if (!infoConfirmedAt) return true
+    const confirmed = new Date(infoConfirmedAt)
+    const now = new Date()
+    return (now.getTime() - confirmed.getTime()) / (1000 * 60 * 60 * 24) >= 14
+}
+
 interface LocalProductCardProps {
     product: RetailProduct
     onAddToCart: (product: RetailProduct, quantity: number) => void
@@ -25,12 +45,39 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
     }
 
     const priceWithTax = calcTaxIncPrice(product)
+    const isOrganic = product.farming_method === 'organic'
+    const priceValidUntil = calcPriceValidUntil(product.info_confirmed_at)
+    const stale = isStale(product.info_confirmed_at)
+
+    /** 画像上のバッジ群 */
+    const ImageBadges = () => (
+        <>
+            {/* 左上: 有機バッジ */}
+            {isOrganic && (
+                <span className="absolute top-2 left-2 bg-green-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm z-10">
+                    有機
+                </span>
+            )}
+            {/* 右上: 目玉商品バッジ */}
+            {product.is_wakeari === 1 && (
+                <span className="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm z-10">
+                    目玉商品!!
+                </span>
+            )}
+            {/* 右上(下段): おすすめバッジ */}
+            {product.is_featured === 1 && (
+                <span className={`absolute ${product.is_wakeari === 1 ? 'top-8' : 'top-2'} right-2 bg-yellow-400 text-yellow-900 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm z-10`}>
+                    おすすめ
+                </span>
+            )}
+        </>
+    )
 
     // コンパクト表示（横長リスト）
     if (compact) {
         return (
             <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden flex">
-                <Link to={`/local/retail-products/${product.id}`} className="w-24 h-24 bg-gray-100 flex-shrink-0">
+                <Link to={`/local/retail-products/${product.id}`} className="w-24 h-24 bg-gray-100 flex-shrink-0 relative">
                     {product.image_url ? (
                         <img
                             src={product.image_url}
@@ -43,16 +90,19 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                             No Image
                         </div>
                     )}
+                    {isOrganic && (
+                        <span className="absolute top-1 left-1 bg-green-600 text-white text-[8px] font-bold px-1 py-0.5 rounded z-10">
+                            有機
+                        </span>
+                    )}
+                    {product.is_wakeari === 1 && (
+                        <span className="absolute top-1 right-1 bg-red-500 text-white text-[8px] font-bold px-1 py-0.5 rounded z-10">
+                            目玉!!
+                        </span>
+                    )}
                 </Link>
                 <div className="flex-1 p-3 flex flex-col justify-between">
                     <div>
-                        {product.is_wakeari === 1 && (
-                            <div className="mb-1">
-                                <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-xs font-semibold">
-                                    訳あり
-                                </span>
-                            </div>
-                        )}
                         <Link to={`/local/retail-products/${product.id}`}>
                             <h3 className="text-sm font-bold text-gray-900 line-clamp-1 hover:text-emerald-600 transition-colors">
                                 {product.name}
@@ -61,10 +111,17 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                                 )}
                             </h3>
                         </Link>
-                        <p className="text-lg font-bold text-emerald-600 mt-1">
-                            ¥{priceWithTax.toLocaleString()}
-                            <span className="text-xs text-gray-500 ml-1">税込 / {product.retail_unit}</span>
-                        </p>
+                        <div className="flex items-baseline gap-2 mt-1">
+                            <p className="text-lg font-bold text-emerald-600">
+                                ¥{priceWithTax.toLocaleString()}
+                                <span className="text-xs text-gray-500 ml-1">税込 / {product.retail_unit}</span>
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-0.5">
+                            {product.weight && <span>{product.weight}g</span>}
+                            {product.stock_quantity != null && <span>残り{product.stock_quantity}{product.retail_unit}</span>}
+                            {priceValidUntil && <span>{priceValidUntil}まで</span>}
+                        </div>
                     </div>
                     <div className="flex items-center justify-between mt-2">
                         <div className="flex items-center space-x-2">
@@ -103,7 +160,7 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
     return (
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
             <Link to={`/local/retail-products/${product.id}`} className="block">
-                <div className="h-40 bg-gray-100">
+                <div className="h-40 bg-gray-100 relative">
                     {product.image_url ? (
                         <img
                             src={product.image_url}
@@ -116,16 +173,10 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                             No Image
                         </div>
                     )}
+                    <ImageBadges />
                 </div>
             </Link>
             <div className="p-4 space-y-2">
-                {product.is_wakeari === 1 && (
-                    <div>
-                        <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-xs font-semibold">
-                            訳あり
-                        </span>
-                    </div>
-                )}
                 <Link to={`/local/retail-products/${product.id}`}>
                     <h3 className="text-lg font-semibold text-gray-900 hover:text-emerald-600 transition-colors">
                         {product.name}
@@ -134,15 +185,42 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                         )}
                     </h3>
                 </Link>
-                {product.description && (
-                    <p className="text-sm text-gray-600 line-clamp-2">{product.description}</p>
-                )}
+                {/* 価格 */}
                 <div>
                     <p className="text-xl font-bold text-emerald-600">
                         ¥{priceWithTax.toLocaleString()}
                     </p>
                     <p className="text-xs text-gray-500">税込 / {product.retail_unit}</p>
                 </div>
+                {/* 重量・在庫・価格有効期限 */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
+                    {product.weight != null && product.weight > 0 && (
+                        <span>{product.weight}g</span>
+                    )}
+                    {product.stock_quantity != null && (
+                        <span>残り {product.stock_quantity}{product.retail_unit}</span>
+                    )}
+                    {priceValidUntil && (
+                        <span>{priceValidUntil}までの価格</span>
+                    )}
+                </div>
+                {/* 目玉商品の説明 */}
+                {product.is_wakeari === 1 && (
+                    <p className="text-xs text-red-500 bg-red-50 rounded px-2 py-1">
+                        規格外品などのためお安く提供しています
+                    </p>
+                )}
+                {/* 商品説明 */}
+                {product.description && (
+                    <p className="text-sm text-gray-600 line-clamp-2">{product.description}</p>
+                )}
+                {/* 2週間以上未更新の警告 */}
+                {stale && (
+                    <p className="text-xs text-amber-600 bg-amber-50 rounded px-2 py-1">
+                        在庫がなくなっている恐れがございます
+                    </p>
+                )}
+                {/* 数量・カート追加 */}
                 <div className="flex items-center justify-center space-x-3 py-2">
                     <button
                         type="button"

@@ -1,24 +1,23 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Search, Sparkles, Grid3x3, TrendingUp } from 'lucide-react'
+import { Search, Grid3x3, Flame } from 'lucide-react'
 import { toast } from 'sonner'
 import { retailProductApi } from '@/services/api'
 import { useStore } from '@/store/useStore'
 import LocalProductCard from '@/components/local/LocalProductCard'
 import type { RetailProduct, PaginatedResponse } from '@/types'
 
-type TabType = 'featured' | 'all' | 'wakeari'
+type TabType = 'all' | 'medama'
 
 const LocalSearch = () => {
-    const [activeTab, setActiveTab] = useState<TabType>('featured')
+    const [activeTab, setActiveTab] = useState<TabType>('all')
     const [keyword, setKeyword] = useState('')
     const [searchQuery, setSearchQuery] = useState('')
     const addToRetailCart = useStore(state => state.addToRetailCart)
 
     const tabs = [
-        { id: 'featured' as TabType, label: 'おすすめ', icon: Sparkles, color: 'yellow' },
         { id: 'all' as TabType, label: 'すべて', icon: Grid3x3, color: 'emerald' },
-        { id: 'wakeari' as TabType, label: '訳あり', icon: TrendingUp, color: 'orange' },
+        { id: 'medama' as TabType, label: '目玉商品!!', icon: Flame, color: 'red' },
     ]
 
     // 商品を取得
@@ -31,9 +30,7 @@ const LocalSearch = () => {
                 params.search = searchQuery
             }
 
-            if (activeTab === 'featured') {
-                params.is_featured = 1
-            } else if (activeTab === 'wakeari') {
+            if (activeTab === 'medama') {
                 params.is_wakeari = 1
             }
             // activeTab === 'all' の場合は特別なフィルターなし
@@ -102,11 +99,9 @@ const LocalSearch = () => {
                                 type="button"
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-xl border-2 transition-all ${isActive
-                                        ? tab.color === 'yellow'
-                                            ? 'bg-yellow-50 border-yellow-400 text-yellow-700 shadow-sm'
-                                            : tab.color === 'orange'
-                                                ? 'bg-orange-50 border-orange-400 text-orange-700 shadow-sm'
-                                                : 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm'
+                                        ? tab.color === 'red'
+                                            ? 'bg-red-50 border-red-400 text-red-700 shadow-sm'
+                                            : 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm'
                                         : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
                                     }`}
                             >

@@ -918,4 +918,28 @@ No. {order.id} の納品書をお送りします。
         await self.send_push_message(token, target_user_id, message)
 
 
+    async def notify_admin_farmer_info_stale(self, farmers: list):
+        """農家の最新情報が1週間以上未更新の場合に管理者へ通知"""
+        admin_user_ids = self._get_admin_user_ids()
+        if not admin_user_ids:
+            print("No LINE admin user IDs configured, skipping stale info notification")
+            return
+
+        channel_id, channel_secret, channel_token = self._get_admin_token_params()
+        token = await self.get_access_token(channel_id, channel_secret, channel_token)
+        if not token:
+            return
+
+        farmer_list = "\n".join([f"・{f.name}" for f in farmers])
+        message = f"""【情報更新リマインド】
+以下の農家の最新情報が1週間以上更新されていません。価格・在庫の確認をお願いします。
+
+{farmer_list}
+
+管理画面の農家管理から「最新情報更新済み」にチェックを入れてください。"""
+
+        for user_id in admin_user_ids:
+            await self.send_push_message(token, user_id, message)
+
+
 line_service = LineNotificationService()

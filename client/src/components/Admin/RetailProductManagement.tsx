@@ -17,6 +17,7 @@ const initialForm = {
   retail_quantity_label: '',
   conversion_factor: '1',
   image_url: '',
+  image_urls: [] as string[],
   category: '',
   is_active: true,
   is_featured: false,
@@ -183,10 +184,32 @@ export default function RetailProductManagement() {
       const file = new File([croppedBlob], 'cropped.jpg', { type: 'image/jpeg' })
       const compressed = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.85 })
       const res = await uploadApi.uploadImage(compressed)
-      setForm(prev => ({ ...prev, image_url: res.data.url }))
+      const url = res.data.url
+      setForm(prev => ({
+        ...prev,
+        image_url: prev.image_urls.length === 0 ? url : prev.image_url,
+        image_urls: [...prev.image_urls, url],
+      }))
       toast.success('画像をアップロードしました')
     } catch { toast.error('画像のアップロードに失敗しました') }
     finally { setIsUploading(false) }
+  }
+
+  const handleRemoveImage = (index: number) => {
+    setForm(prev => {
+      const newUrls = prev.image_urls.filter((_, i) => i !== index)
+      return { ...prev, image_urls: newUrls, image_url: newUrls[0] || '' }
+    })
+  }
+
+  const handleMoveImage = (index: number, direction: 'up' | 'down') => {
+    setForm(prev => {
+      const newUrls = [...prev.image_urls]
+      const swapIdx = direction === 'up' ? index - 1 : index + 1
+      if (swapIdx < 0 || swapIdx >= newUrls.length) return prev
+      ;[newUrls[index], newUrls[swapIdx]] = [newUrls[swapIdx], newUrls[index]]
+      return { ...prev, image_urls: newUrls, image_url: newUrls[0] || '' }
+    })
   }
 
   const resetForm = () => { setForm(initialForm); setEditingId(null); setShowForm(false); setSourceSearchText(''); setCropImageSrc(null) }
@@ -198,7 +221,9 @@ export default function RetailProductManagement() {
       retail_price: product.retail_price, tax_rate: String(product.tax_rate),
       retail_unit: product.retail_unit, retail_quantity_label: product.retail_quantity_label || '',
       conversion_factor: product.conversion_factor,
-      image_url: product.image_url || '', category: product.category || '',
+      image_url: product.image_url || '',
+      image_urls: product.image_urls || (product.image_url ? [product.image_url] : []),
+      category: product.category || '',
       is_active: product.is_active === 1, is_featured: product.is_featured === 1, is_wakeari: product.is_wakeari === 1,
     })
     setEditingId(product.id); setShowForm(true); setSourceSearchText('')
@@ -216,7 +241,9 @@ export default function RetailProductManagement() {
       retail_unit: form.retail_unit, retail_quantity_label: form.retail_quantity_label || null,
       conversion_factor: parseFloat(form.conversion_factor) || 1,
       waste_margin_pct: 0,
-      image_url: form.image_url || null, category: form.category || null,
+      image_url: form.image_urls[0] || form.image_url || null,
+      image_urls: form.image_urls.length > 0 ? form.image_urls : (form.image_url ? [form.image_url] : []),
+      category: form.category || null,
       is_active: form.is_active ? 1 : 0, is_featured: form.is_featured ? 1 : 0,
       is_wakeari: form.is_wakeari ? 1 : 0, display_order: form.is_featured ? 0 : 99,
     }
@@ -333,26 +360,37 @@ export default function RetailProductManagement() {
                 </div>
               </div>
 
-              {/* Image Upload */}
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">商品画像</label>
-                <div className="flex items-start gap-4">
-                  {form.image_url ? (
-                    <div className="relative w-24 h-24 rounded-lg overflow-hidden border bg-gray-50 flex-shrink-0">
-                      <img src={form.image_url} alt="プレビュー" className="w-full h-full object-cover" />
-                      <button type="button" onClick={() => setForm(prev => ({ ...prev, image_url: '' }))} className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/70"><X size={14} /></button>
-                    </div>
-                  ) : (
-                    <div className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 flex-shrink-0"><Upload className="w-6 h-6 text-gray-300" /></div>
-                  )}
-                  <div className="flex-1 space-y-2">
-                    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
-                    <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading}
-                      className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50">
-                      {isUploading ? <><Loader2 className="w-4 h-4 animate-spin" />アップロード中...</> : <><Upload className="w-4 h-4" />画像を選択</>}
-                    </button>
-                    <p className="text-xs text-gray-400">JPG, PNG 推奨。選択後にトリミングできます。</p>
+              {/* Image Upload (複数画像対応) */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">商品画像（複数可）</label>
+                {form.image_urls.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {form.image_urls.map((url, idx) => (
+                      <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border bg-gray-50 group">
+                        <img src={url} alt={`画像${idx + 1}`} className="w-full h-full object-cover" />
+                        {idx === 0 && (
+                          <span className="absolute bottom-0 left-0 right-0 bg-emerald-600 text-white text-[9px] text-center py-0.5">メイン</span>
+                        )}
+                        <div className="absolute top-0 right-0 flex flex-col opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button type="button" onClick={() => handleRemoveImage(idx)} className="bg-black/60 text-white p-0.5 hover:bg-red-600"><X size={12} /></button>
+                          {idx > 0 && (
+                            <button type="button" onClick={() => handleMoveImage(idx, 'up')} className="bg-black/60 text-white text-[10px] px-1 hover:bg-blue-600">&#9650;</button>
+                          )}
+                          {idx < form.image_urls.length - 1 && (
+                            <button type="button" onClick={() => handleMoveImage(idx, 'down')} className="bg-black/60 text-white text-[10px] px-1 hover:bg-blue-600">&#9660;</button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
+                )}
+                <div className="flex items-center gap-3">
+                  <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
+                  <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading}
+                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50">
+                    {isUploading ? <><Loader2 className="w-4 h-4 animate-spin" />アップロード中...</> : <><Upload className="w-4 h-4" />画像を追加</>}
+                  </button>
+                  <p className="text-xs text-gray-400">JPG, PNG 推奨。1枚目がメイン画像になります。</p>
                 </div>
               </div>
 
@@ -367,7 +405,7 @@ export default function RetailProductManagement() {
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={form.is_wakeari} onChange={e => setForm({ ...form, is_wakeari: e.target.checked })} className="rounded border-gray-300" />
-                  <span className="text-sm text-gray-700">訳あり</span>
+                  <span className="text-sm text-gray-700">目玉商品</span>
                 </label>
               </div>
 

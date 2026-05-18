@@ -14,7 +14,7 @@ export default function LocalHome() {
     const navigate = useNavigate()
 
     // --- Data Fetching ---
-    // 訳あり・お買い得商品
+    // 目玉商品
     const { data: wakeariData, isLoading: isWakeariLoading, error: wakeariError } = useQuery({
         queryKey: ['local-wakeari-retail-products'],
         queryFn: async () => {
@@ -120,15 +120,15 @@ export default function LocalHome() {
                     </button>
                 </div>
 
-                {/* 1. 訳あり・お買い得（最優先表示） */}
+                {/* 1. 目玉商品!!（最優先表示） */}
                 {!isWakeariLoading && wakeariData?.items && wakeariData.items.length > 0 && (
                     <section>
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
-                                    <Sparkles className="text-orange-500" size={18} />
+                                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                                    <Sparkles className="text-red-500" size={18} />
                                 </div>
-                                <h2 className="text-xl font-bold text-gray-900">訳あり・お買い得</h2>
+                                <h2 className="text-xl font-bold text-gray-900">目玉商品!!</h2>
                             </div>
                         </div>
 
@@ -147,10 +147,10 @@ export default function LocalHome() {
                                                 <Leaf className="w-8 h-8 text-gray-300" />
                                             </div>
                                         )}
-                                        {/* 訳ありバッジ */}
+                                        {/* 目玉商品バッジ */}
                                         <div className="absolute top-2 left-2">
-                                            <span className="bg-orange-500 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-md">
-                                                訳あり
+                                            <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-md">
+                                                目玉商品!!
                                             </span>
                                         </div>
                                         {/* グラデーションオーバーレイ */}

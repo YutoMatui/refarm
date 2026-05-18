@@ -2,6 +2,7 @@
 Farmer Pydantic schemas.
 """
 from typing import Optional, List, Any
+from datetime import datetime
 from pydantic import BaseModel, EmailStr, HttpUrl, Field
 from app.schemas.base import BaseSchema, TimestampSchema
 
@@ -75,6 +76,7 @@ class FarmerResponse(FarmerBase, TimestampSchema, BaseSchema):
     """Schema for farmer response."""
     id: int
     line_user_id: Optional[str] = None
+    info_confirmed_at: Optional[datetime] = None
     
     class Config:
         json_schema_extra = {

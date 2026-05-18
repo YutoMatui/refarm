@@ -17,6 +17,8 @@ from app.core.database import get_db
 from app.core.cloudinary import upload_file
 from app.services.line_notify import line_service
 from app.models import Farmer, Product, Order, OrderItem
+from app.models.consumer_order import ConsumerOrder, ConsumerOrderItem
+from app.models.delivery_slot import DeliverySlot
 from app.models.enums import OrderStatus
 from app.services.route_service import route_service
 from app.schemas import (
@@ -204,8 +206,8 @@ async def get_producer_calendar_events(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
 
-    # Lightweight query: just get distinct delivery dates
-    query = (
+    # 1. B2B注文（飲食店）の配送日
+    b2b_query = (
         select(func.date(Order.delivery_date).label("date"))
         .join(OrderItem.order)
         .join(OrderItem.product)
@@ -217,11 +219,31 @@ async def get_producer_calendar_events(
         )
         .group_by(func.date(Order.delivery_date))
     )
-    
-    result = await db.execute(query)
-    dates = [row.date.strftime('%Y-%m-%d') for row in result.all()]
-    
-    return {"order_dates": dates}
+
+    b2b_result = await db.execute(b2b_query)
+    dates = {row.date.strftime('%Y-%m-%d') for row in b2b_result.all()}
+
+    # 2. B2C注文（一般消費者）の受取日
+    b2c_query = (
+        select(DeliverySlot.date.label("date"))
+        .select_from(ConsumerOrder)
+        .join(DeliverySlot, ConsumerOrder.delivery_slot_id == DeliverySlot.id)
+        .join(ConsumerOrderItem, ConsumerOrder.id == ConsumerOrderItem.order_id)
+        .join(Product, ConsumerOrderItem.product_id == Product.id)
+        .where(
+            Product.farmer_id == farmer_id,
+            DeliverySlot.date >= start_date.date(),
+            DeliverySlot.date <= end_date.date(),
+            ConsumerOrder.status != OrderStatus.CANCELLED
+        )
+        .group_by(DeliverySlot.date)
+    )
+
+    b2c_result = await db.execute(b2c_query)
+    for row in b2c_result.all():
+        dates.add(row.date.strftime('%Y-%m-%d'))
+
+    return {"order_dates": sorted(dates)}
 
 
 @router.get("/dashboard/schedule")
@@ -252,11 +274,11 @@ async def get_producer_schedule(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
 
-    schedule_items = []
+    # --- 1. Shipping Tasks (配送日が target_date の注文) ---
+    shipping_agg = {}  # key: product_name -> {unit, total_quantity}
 
-    # 1. Shipping Tasks (Orders delivering on target_date)
-    # 配送日が target_date の注文明細を取得
-    shipping_query = (
+    # 1a. B2B注文
+    b2b_shipping_query = (
         select(
             Product.name,
             Product.unit,
@@ -272,21 +294,58 @@ async def get_producer_schedule(
         )
         .group_by(Product.id, Product.name, Product.unit)
     )
-    
-    shipping_result = await db.execute(shipping_query)
-    for row in shipping_result:
-        schedule_items.append({
-            "id": f"shipping-{row.name}",
-            "name": row.name,
-            "amount": float(row.total_quantity),
+    b2b_shipping_result = await db.execute(b2b_shipping_query)
+    for row in b2b_shipping_result:
+        shipping_agg[row.name] = {
             "unit": row.unit,
+            "total_quantity": float(row.total_quantity)
+        }
+
+    # 1b. B2C注文（受取日が target_date）
+    b2c_shipping_query = (
+        select(
+            Product.name,
+            Product.unit,
+            func.sum(ConsumerOrderItem.quantity).label("total_quantity")
+        )
+        .select_from(ConsumerOrder)
+        .join(DeliverySlot, ConsumerOrder.delivery_slot_id == DeliverySlot.id)
+        .join(ConsumerOrderItem, ConsumerOrder.id == ConsumerOrderItem.order_id)
+        .join(Product, ConsumerOrderItem.product_id == Product.id)
+        .where(
+            Product.farmer_id == farmer_id,
+            DeliverySlot.date == target_date,
+            ConsumerOrder.status != OrderStatus.CANCELLED,
+            ConsumerOrder.status != OrderStatus.DELIVERED
+        )
+        .group_by(Product.id, Product.name, Product.unit)
+    )
+    b2c_shipping_result = await db.execute(b2c_shipping_query)
+    for row in b2c_shipping_result:
+        if row.name in shipping_agg:
+            shipping_agg[row.name]["total_quantity"] += float(row.total_quantity)
+        else:
+            shipping_agg[row.name] = {
+                "unit": row.unit,
+                "total_quantity": float(row.total_quantity)
+            }
+
+    schedule_items = []
+    for name, data in shipping_agg.items():
+        schedule_items.append({
+            "id": f"shipping-{name}",
+            "name": name,
+            "amount": data["total_quantity"],
+            "unit": data["unit"],
             "type": "shipping"
         })
 
-    # 2. Preparation Tasks (Orders delivering on target_date + 1)
-    # 配送日が翌日の注文明細を取得（前日準備）
+    # --- 2. Preparation Tasks (配送日が翌日の注文 = 前日準備) ---
     next_day = target_date + timedelta(days=1)
-    prep_query = (
+    prep_agg = {}
+
+    # 2a. B2B注文
+    b2b_prep_query = (
         select(
             Product.name,
             Product.unit,
@@ -301,14 +360,47 @@ async def get_producer_schedule(
         )
         .group_by(Product.id, Product.name, Product.unit)
     )
-    
-    prep_result = await db.execute(prep_query)
-    for row in prep_result:
-        schedule_items.append({
-            "id": f"prep-{row.name}",
-            "name": row.name,
-            "amount": float(row.total_quantity),
+    b2b_prep_result = await db.execute(b2b_prep_query)
+    for row in b2b_prep_result:
+        prep_agg[row.name] = {
             "unit": row.unit,
+            "total_quantity": float(row.total_quantity)
+        }
+
+    # 2b. B2C注文（受取日が翌日）
+    b2c_prep_query = (
+        select(
+            Product.name,
+            Product.unit,
+            func.sum(ConsumerOrderItem.quantity).label("total_quantity")
+        )
+        .select_from(ConsumerOrder)
+        .join(DeliverySlot, ConsumerOrder.delivery_slot_id == DeliverySlot.id)
+        .join(ConsumerOrderItem, ConsumerOrder.id == ConsumerOrderItem.order_id)
+        .join(Product, ConsumerOrderItem.product_id == Product.id)
+        .where(
+            Product.farmer_id == farmer_id,
+            DeliverySlot.date == next_day,
+            ConsumerOrder.status != OrderStatus.CANCELLED
+        )
+        .group_by(Product.id, Product.name, Product.unit)
+    )
+    b2c_prep_result = await db.execute(b2c_prep_query)
+    for row in b2c_prep_result:
+        if row.name in prep_agg:
+            prep_agg[row.name]["total_quantity"] += float(row.total_quantity)
+        else:
+            prep_agg[row.name] = {
+                "unit": row.unit,
+                "total_quantity": float(row.total_quantity)
+            }
+
+    for name, data in prep_agg.items():
+        schedule_items.append({
+            "id": f"prep-{name}",
+            "name": name,
+            "amount": data["total_quantity"],
+            "unit": data["unit"],
             "type": "preparation"
         })
 

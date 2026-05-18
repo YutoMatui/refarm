@@ -173,6 +173,8 @@ export interface Farmer extends TimestampFields {
   bank_account_type?: string | null
   bank_account_number?: string | null
   bank_account_holder?: string | null
+  // 最新情報確認
+  info_confirmed_at?: string | null
 }
 
 // Product
@@ -217,11 +219,16 @@ export interface RetailProduct extends TimestampFields {
   conversion_factor: string
   waste_margin_pct: number
   image_url?: string | null
+  image_urls?: string[]
   category?: string | null
   is_active: number
   is_featured: number
   is_wakeari: number
   display_order: number
+  farming_method?: string | null
+  weight?: number | null
+  stock_quantity?: number | null
+  info_confirmed_at?: string | null
   source_product?: {
     id: number
     name: string

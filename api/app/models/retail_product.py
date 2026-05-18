@@ -2,7 +2,7 @@
 RetailProduct, ProcurementBatch, ProcurementItem models - 消費者向け小売商品 & 仕入れ管理
 """
 from sqlalchemy import (
-    Column, Integer, Numeric, DateTime, Date, ForeignKey, String, Text
+    Column, Integer, Numeric, DateTime, Date, ForeignKey, String, Text, JSON
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -36,7 +36,8 @@ class RetailProduct(Base, TimestampMixin, SoftDeleteMixin):
         comment="農家1単位あたりの小売数量"
     )
     waste_margin_pct = Column(Integer, nullable=False, default=20, comment="廃棄マージン%")
-    image_url = Column(String(500), nullable=True, comment="商品画像URL")
+    image_url = Column(String(500), nullable=True, comment="商品画像URL（メイン画像・後方互換）")
+    image_urls = Column(JSON, nullable=True, default=list, comment="商品画像URL配列")
     category = Column(String(20), nullable=True, comment="カテゴリ")
     is_active = Column(Integer, nullable=False, default=1, comment="販売中フラグ")
     is_featured = Column(Integer, nullable=False, default=0, comment="おすすめフラグ")

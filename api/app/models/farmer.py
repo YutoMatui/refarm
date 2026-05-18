@@ -3,6 +3,7 @@ Farmer model - 生産者情報
 """
 from sqlalchemy import Column, Integer, String, Text, JSON, DateTime
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from app.core.database import Base
 from app.models.base import TimestampMixin, SoftDeleteMixin
 
@@ -196,6 +197,14 @@ class Farmer(Base, TimestampMixin, SoftDeleteMixin):
         comment="口座名義"
     )
     
+    # 最新情報確認
+    info_confirmed_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        server_default=func.now(),
+        comment="最新情報が確認/更新された日時"
+    )
+
     # Invitation System
     invite_token = Column(String(64), nullable=True, index=True)
     invite_code = Column(String(10), nullable=True)

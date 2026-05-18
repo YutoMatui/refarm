@@ -1,7 +1,7 @@
 """
 Retail Product schemas - 消費者向け小売商品
 """
-from typing import Optional, List
+from typing import Optional, List, Any
 from decimal import Decimal
 from pydantic import BaseModel, Field
 
@@ -19,6 +19,7 @@ class RetailProductCreate(BaseModel):
     conversion_factor: Decimal = Field(1.0, description="農家1単位あたりの小売数量")
     waste_margin_pct: int = Field(20, ge=0, le=100, description="廃棄マージン%")
     image_url: Optional[str] = None
+    image_urls: Optional[List[str]] = Field(default_factory=list, description="商品画像URL配列")
     category: Optional[str] = None
     is_active: int = Field(1, ge=0, le=1)
     is_featured: int = Field(0, ge=0, le=1)
@@ -36,6 +37,7 @@ class RetailProductUpdate(BaseModel):
     conversion_factor: Optional[Decimal] = None
     waste_margin_pct: Optional[int] = None
     image_url: Optional[str] = None
+    image_urls: Optional[List[str]] = None
     category: Optional[str] = None
     is_active: Optional[int] = None
     is_featured: Optional[int] = None
@@ -69,6 +71,7 @@ class RetailProductResponse(BaseSchema, TimestampSchema):
     conversion_factor: Decimal
     waste_margin_pct: int
     image_url: Optional[str] = None
+    image_urls: Optional[List[str]] = Field(default_factory=list)
     category: Optional[str] = None
     is_active: int
     is_featured: int
