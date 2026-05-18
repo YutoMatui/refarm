@@ -287,88 +287,12 @@ export default function RetailProductManagement() {
                 <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} placeholder="商品の説明文" className="w-full border rounded-lg px-3 py-2 text-sm" />
               </div>
 
-              {/* 販売方式 */}
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-700">販売方式</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {([
-                    { id: 'as_is' as SellMode, label: 'そのまま販売', desc: '農家1単位=小売1単位' },
-                    { id: 'bundle' as SellMode, label: 'セットにして販売', desc: 'バラ品を束ねる' },
-                    { id: 'split' as SellMode, label: '小分けにして販売', desc: '大きい単位を分割' },
-                  ]).map(mode => (
-                    <button key={mode.id} type="button"
-                      onClick={() => {
-                        const updates: any = { sell_mode: mode.id }
-                        if (mode.id === 'as_is') { updates.set_quantity = '1'; updates.conversion_factor = '1' }
-                        if (mode.id === 'bundle') { updates.conversion_factor = '1' }
-                        if (mode.id === 'split') { updates.set_quantity = '1' }
-                        setForm(prev => ({ ...prev, ...updates }))
-                      }}
-                      className={`p-2 rounded-lg border-2 text-left transition-all ${form.sell_mode === mode.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}
-                    >
-                      <div className="text-sm font-bold">{mode.label}</div>
-                      <div className="text-[10px] text-gray-500">{mode.desc}</div>
-                    </button>
-                  ))}
+              {/* 小売単位・価格・税率（常に表示） */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">小売単位 *</label>
+                  <input type="text" value={form.retail_unit} onChange={e => setForm({ ...form, retail_unit: e.target.value })} placeholder="例: 袋, パック, セット" className="w-full border rounded-lg px-3 py-2 text-sm" />
                 </div>
-
-                {form.sell_mode === 'bundle' && (
-                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 space-y-2">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-sm font-medium text-gray-700">何個で1セット？</label>
-                        <input type="number" min="2" value={form.set_quantity} onChange={e => setForm({ ...form, set_quantity: e.target.value })}
-                          placeholder="例: 4" className="w-full border rounded-lg px-3 py-2 text-sm" />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-sm font-medium text-gray-700">小売単位 *</label>
-                        <input type="text" value={form.retail_unit} onChange={e => setForm({ ...form, retail_unit: e.target.value })} placeholder="例: セット" className="w-full border rounded-lg px-3 py-2 text-sm" />
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-500">例: ナス1本売り → 4本で1セット → set_quantity=4, conversion_factor=1</p>
-                    <div className="text-[10px] text-gray-400 bg-white rounded p-2">
-                      <span className="font-mono">set_quantity={form.set_quantity}, conversion_factor={form.conversion_factor}</span>
-                      <br />在庫計算: 農家在庫 ÷ {form.set_quantity} = 販売可能セット数
-                    </div>
-                  </div>
-                )}
-
-                {form.sell_mode === 'split' && (
-                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 space-y-2">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-sm font-medium text-gray-700">農家1単位から何パック？</label>
-                        <input type="number" step="0.01" min="1" value={form.conversion_factor} onChange={e => setForm({ ...form, conversion_factor: e.target.value })}
-                          placeholder="例: 2" className="w-full border rounded-lg px-3 py-2 text-sm" />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-sm font-medium text-gray-700">小売単位 *</label>
-                        <input type="text" value={form.retail_unit} onChange={e => setForm({ ...form, retail_unit: e.target.value })} placeholder="例: パック" className="w-full border rounded-lg px-3 py-2 text-sm" />
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-500">例: 農家1kg → 500g×2パック → conversion_factor=2</p>
-                    <div className="text-[10px] text-gray-400 bg-white rounded p-2">
-                      <span className="font-mono">set_quantity={form.set_quantity}, conversion_factor={form.conversion_factor}</span>
-                      <br />在庫計算: 農家在庫 × {form.conversion_factor} = 販売可能パック数
-                    </div>
-                  </div>
-                )}
-
-                {form.sell_mode === 'as_is' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-1 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium text-gray-700">小売単位 *</label>
-                      <input type="text" value={form.retail_unit} onChange={e => setForm({ ...form, retail_unit: e.target.value })} placeholder="例: 袋, 束" className="w-full border rounded-lg px-3 py-2 text-sm" />
-                    </div>
-                    <div className="text-[10px] text-gray-400 bg-gray-50 rounded p-2">
-                      <span className="font-mono">set_quantity=1, conversion_factor=1</span>
-                      <br />在庫計算: 農家在庫 = そのまま販売可能数
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">小売価格 (税抜) *</label>
                   <div className="flex gap-2">
@@ -385,6 +309,64 @@ export default function RetailProductManagement() {
                     <option value="8">8% (軽減税率)</option><option value="10">10% (標準税率)</option>
                   </select>
                 </div>
+              </div>
+
+              {/* 販売方式（セット or 小分けのときだけ設定） */}
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-gray-700">販売方式（該当する場合のみ選択）</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { id: 'bundle' as SellMode, label: 'セットにして販売', desc: 'バラ品を束ねる' },
+                    { id: 'split' as SellMode, label: '小分けにして販売', desc: '大きい単位を分割' },
+                  ]).map(mode => (
+                    <button key={mode.id} type="button"
+                      onClick={() => {
+                        if (form.sell_mode === mode.id) {
+                          setForm(prev => ({ ...prev, sell_mode: 'as_is', set_quantity: '1', conversion_factor: '1' }))
+                        } else {
+                          const updates: any = { sell_mode: mode.id }
+                          if (mode.id === 'bundle') { updates.conversion_factor = '1' }
+                          if (mode.id === 'split') { updates.set_quantity = '1' }
+                          setForm(prev => ({ ...prev, ...updates }))
+                        }
+                      }}
+                      className={`p-2 rounded-lg border-2 text-left transition-all ${form.sell_mode === mode.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}
+                    >
+                      <div className="text-sm font-bold">{mode.label}</div>
+                      <div className="text-[10px] text-gray-500">{mode.desc}</div>
+                    </button>
+                  ))}
+                </div>
+
+                {form.sell_mode === 'bundle' && (
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 space-y-2">
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-gray-700">何個で1セット？</label>
+                      <input type="number" min="2" value={form.set_quantity} onChange={e => setForm({ ...form, set_quantity: e.target.value })}
+                        placeholder="例: 4" className="w-full border rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                    <p className="text-xs text-gray-500">例: ナス1本売り → 4本で1セット</p>
+                    <div className="text-[10px] text-gray-400 bg-white rounded p-2">
+                      <span className="font-mono">set_quantity={form.set_quantity}, conversion_factor={form.conversion_factor}</span>
+                      <br />在庫計算: 農家在庫 ÷ {form.set_quantity} = 販売可能セット数
+                    </div>
+                  </div>
+                )}
+
+                {form.sell_mode === 'split' && (
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 space-y-2">
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-gray-700">農家1単位から何パック作れる？</label>
+                      <input type="number" step="0.01" min="1" value={form.conversion_factor} onChange={e => setForm({ ...form, conversion_factor: e.target.value })}
+                        placeholder="例: 2" className="w-full border rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                    <p className="text-xs text-gray-500">例: 農家1kg → 500g×2パック → 2を入力</p>
+                    <div className="text-[10px] text-gray-400 bg-white rounded p-2">
+                      <span className="font-mono">set_quantity={form.set_quantity}, conversion_factor={form.conversion_factor}</span>
+                      <br />在庫計算: 農家在庫 × {form.conversion_factor} = 販売可能パック数
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Image Upload (複数画像対応) */}
