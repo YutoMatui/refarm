@@ -141,14 +141,23 @@ const LocalProductDetail = () => {
                         )}
 
                         {product.farming_method === 'organic' && (
-                            <span className="absolute top-4 left-16 bg-green-600 text-white px-3 py-1 rounded-full text-sm font-bold shadow-md z-10">
-                                有機
+                            <span className="absolute top-4 left-16 inline-flex items-center gap-1 bg-gradient-to-r from-green-600 to-emerald-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-md z-10 ring-1 ring-white/30">
+                                <svg viewBox="0 0 12 12" className="w-3.5 h-3.5 fill-current"><path d="M6 1C3.5 1 2 3.5 2 6c0 1 .3 1.8.8 2.5C3.5 7 4.5 6 6 6s2.5 1 3.2 2.5C9.7 7.8 10 7 10 6c0-2.5-1.5-5-4-5z"/><path d="M6 7c-1 0-2 .8-2.5 2 .7.6 1.5 1 2.5 1s1.8-.4 2.5-1C8 7.8 7 7 6 7z" opacity=".7"/></svg>
+                                有機野菜
                             </span>
                         )}
                         {product.is_wakeari === 1 && (
                             <div className={`absolute top-4 ${cartItemCount > 0 ? 'right-16' : 'right-4'} z-10`}>
-                                <span className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-md">
+                                <span className="inline-flex items-center bg-gradient-to-r from-red-500 to-rose-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-md ring-1 ring-white/30 animate-pulse">
                                     目玉商品!!
+                                </span>
+                            </div>
+                        )}
+                        {product.is_featured === 1 && product.is_wakeari !== 1 && (
+                            <div className={`absolute top-4 ${cartItemCount > 0 ? 'right-16' : 'right-4'} z-10`}>
+                                <span className="inline-flex items-center gap-1 bg-gradient-to-r from-amber-400 to-yellow-300 text-amber-900 px-3 py-1 rounded-full text-sm font-bold shadow-md ring-1 ring-white/30">
+                                    <svg viewBox="0 0 12 12" className="w-3.5 h-3.5 fill-current"><path d="M6 1l1.5 3.2L11 4.8 8.5 7.1l.6 3.4L6 8.8 2.9 10.5l.6-3.4L1 4.8l3.5-.6z"/></svg>
+                                    オススメ！
                                 </span>
                             </div>
                         )}
@@ -174,12 +183,19 @@ const LocalProductDetail = () => {
                     <p className="text-xs text-gray-400 mt-1">税抜 ¥{parseFloat(product.retail_price).toLocaleString()}</p>
                     {/* 重量・在庫・価格有効期限 */}
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 mt-2">
-                        {product.weight != null && product.weight > 0 && (
-                            <span>重量: {product.weight}g</span>
-                        )}
-                        {product.stock_quantity != null && (
-                            <span>在庫: {product.stock_quantity}{product.retail_unit}</span>
-                        )}
+                        {(() => {
+                            const factor = parseFloat(product.conversion_factor) || 1
+                            const retailWeight = product.weight != null && product.weight > 0
+                                ? Math.round(product.weight / factor) : null
+                            const retailStock = product.stock_quantity != null
+                                ? Math.floor(product.stock_quantity * factor) : null
+                            return (
+                                <>
+                                    {retailWeight != null && <span>重量: {retailWeight}g</span>}
+                                    {retailStock != null && <span>在庫: {retailStock}{product.retail_unit}</span>}
+                                </>
+                            )
+                        })()}
                         {product.info_confirmed_at && (() => {
                             const confirmed = new Date(product.info_confirmed_at)
                             const now = new Date()
