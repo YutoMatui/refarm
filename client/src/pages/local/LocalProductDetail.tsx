@@ -6,10 +6,6 @@ import { useStore } from '@/store/useStore'
 import { ArrowLeft, Minus, Plus, Loader2, Salad, User, ChevronRight, ShoppingCart } from 'lucide-react'
 import { toast } from 'sonner'
 
-/** 税込価格を計算 */
-const calcTaxIncPrice = (rp: RetailProduct) =>
-    Math.round(parseFloat(rp.retail_price) * (1 + rp.tax_rate / 100))
-
 const LocalProductDetail = () => {
     const { id } = useParams()
     const navigate = useNavigate()
@@ -173,11 +169,10 @@ const LocalProductDetail = () => {
                     </h1>
                     <div className="flex items-baseline gap-2">
                         <span className="text-3xl font-bold text-emerald-600">
-                            ¥{calcTaxIncPrice(product).toLocaleString()}
+                            ¥{Math.round(parseFloat(product.retail_price)).toLocaleString()}
                         </span>
-                        <span className="text-sm text-gray-500">税込 / {product.retail_unit}</span>
+                        <span className="text-sm text-gray-500">(税抜) / {product.retail_unit}</span>
                     </div>
-                    <p className="text-xs text-gray-400 mt-1">税抜 ¥{parseFloat(product.retail_price).toLocaleString()}</p>
                     {/* 重量・在庫・価格有効期限 */}
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 mt-2">
                         {(() => {

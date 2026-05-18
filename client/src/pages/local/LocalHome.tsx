@@ -6,8 +6,8 @@ import { RetailProduct } from '@/types'
 import { Leaf, Sparkles, Clock, User, AlertCircle } from 'lucide-react'
 
 /** 税込価格を計算 */
-const calcTaxIncPrice = (rp: RetailProduct) =>
-    Math.round(parseFloat(rp.retail_price) * (1 + rp.tax_rate / 100))
+const getBasePrice = (rp: RetailProduct) =>
+    Math.round(parseFloat(rp.retail_price))
 
 export default function LocalHome() {
     const { consumer } = useStore()
@@ -159,7 +159,7 @@ export default function LocalHome() {
                                         {/* テキスト情報 */}
                                         <div className="absolute bottom-2 left-2 right-2 text-white">
                                             <p className="font-bold text-sm truncate drop-shadow-md">{rp.name}</p>
-                                            <p className="text-xs font-medium opacity-90">¥{calcTaxIncPrice(rp).toLocaleString()}</p>
+                                            <p className="text-xs font-medium opacity-90">¥{getBasePrice(rp).toLocaleString()} <span className="opacity-70">(税抜)</span></p>
                                         </div>
                                     </div>
                                 </div>
@@ -201,7 +201,7 @@ export default function LocalHome() {
                                         {/* テキスト情報 */}
                                         <div className="absolute bottom-2 left-2 right-2 text-white">
                                             <p className="font-bold text-sm truncate drop-shadow-md">{rp.name}</p>
-                                            <p className="text-xs font-medium opacity-90">¥{calcTaxIncPrice(rp).toLocaleString()}</p>
+                                            <p className="text-xs font-medium opacity-90">¥{getBasePrice(rp).toLocaleString()} <span className="opacity-70">(税抜)</span></p>
                                         </div>
                                     </div>
                                 </div>

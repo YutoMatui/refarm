@@ -3,10 +3,6 @@ import { Link } from 'react-router-dom'
 import { Minus, Plus } from 'lucide-react'
 import type { RetailProduct } from '@/types'
 
-/** 税込価格を計算 */
-const calcTaxIncPrice = (rp: RetailProduct) =>
-    Math.round(parseFloat(rp.retail_price) * (1 + rp.tax_rate / 100))
-
 /** 価格有効期限を計算（info_confirmed_at から1週間刻みでローリング） */
 const calcPriceValidUntil = (infoConfirmedAt: string | null | undefined): string | null => {
     if (!infoConfirmedAt) return null
@@ -105,7 +101,7 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
         setQuantity(1)
     }
 
-    const priceWithTax = calcTaxIncPrice(product)
+    const basePrice = Math.round(parseFloat(product.retail_price))
     const isOrganic = product.farming_method === 'organic'
     const priceValidUntil = calcPriceValidUntil(product.info_confirmed_at)
     const stale = isStale(product.info_confirmed_at)
@@ -145,8 +141,8 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                         </Link>
                         <div className="flex items-baseline gap-2 mt-1">
                             <p className="text-lg font-bold text-emerald-600">
-                                ¥{priceWithTax.toLocaleString()}
-                                <span className="text-xs text-gray-500 ml-1">税込 / {product.retail_unit}</span>
+                                ¥{basePrice.toLocaleString()}
+                                <span className="text-xs text-gray-500 ml-1">(税抜) / {product.retail_unit}</span>
                             </p>
                         </div>
                         <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-0.5">
@@ -190,8 +186,8 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                     </h3>
                 </Link>
                 <div>
-                    <p className="text-xl font-bold text-emerald-600">¥{priceWithTax.toLocaleString()}</p>
-                    <p className="text-xs text-gray-500">税込 / {product.retail_unit}</p>
+                    <p className="text-xl font-bold text-emerald-600">¥{basePrice.toLocaleString()}<span className="text-xs font-normal text-gray-500 ml-1">(税抜)</span></p>
+                    <p className="text-xs text-gray-500">/ {product.retail_unit}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
                     {retailWeight != null && <span>{retailWeight}g</span>}
