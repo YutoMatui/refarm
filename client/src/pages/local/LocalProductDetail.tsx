@@ -185,10 +185,11 @@ const LocalProductDetail = () => {
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 mt-2">
                         {(() => {
                             const factor = parseFloat(product.conversion_factor) || 1
+                            const setQty = product.set_quantity || 1
                             const retailWeight = product.weight != null && product.weight > 0
-                                ? Math.round(product.weight / factor) : null
+                                ? Math.round((product.weight / factor) * setQty) : null
                             const retailStock = product.stock_quantity != null
-                                ? Math.floor(product.stock_quantity * factor) : null
+                                ? Math.floor((product.stock_quantity * factor) / setQty) : null
                             return (
                                 <>
                                     {retailWeight != null && <span>重量: {retailWeight}g</span>}

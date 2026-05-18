@@ -27,19 +27,23 @@ const isStale = (infoConfirmedAt: string | null | undefined): boolean => {
     return (now.getTime() - confirmed.getTime()) / (1000 * 60 * 60 * 24) >= 14
 }
 
-/** 小売単位に換算した重量を取得 */
+/** 小売単位に換算した重量を取得（セット売りの場合はセット全体の重量） */
 const getRetailWeight = (product: RetailProduct): number | null => {
     if (product.weight == null || product.weight <= 0) return null
     const factor = parseFloat(product.conversion_factor) || 1
+    const setQty = product.set_quantity || 1
     if (factor <= 0) return product.weight
-    return Math.round(product.weight / factor)
+    // 1個あたりの重量 × セット数量
+    return Math.round((product.weight / factor) * setQty)
 }
 
-/** 小売単位に換算した在庫数を取得 */
+/** 小売単位に換算した在庫数を取得（セット売りの場合は作れるセット数） */
 const getRetailStock = (product: RetailProduct): number | null => {
     if (product.stock_quantity == null) return null
     const factor = parseFloat(product.conversion_factor) || 1
-    return Math.floor(product.stock_quantity * factor)
+    const setQty = product.set_quantity || 1
+    // 農家在庫 × 換算係数 ÷ セット数量 = 作れるセット数
+    return Math.floor((product.stock_quantity * factor) / setQty)
 }
 
 interface LocalProductCardProps {
@@ -186,10 +190,16 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                 <Link to={`/local/retail-products/${product.id}`}>
                     <h3 className="text-lg font-semibold text-gray-900 hover:text-emerald-600 transition-colors">
                         {product.name}
-                        {product.retail_quantity_label && (
-                            <span className="text-sm text-gray-500 ml-1">({product.retail_quantity_label})</span>
-                        )}
                     </h3>
+                    {product.retail_quantity_label && (
+                        <span className={`inline-block mt-1 text-xs font-bold px-2 py-0.5 rounded-full ${
+                            (product.set_quantity || 1) > 1
+                                ? 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200'
+                                : 'text-gray-500'
+                        }`}>
+                            {product.retail_quantity_label}
+                        </span>
+                    )}
                 </Link>
                 <div>
                     <p className="text-xl font-bold text-emerald-600">¥{priceWithTax.toLocaleString()}</p>

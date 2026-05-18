@@ -35,6 +35,7 @@ class RetailProduct(Base, TimestampMixin, SoftDeleteMixin):
         Numeric(10, 4), nullable=False, default=1.0,
         comment="農家1単位あたりの小売数量"
     )
+    set_quantity = Column(Integer, nullable=False, default=1, comment="セット数量（1=バラ売り, 2以上=セット売り）")
     waste_margin_pct = Column(Integer, nullable=False, default=20, comment="廃棄マージン%")
     image_url = Column(String(500), nullable=True, comment="商品画像URL（メイン画像・後方互換）")
     image_urls = Column(JSON, nullable=True, default=list, comment="商品画像URL配列")

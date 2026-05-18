@@ -217,6 +217,7 @@ export interface RetailProduct extends TimestampFields {
   retail_unit: string
   retail_quantity_label?: string | null
   conversion_factor: string
+  set_quantity?: number
   waste_margin_pct: number
   image_url?: string | null
   image_urls?: string[]

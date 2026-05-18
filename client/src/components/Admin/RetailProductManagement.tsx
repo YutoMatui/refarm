@@ -16,6 +16,7 @@ const initialForm = {
   retail_unit: '',
   retail_quantity_label: '',
   conversion_factor: '1',
+  set_quantity: '1',
   image_url: '',
   image_urls: [] as string[],
   category: '',
@@ -221,6 +222,7 @@ export default function RetailProductManagement() {
       retail_price: product.retail_price, tax_rate: String(product.tax_rate),
       retail_unit: product.retail_unit, retail_quantity_label: product.retail_quantity_label || '',
       conversion_factor: product.conversion_factor,
+      set_quantity: String(product.set_quantity || 1),
       image_url: product.image_url || '',
       image_urls: product.image_urls || (product.image_url ? [product.image_url] : []),
       category: product.category || '',
@@ -240,6 +242,7 @@ export default function RetailProductManagement() {
       retail_price: parseFloat(form.retail_price), tax_rate: parseInt(form.tax_rate),
       retail_unit: form.retail_unit, retail_quantity_label: form.retail_quantity_label || null,
       conversion_factor: parseFloat(form.conversion_factor) || 1,
+      set_quantity: parseInt(form.set_quantity) || 1,
       waste_margin_pct: 0,
       image_url: form.image_urls[0] || form.image_url || null,
       image_urls: form.image_urls.length > 0 ? form.image_urls : (form.image_url ? [form.image_url] : []),
@@ -323,14 +326,26 @@ export default function RetailProductManagement() {
                 <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} placeholder="商品の説明文" className="w-full border rounded-lg px-3 py-2 text-sm" />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">小売単位 *</label>
                   <input type="text" value={form.retail_unit} onChange={e => setForm({ ...form, retail_unit: e.target.value })} placeholder="例: 袋, パック" className="w-full border rounded-lg px-3 py-2 text-sm" />
                 </div>
                 <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">セット数量</label>
+                  <input type="number" min="1" value={form.set_quantity} onChange={e => {
+                    const qty = e.target.value
+                    const qtyNum = parseInt(qty) || 1
+                    const sp = sourceProducts.find(p => p.id === Number(form.source_product_id))
+                    const unit = sp?.unit || form.retail_unit || '個'
+                    const label = qtyNum > 1 ? `${qtyNum}${unit}セット` : ''
+                    setForm({ ...form, set_quantity: qty, retail_quantity_label: label })
+                  }} placeholder="1" className="w-full border rounded-lg px-3 py-2 text-sm" />
+                  <p className="text-xs text-gray-400">2以上でセット売り</p>
+                </div>
+                <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">数量ラベル</label>
-                  <input type="text" value={form.retail_quantity_label} onChange={e => setForm({ ...form, retail_quantity_label: e.target.value })} placeholder="例: 約200g" className="w-full border rounded-lg px-3 py-2 text-sm" />
+                  <input type="text" value={form.retail_quantity_label} onChange={e => setForm({ ...form, retail_quantity_label: e.target.value })} placeholder="自動入力 or 手入力" className="w-full border rounded-lg px-3 py-2 text-sm" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">税率</label>

@@ -17,6 +17,7 @@ class RetailProductCreate(BaseModel):
     retail_unit: str = Field("パック", max_length=20, description="販売単位")
     retail_quantity_label: Optional[str] = Field(None, max_length=50, description="表示ラベル（3個入り等）")
     conversion_factor: Decimal = Field(1.0, description="農家1単位あたりの小売数量")
+    set_quantity: int = Field(1, ge=1, description="セット数量（1=バラ売り, 2以上=セット売り）")
     waste_margin_pct: int = Field(20, ge=0, le=100, description="廃棄マージン%")
     image_url: Optional[str] = None
     image_urls: Optional[List[str]] = Field(default_factory=list, description="商品画像URL配列")
@@ -35,6 +36,7 @@ class RetailProductUpdate(BaseModel):
     retail_unit: Optional[str] = None
     retail_quantity_label: Optional[str] = None
     conversion_factor: Optional[Decimal] = None
+    set_quantity: Optional[int] = None
     waste_margin_pct: Optional[int] = None
     image_url: Optional[str] = None
     image_urls: Optional[List[str]] = None
@@ -69,6 +71,7 @@ class RetailProductResponse(BaseSchema, TimestampSchema):
     retail_unit: str
     retail_quantity_label: Optional[str] = None
     conversion_factor: Decimal
+    set_quantity: int = 1
     waste_margin_pct: int
     image_url: Optional[str] = None
     image_urls: Optional[List[str]] = Field(default_factory=list)
