@@ -26,6 +26,7 @@ const initialForm = {
   is_active: true,
   is_featured: false,
   is_wakeari: false,
+  is_medama: false,
 }
 
 export default function RetailProductManagement() {
@@ -187,7 +188,7 @@ export default function RetailProductManagement() {
       image_url: product.image_url || '',
       image_urls: product.image_urls || (product.image_url ? [product.image_url] : []),
       category: product.category || '',
-      is_active: product.is_active === 1, is_featured: product.is_featured === 1, is_wakeari: product.is_wakeari === 1,
+      is_active: product.is_active === 1, is_featured: product.is_featured === 1, is_wakeari: product.is_wakeari === 1, is_medama: (product.is_medama || 0) === 1,
     })
     setEditingId(product.id); setShowForm(true); setSourceSearchText('')
   }
@@ -209,7 +210,8 @@ export default function RetailProductManagement() {
       image_urls: form.image_urls.length > 0 ? form.image_urls : (form.image_url ? [form.image_url] : []),
       category: form.category || null,
       is_active: form.is_active ? 1 : 0, is_featured: form.is_featured ? 1 : 0,
-      is_wakeari: form.is_wakeari ? 1 : 0, display_order: form.is_featured ? 0 : 99,
+      is_wakeari: form.is_wakeari ? 1 : 0, is_medama: form.is_medama ? 1 : 0,
+      display_order: form.is_medama ? 0 : form.is_featured ? 10 : 99,
     }
     if (editingId) { updateMutation.mutate({ id: editingId, data: payload }) }
     else { createMutation.mutate(payload) }
@@ -395,12 +397,16 @@ export default function RetailProductManagement() {
                   <span className="text-sm text-gray-700">販売中</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.is_medama} onChange={e => setForm({ ...form, is_medama: e.target.checked })} className="rounded border-gray-300" />
+                  <span className="text-sm text-gray-700">目玉商品</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={form.is_featured} onChange={e => setForm({ ...form, is_featured: e.target.checked })} className="rounded border-gray-300" />
-                  <span className="text-sm text-gray-700">おすすめに表示</span>
+                  <span className="text-sm text-gray-700">オススメ</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={form.is_wakeari} onChange={e => setForm({ ...form, is_wakeari: e.target.checked })} className="rounded border-gray-300" />
-                  <span className="text-sm text-gray-700">目玉商品</span>
+                  <span className="text-sm text-gray-700">訳あり</span>
                 </label>
               </div>
 

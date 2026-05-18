@@ -128,7 +128,7 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                     {isOrganic && (
                         <span className="absolute top-1 left-1 z-10"><OrganicBadge size="small" /></span>
                     )}
-                    {product.is_wakeari === 1 && (
+                    {(product.is_medama || 0) === 1 && (
                         <span className="absolute top-1 right-1 z-10"><MedamaBadge size="small" /></span>
                     )}
                 </Link>
@@ -175,8 +175,8 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                         <div className="h-full w-full flex items-center justify-center text-gray-400 text-sm">No Image</div>
                     )}
                     {isOrganic && <OrganicBadge />}
-                    {product.is_wakeari === 1 && <MedamaBadge />}
-                    {product.is_featured === 1 && <OsusumeBadge wakeari={product.is_wakeari === 1} />}
+                    {(product.is_medama || 0) === 1 && <MedamaBadge />}
+                    {product.is_featured === 1 && <OsusumeBadge wakeari={(product.is_medama || 0) === 1} />}
                 </div>
             </Link>
             <div className="p-4 space-y-2">

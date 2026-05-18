@@ -31,7 +31,7 @@ const LocalSearch = () => {
             }
 
             if (activeTab === 'medama') {
-                params.is_wakeari = 1
+                params.is_medama = 1
             }
             // activeTab === 'all' の場合は特別なフィルターなし
 

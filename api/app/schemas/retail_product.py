@@ -25,6 +25,7 @@ class RetailProductCreate(BaseModel):
     is_active: int = Field(1, ge=0, le=1)
     is_featured: int = Field(0, ge=0, le=1)
     is_wakeari: int = Field(0, ge=0, le=1)
+    is_medama: int = Field(0, ge=0, le=1)
     display_order: int = Field(0)
 
 
@@ -44,6 +45,7 @@ class RetailProductUpdate(BaseModel):
     is_active: Optional[int] = None
     is_featured: Optional[int] = None
     is_wakeari: Optional[int] = None
+    is_medama: Optional[int] = None
     display_order: Optional[int] = None
     source_product_id: Optional[int] = None
 
@@ -79,6 +81,7 @@ class RetailProductResponse(BaseSchema, TimestampSchema):
     is_active: int
     is_featured: int
     is_wakeari: int
+    is_medama: int = 0
     display_order: int
     source_product: Optional[SourceProductInfo] = None
 

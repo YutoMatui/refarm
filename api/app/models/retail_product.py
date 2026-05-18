@@ -43,6 +43,7 @@ class RetailProduct(Base, TimestampMixin, SoftDeleteMixin):
     is_active = Column(Integer, nullable=False, default=1, comment="販売中フラグ")
     is_featured = Column(Integer, nullable=False, default=0, comment="おすすめフラグ")
     is_wakeari = Column(Integer, nullable=False, default=0, comment="訳ありフラグ")
+    is_medama = Column(Integer, nullable=False, default=0, comment="目玉商品フラグ")
     display_order = Column(Integer, nullable=False, default=0, comment="表示順")
 
     source_product = relationship("Product", foreign_keys=[source_product_id])

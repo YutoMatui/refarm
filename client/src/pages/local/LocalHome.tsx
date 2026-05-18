@@ -18,7 +18,7 @@ export default function LocalHome() {
     const { data: wakeariData, isLoading: isWakeariLoading, error: wakeariError } = useQuery({
         queryKey: ['local-wakeari-retail-products'],
         queryFn: async () => {
-            const response = await retailProductApi.list({ is_wakeari: 1, limit: 6 })
+            const response = await retailProductApi.list({ is_medama: 1, limit: 6 })
             return response.data
         },
         retry: 2,

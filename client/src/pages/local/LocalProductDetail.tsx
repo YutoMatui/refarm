@@ -142,14 +142,14 @@ const LocalProductDetail = () => {
                                 有機野菜
                             </span>
                         )}
-                        {product.is_wakeari === 1 && (
+                        {(product.is_medama || 0) === 1 && (
                             <div className={`absolute top-4 ${cartItemCount > 0 ? 'right-16' : 'right-4'} z-10`}>
                                 <span className="inline-flex items-center bg-gradient-to-r from-red-500 to-rose-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-md ring-1 ring-white/30 animate-pulse">
                                     目玉商品!!
                                 </span>
                             </div>
                         )}
-                        {product.is_featured === 1 && product.is_wakeari !== 1 && (
+                        {product.is_featured === 1 && (product.is_medama || 0) !== 1 && (
                             <div className={`absolute top-4 ${cartItemCount > 0 ? 'right-16' : 'right-4'} z-10`}>
                                 <span className="inline-flex items-center gap-1 bg-gradient-to-r from-amber-400 to-yellow-300 text-amber-900 px-3 py-1 rounded-full text-sm font-bold shadow-md ring-1 ring-white/30">
                                     <svg viewBox="0 0 12 12" className="w-3.5 h-3.5 fill-current"><path d="M6 1l1.5 3.2L11 4.8 8.5 7.1l.6 3.4L6 8.8 2.9 10.5l.6-3.4L1 4.8l3.5-.6z"/></svg>

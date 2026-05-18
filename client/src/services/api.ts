@@ -695,7 +695,7 @@ export const adminCouponApi = {
 export const retailProductApi = {
   list: (params?: {
     skip?: number; limit?: number; category?: string;
-    is_featured?: number; is_wakeari?: number; search?: string;
+    is_featured?: number; is_wakeari?: number; is_medama?: number; search?: string;
   }) =>
     apiClient.get<PaginatedResponse<any>>('/retail-products/', { params }),
 

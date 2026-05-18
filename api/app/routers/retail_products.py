@@ -39,6 +39,7 @@ def _product_to_retail_dict(product: Product) -> dict:
         "is_active": product.is_active,
         "is_featured": product.is_featured,
         "is_wakeari": product.is_wakeari,
+        "is_medama": 0,
         "display_order": product.display_order if product.display_order is not None else 0,
         "created_at": product.created_at,
         "updated_at": product.updated_at,
@@ -64,6 +65,7 @@ async def list_consumer_products(
     category: str = Query(None, description="カテゴリで絞り込み"),
     is_featured: int = Query(None, description="おすすめ商品のみ"),
     is_wakeari: int = Query(None, description="訳あり商品のみ"),
+    is_medama: int = Query(None, description="目玉商品のみ"),
     search: str = Query(None, description="商品名で検索"),
     db: AsyncSession = Depends(get_db)
 ):
@@ -88,10 +90,19 @@ async def list_consumer_products(
         rp_query = rp_query.where(RetailProduct.is_featured == is_featured)
     if is_wakeari is not None:
         rp_query = rp_query.where(RetailProduct.is_wakeari == is_wakeari)
+    if is_medama is not None:
+        rp_query = rp_query.where(RetailProduct.is_medama == is_medama)
     if search:
         rp_query = rp_query.where(RetailProduct.name.ilike(f"%{search}%"))
 
-    rp_query = rp_query.order_by(RetailProduct.display_order.asc(), RetailProduct.id.asc())
+    # ソート: 目玉+おすすめ → 目玉 → おすすめ → 通常
+    rp_query = rp_query.order_by(
+        (RetailProduct.is_medama + RetailProduct.is_featured).desc(),
+        RetailProduct.is_medama.desc(),
+        RetailProduct.is_featured.desc(),
+        RetailProduct.display_order.asc(),
+        RetailProduct.id.asc(),
+    )
     rp_result = await db.execute(rp_query)
     retail_products = rp_result.scalars().all()
 
@@ -148,6 +159,7 @@ async def list_consumer_products(
             "is_active": rp.is_active,
             "is_featured": rp.is_featured,
             "is_wakeari": rp.is_wakeari,
+            "is_medama": rp.is_medama or 0,
             "display_order": rp.display_order,
             "created_at": rp.created_at,
             "updated_at": rp.updated_at,
@@ -214,6 +226,7 @@ async def get_consumer_product(product_id: int, db: AsyncSession = Depends(get_d
             "is_active": rp.is_active,
             "is_featured": rp.is_featured,
             "is_wakeari": rp.is_wakeari,
+            "is_medama": rp.is_medama or 0,
             "display_order": rp.display_order,
             "created_at": rp.created_at,
             "updated_at": rp.updated_at,

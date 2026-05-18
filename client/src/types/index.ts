@@ -225,6 +225,7 @@ export interface RetailProduct extends TimestampFields {
   is_active: number
   is_featured: number
   is_wakeari: number
+  is_medama?: number
   display_order: number
   farming_method?: string | null
   weight?: number | null
