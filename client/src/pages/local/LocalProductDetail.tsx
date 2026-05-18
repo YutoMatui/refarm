@@ -170,9 +170,6 @@ const LocalProductDetail = () => {
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 mb-1">
                         {product.name}
-                        {product.retail_quantity_label && (
-                            <span className="text-base text-gray-500 ml-2">({product.retail_quantity_label})</span>
-                        )}
                     </h1>
                     <div className="flex items-baseline gap-2">
                         <span className="text-3xl font-bold text-emerald-600">

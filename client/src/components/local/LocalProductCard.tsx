@@ -141,9 +141,6 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                         <Link to={`/local/retail-products/${product.id}`}>
                             <h3 className="text-sm font-bold text-gray-900 line-clamp-1 hover:text-emerald-600 transition-colors">
                                 {product.name}
-                                {product.retail_quantity_label && (
-                                    <span className="text-xs text-gray-500 ml-1">({product.retail_quantity_label})</span>
-                                )}
                             </h3>
                         </Link>
                         <div className="flex items-baseline gap-2 mt-1">
@@ -191,15 +188,6 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                     <h3 className="text-lg font-semibold text-gray-900 hover:text-emerald-600 transition-colors">
                         {product.name}
                     </h3>
-                    {product.retail_quantity_label && (
-                        <span className={`inline-block mt-1 text-xs font-bold px-2 py-0.5 rounded-full ${
-                            (product.set_quantity || 1) > 1
-                                ? 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200'
-                                : 'text-gray-500'
-                        }`}>
-                            {product.retail_quantity_label}
-                        </span>
-                    )}
                 </Link>
                 <div>
                     <p className="text-xl font-bold text-emerald-600">¥{priceWithTax.toLocaleString()}</p>
