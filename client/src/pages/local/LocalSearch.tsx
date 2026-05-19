@@ -43,7 +43,11 @@ const LocalSearch = () => {
         },
     })
 
-    const products = data?.items ?? []
+    const rawProducts = data?.items ?? []
+    // 目玉タブ時はフロント側でもis_medamaフィルタ（DB未反映対策）
+    const products = activeTab === 'medama'
+        ? rawProducts.filter(p => (p.is_medama || 0) === 1)
+        : rawProducts
 
     const handleAddToCart = (product: RetailProduct, quantity: number) => {
         addToRetailCart(product, quantity)
