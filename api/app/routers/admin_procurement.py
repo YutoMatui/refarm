@@ -473,3 +473,33 @@ async def order_from_farmers(
         message=f"{len(farmer_items)}件の農家へ発注通知を送信しました",
         success=True,
     )
+
+
+@router.post("/batches/{batch_id}/cancel-order", response_model=ResponseMessage)
+async def cancel_procurement_order(
+    batch_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    """発注済みバッチを取り消してCOLLECTINGに戻す"""
+    stmt = select(ProcurementBatch).where(ProcurementBatch.id == batch_id)
+    result = await db.execute(stmt)
+    batch = result.scalar_one_or_none()
+    if not batch:
+        raise HTTPException(status_code=404, detail="バッチが見つかりません")
+
+    if batch.status not in (ProcurementStatus.ORDERED, ProcurementStatus.AGGREGATED):
+        raise HTTPException(
+            status_code=400,
+            detail=f"現在のステータス({batch.status})では取り消しできません"
+        )
+
+    batch.status = ProcurementStatus.COLLECTING
+    batch.ordered_at = None
+    batch.aggregated_at = None
+    await db.commit()
+
+    return ResponseMessage(
+        message="発注を取り消しました。ステータスを「注文受付中」に戻しました",
+        success=True,
+    )

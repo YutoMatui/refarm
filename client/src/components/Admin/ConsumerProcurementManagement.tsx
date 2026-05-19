@@ -100,6 +100,17 @@ export default function ConsumerProcurementManagement() {
     onError: (e: any) => toast.error(e?.response?.data?.detail || '発注に失敗しました'),
   })
 
+  // Cancel order mutation
+  const cancelOrderMutation = useMutation({
+    mutationFn: (batchId: number) => adminProcurementApi.cancelOrder(batchId),
+    onSuccess: (res) => {
+      toast.success(res.data?.message || '発注を取り消しました')
+      queryClient.invalidateQueries({ queryKey: ['admin', 'procurement-batches'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'procurement-batch', selectedBatchId] })
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail || '取り消しに失敗しました'),
+  })
+
   const handleAggregate = () => {
     if (!aggregateSlotId) {
       toast.error('受取枠を選択してください')
@@ -199,6 +210,23 @@ export default function ConsumerProcurementManagement() {
                 >
                   <Truck className="w-4 h-4" />
                   農家へ発注する
+                </button>
+              </div>
+            )}
+
+            {/* Cancel order button */}
+            {(batchDetail.status === ProcurementStatus.ORDERED || batchDetail.status === ProcurementStatus.AGGREGATED) && (
+              <div className="flex justify-end">
+                <button
+                  onClick={() => {
+                    if (confirm('発注を取り消しますか？ステータスが「注文受付中」に戻ります。')) {
+                      cancelOrderMutation.mutate(batchDetail.id)
+                    }
+                  }}
+                  disabled={cancelOrderMutation.isPending}
+                  className="flex items-center gap-2 px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 text-sm font-medium disabled:opacity-50"
+                >
+                  発注を取り消す
                 </button>
               </div>
             )}
