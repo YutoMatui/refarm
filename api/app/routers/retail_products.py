@@ -5,7 +5,7 @@ Retail Products API Router - 消費者向け小売商品（公開API）
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, case
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
@@ -91,15 +91,17 @@ async def list_consumer_products(
     if is_wakeari is not None:
         rp_query = rp_query.where(RetailProduct.is_wakeari == is_wakeari)
     if is_medama is not None:
-        rp_query = rp_query.where(RetailProduct.is_medama == is_medama)
+        rp_query = rp_query.where(func.coalesce(RetailProduct.is_medama, 0) == is_medama)
     if search:
         rp_query = rp_query.where(RetailProduct.name.ilike(f"%{search}%"))
 
-    # ソート: 目玉+おすすめ → 目玉 → おすすめ → 通常
+    # ソート: 目玉+おすすめ → 目玉 → おすすめ → 通常（NULL安全）
+    medama_col = func.coalesce(RetailProduct.is_medama, 0)
+    featured_col = func.coalesce(RetailProduct.is_featured, 0)
     rp_query = rp_query.order_by(
-        (RetailProduct.is_medama + RetailProduct.is_featured).desc(),
-        RetailProduct.is_medama.desc(),
-        RetailProduct.is_featured.desc(),
+        (medama_col + featured_col).desc(),
+        medama_col.desc(),
+        featured_col.desc(),
         RetailProduct.display_order.asc(),
         RetailProduct.id.asc(),
     )

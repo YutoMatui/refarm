@@ -14,14 +14,21 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column('retail_products', sa.Column(
-        'set_quantity',
-        sa.Integer(),
-        nullable=False,
-        server_default='1',
-        comment='セット数量（1=バラ売り, 2以上=セット売り）'
-    ))
+    try:
+        op.add_column('retail_products', sa.Column(
+            'set_quantity',
+            sa.Integer(),
+            nullable=False,
+            server_default='1',
+            comment='セット数量（1=バラ売り, 2以上=セット売り）'
+        ))
+    except Exception:
+        pass
+    op.execute("UPDATE retail_products SET set_quantity = 1 WHERE set_quantity IS NULL")
 
 
 def downgrade() -> None:
-    op.drop_column('retail_products', 'set_quantity')
+    try:
+        op.drop_column('retail_products', 'set_quantity')
+    except Exception:
+        pass

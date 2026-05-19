@@ -14,12 +14,15 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column('retail_products', sa.Column(
-        'image_urls',
-        sa.JSON(),
-        nullable=True,
-        comment='商品画像URL配列'
-    ))
+    try:
+        op.add_column('retail_products', sa.Column(
+            'image_urls',
+            sa.JSON(),
+            nullable=True,
+            comment='商品画像URL配列'
+        ))
+    except Exception:
+        pass
     # 既存の image_url を image_urls に移行
     op.execute("""
         UPDATE retail_products
@@ -32,4 +35,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_column('retail_products', 'image_urls')
+    try:
+        op.drop_column('retail_products', 'image_urls')
+    except Exception:
+        pass

@@ -14,16 +14,21 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column('farmers', sa.Column(
-        'info_confirmed_at',
-        sa.DateTime(timezone=True),
-        nullable=True,
-        server_default=sa.func.now(),
-        comment='最新情報が確認/更新された日時'
-    ))
-    # 既存レコードに現在時刻をセット
+    try:
+        op.add_column('farmers', sa.Column(
+            'info_confirmed_at',
+            sa.DateTime(timezone=True),
+            nullable=True,
+            server_default=sa.func.now(),
+            comment='最新情報が確認/更新された日時'
+        ))
+    except Exception:
+        pass
     op.execute("UPDATE farmers SET info_confirmed_at = NOW() WHERE info_confirmed_at IS NULL")
 
 
 def downgrade() -> None:
-    op.drop_column('farmers', 'info_confirmed_at')
+    try:
+        op.drop_column('farmers', 'info_confirmed_at')
+    except Exception:
+        pass

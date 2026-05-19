@@ -14,11 +14,21 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column('retail_products', sa.Column(
-        'is_medama', sa.Integer(), nullable=False, server_default='0',
-        comment='目玉商品フラグ'
-    ))
+    # カラムが既に存在する場合はスキップ（create_allで先に作られた場合の対策）
+    try:
+        op.add_column('retail_products', sa.Column(
+            'is_medama', sa.Integer(), nullable=False, server_default='0',
+            comment='目玉商品フラグ'
+        ))
+    except Exception:
+        pass
+
+    # NULLが残っている場合に0で埋める
+    op.execute("UPDATE retail_products SET is_medama = 0 WHERE is_medama IS NULL")
 
 
 def downgrade() -> None:
-    op.drop_column('retail_products', 'is_medama')
+    try:
+        op.drop_column('retail_products', 'is_medama')
+    except Exception:
+        pass
