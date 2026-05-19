@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Search, Grid3x3, Flame } from 'lucide-react'
 import { toast } from 'sonner'
 import { retailProductApi } from '@/services/api'
+import { trackPageView, trackSearch } from '@/utils/tracking'
 import { useStore } from '@/store/useStore'
 import LocalProductCard from '@/components/local/LocalProductCard'
 import type { RetailProduct, PaginatedResponse } from '@/types'
@@ -14,6 +15,8 @@ const LocalSearch = () => {
     const [keyword, setKeyword] = useState('')
     const [searchQuery, setSearchQuery] = useState('')
     const addToRetailCart = useStore(state => state.addToRetailCart)
+
+    useEffect(() => { trackPageView('/local/search') }, [])
 
     const tabs = [
         { id: 'all' as TabType, label: 'すべて', icon: Grid3x3, color: 'emerald' },
@@ -50,6 +53,7 @@ const LocalSearch = () => {
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault()
         setSearchQuery(keyword.trim())
+        if (keyword.trim()) trackSearch(keyword.trim())
     }
 
     const handleClearSearch = () => {

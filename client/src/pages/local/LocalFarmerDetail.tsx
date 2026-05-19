@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { farmerApi, retailProductApi, supportMessageApi } from '@/services/api'
+import { trackFarmerView } from '@/utils/tracking'
 import { useStore } from '@/store/useStore'
 import LocalProductCard from '@/components/local/LocalProductCard'
 import type { Farmer, RetailProduct, Commitment, Achievement } from '@/types'
@@ -52,6 +53,11 @@ const LocalFarmerDetail = () => {
         },
         enabled: !!id
     })
+
+    // Track farmer view when data loads
+    useEffect(() => {
+        if (farmer) trackFarmerView(farmer.id, farmer.name)
+    }, [farmer])
 
     // 消費者向け商品一覧を取得し、この農家の商品だけフィルタ
     const { data: productsData } = useQuery({

@@ -1,8 +1,10 @@
+import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { consumerOrderApi } from '@/services/api'
+import { trackOrderComplete } from '@/utils/tracking'
 import type { ConsumerOrder } from '@/types'
 
 const LocalOrderComplete = () => {
@@ -17,6 +19,19 @@ const LocalOrderComplete = () => {
         },
         enabled: Boolean(orderId),
     })
+
+    // Track order completion once
+    const tracked = useRef(false)
+    useEffect(() => {
+        if (data && !tracked.current) {
+            tracked.current = true
+            trackOrderComplete(
+                data.id,
+                Math.round(parseFloat(String(data.total_amount))),
+                data.items.length
+            )
+        }
+    }, [data])
 
     if (isLoading) {
         return (

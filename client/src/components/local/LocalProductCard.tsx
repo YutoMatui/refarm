@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Minus, Plus } from 'lucide-react'
 import type { RetailProduct } from '@/types'
+import { trackAddToCart } from '@/utils/tracking'
 
 /** 価格有効期限を計算（info_confirmed_at から1週間刻みでローリング） */
 const calcPriceValidUntil = (infoConfirmedAt: string | null | undefined): string | null => {
@@ -98,6 +99,7 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
 
     const handleAdd = () => {
         onAddToCart(product, quantity)
+        trackAddToCart(product.id, product.name, quantity, 0, 0)
         setQuantity(1)
     }
 

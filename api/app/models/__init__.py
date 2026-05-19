@@ -29,6 +29,7 @@ from app.models.organization import Organization
 from app.models.settlement_status import SettlementStatus
 from app.models.coupon import Coupon, DiscountType
 from app.models.retail_product import RetailProduct, ProcurementBatch, ProcurementItem
+from app.models.consumer_event import ConsumerEvent
 
 __all__ = [
     # Enums
@@ -65,4 +66,5 @@ __all__ = [
     "RetailProduct",
     "ProcurementBatch",
     "ProcurementItem",
+    "ConsumerEvent",
 ]

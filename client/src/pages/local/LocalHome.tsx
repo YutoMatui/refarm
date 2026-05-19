@@ -1,6 +1,8 @@
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { retailProductApi, farmerApi } from '@/services/api'
+import { trackPageView } from '@/utils/tracking'
 import { useStore } from '@/store/useStore'
 import { RetailProduct } from '@/types'
 import { Leaf, Sparkles, Clock, User, AlertCircle } from 'lucide-react'
@@ -12,6 +14,8 @@ const getBasePrice = (rp: RetailProduct) =>
 export default function LocalHome() {
     const { consumer } = useStore()
     const navigate = useNavigate()
+
+    useEffect(() => { trackPageView('/local') }, [])
 
     // --- Data Fetching ---
     // 目玉商品

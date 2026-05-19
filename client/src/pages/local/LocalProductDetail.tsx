@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { retailProductApi } from '@/services/api'
+import { trackProductView, trackAddToCart } from '@/utils/tracking'
 import type { RetailProduct } from '@/types'
 import { useStore } from '@/store/useStore'
 import { ArrowLeft, Minus, Plus, Loader2, Salad, User, ChevronRight, ShoppingCart } from 'lucide-react'
@@ -27,6 +28,7 @@ const LocalProductDetail = () => {
         try {
             const res = await retailProductApi.getById(productId)
             setProduct(res.data)
+            trackProductView(res.data.id, res.data.name)
         } catch (e) {
             console.error(e)
             toast.error('商品情報の取得に失敗しました')
@@ -39,6 +41,7 @@ const LocalProductDetail = () => {
     const handleAddToCart = () => {
         if (product) {
             addToRetailCart(product, quantity)
+            trackAddToCart(product.id, product.name, quantity, 0, 0)
             toast.success(`${product.name} をカートに追加しました`)
             setQuantity(1)
         }

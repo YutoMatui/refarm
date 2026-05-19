@@ -198,6 +198,8 @@ from app.routers import (
     retail_products,
     admin_retail_products,
     admin_procurement,
+    consumer_events,
+    admin_consumer_analytics,
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -232,6 +234,8 @@ app.include_router(coupons_router.router, prefix="/api/coupons", tags=["Coupons"
 app.include_router(retail_products.router, prefix="/api/retail-products", tags=["Retail Products"])
 app.include_router(admin_retail_products.router, prefix="/api/admin", tags=["Admin Retail Products"])
 app.include_router(admin_procurement.router, prefix="/api/admin", tags=["Admin Procurement"])
+app.include_router(consumer_events.router, prefix="/api/consumer-events", tags=["Consumer Events"])
+app.include_router(admin_consumer_analytics.router, prefix="/api/admin/consumer-analytics", tags=["Admin Consumer Analytics"])
 
 
 # ----------------------------------------------------

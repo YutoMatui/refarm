@@ -8,6 +8,7 @@ import { MapPin, CreditCard, User, Calendar, ChevronLeft, ChevronRight, Shopping
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { consumerOrderApi, consumerApi, paymentApi, deliverySlotApi, couponApi, type SavedCard } from '@/services/api'
+import { trackCartView } from '@/utils/tracking'
 import { useStore } from '@/store/useStore'
 import { DeliverySlotType, type ConsumerOrder, type ConsumerOrderCreateRequest, type DeliverySlot } from '@/types'
 import AvailabilityModal from '@/components/AvailabilityModal'
@@ -94,6 +95,15 @@ const LocalCart = () => {
     const removeFromLegacyCart = useStore(state => state.removeFromCart)
     // Use retail cart if it has items, otherwise fall back to legacy cart
     const useRetail = retailCart.length > 0 || legacyCart.length === 0
+
+    // Track cart view on mount
+    useEffect(() => {
+        const itemCount = useRetail ? retailCart.length : legacyCart.length
+        const total = useRetail
+            ? retailCart.reduce((sum, item) => sum + Math.round(parseFloat(item.retailProduct.retail_price) * item.quantity), 0)
+            : legacyCart.reduce((sum, item) => sum + Math.round(parseFloat(String(item.product.price)) * Number(item.quantity)), 0)
+        trackCartView(itemCount, total)
+    }, [])
 
     const consumer = useStore(state => state.consumer)
     const setConsumer = useStore(state => state.setConsumer)
