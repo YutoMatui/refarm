@@ -111,32 +111,35 @@ async def list_consumer_products(
     covered_product_ids = {rp.source_product_id for rp in retail_products}
 
     # --- 2. 小売商品でカバーされていない農家商品 (Product) を取得 ---
-    prod_query = (
-        select(Product)
-        .join(Product.farmer)
-        .options(selectinload(Product.farmer))
-        .where(
-            Product.deleted_at.is_(None),
-            Product.is_active == 1,
-            Product.harvest_status != HarvestStatus.ENDED.value,
-            Farmer.is_active == 1,
-            Farmer.deleted_at.is_(None),
+    # is_medama フィルタ時はフォールバック不要（農家商品にis_medamaは存在しない）
+    farmer_products = []
+    if is_medama is None:
+        prod_query = (
+            select(Product)
+            .join(Product.farmer)
+            .options(selectinload(Product.farmer))
+            .where(
+                Product.deleted_at.is_(None),
+                Product.is_active == 1,
+                Product.harvest_status != HarvestStatus.ENDED.value,
+                Farmer.is_active == 1,
+                Farmer.deleted_at.is_(None),
+            )
         )
-    )
-    if covered_product_ids:
-        prod_query = prod_query.where(Product.id.notin_(covered_product_ids))
-    if category:
-        prod_query = prod_query.where(Product.category == category)
-    if is_featured is not None:
-        prod_query = prod_query.where(Product.is_featured == is_featured)
-    if is_wakeari is not None:
-        prod_query = prod_query.where(Product.is_wakeari == is_wakeari)
-    if search:
-        prod_query = prod_query.where(Product.name.ilike(f"%{search}%"))
+        if covered_product_ids:
+            prod_query = prod_query.where(Product.id.notin_(covered_product_ids))
+        if category:
+            prod_query = prod_query.where(Product.category == category)
+        if is_featured is not None:
+            prod_query = prod_query.where(Product.is_featured == is_featured)
+        if is_wakeari is not None:
+            prod_query = prod_query.where(Product.is_wakeari == is_wakeari)
+        if search:
+            prod_query = prod_query.where(Product.name.ilike(f"%{search}%"))
 
-    prod_query = prod_query.order_by(Product.id.asc())
-    prod_result = await db.execute(prod_query)
-    farmer_products = prod_result.scalars().all()
+        prod_query = prod_query.order_by(Product.id.asc())
+        prod_result = await db.execute(prod_query)
+        farmer_products = prod_result.scalars().all()
 
     # --- 3. 統合 ---
     items = []
