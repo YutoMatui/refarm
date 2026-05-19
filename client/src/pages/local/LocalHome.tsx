@@ -125,7 +125,7 @@ export default function LocalHome() {
                 </div>
 
                 {/* 1. 目玉商品!!（最優先表示） */}
-                {!isWakeariLoading && wakeariData?.items && wakeariData.items.filter((rp: RetailProduct) => (rp.is_medama || 0) === 1).length > 0 && (
+                {!isWakeariLoading && wakeariData?.items && wakeariData.items.length > 0 && (
                     <section>
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
@@ -137,7 +137,7 @@ export default function LocalHome() {
                         </div>
 
                         <div className="flex overflow-x-auto space-x-3 pb-4 -mx-5 px-5 scrollbar-hide">
-                            {wakeariData.items.filter((rp: RetailProduct) => (rp.is_medama || 0) === 1).map((rp: RetailProduct) => (
+                            {wakeariData.items.map((rp: RetailProduct) => (
                                 <div
                                     key={rp.id}
                                     onClick={() => navigate(`/local/retail-products/${rp.id}`)}
