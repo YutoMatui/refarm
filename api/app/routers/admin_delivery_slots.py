@@ -74,7 +74,7 @@ async def delete_delivery_slot(
     db: AsyncSession = Depends(get_db),
     _: object = Depends(get_current_admin)
 ):
-    """Delete a delivery slot."""
+    """Delete a delivery slot. Falls back to deactivation if orders are linked."""
     stmt = select(DeliverySlot).where(DeliverySlot.id == slot_id)
     result = await db.execute(stmt)
     slot = result.scalar_one_or_none()
@@ -82,5 +82,12 @@ async def delete_delivery_slot(
     if not slot:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="受取枠が見つかりません")
 
-    await db.delete(slot)
-    await db.commit()
+    try:
+        await db.delete(slot)
+        await db.flush()
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        # 外部キー制約で削除できない場合は非公開にする
+        slot.is_active = False
+        await db.commit()
