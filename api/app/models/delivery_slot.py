@@ -60,6 +60,12 @@ class DeliverySlot(Base, TimestampMixin):
         comment="公開フラグ"
     )
 
+    person_in_charge = Column(
+        String(100),
+        nullable=True,
+        comment="担当者名"
+    )
+
     note = Column(
         String(255),
         nullable=True,

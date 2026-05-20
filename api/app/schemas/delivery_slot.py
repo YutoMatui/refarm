@@ -17,6 +17,7 @@ class DeliverySlotBase(BaseModel):
     start_time: Optional[time] = Field(None, description="開始時刻")
     end_time: Optional[time] = Field(None, description="終了時刻")
     time_text: str = Field(..., description="表示用テキスト", max_length=120)
+    person_in_charge: Optional[str] = Field(None, description="担当者名", max_length=100)
     note: Optional[str] = Field(None, description="備考")
     is_active: bool = Field(True, description="公開フラグ")
 
@@ -34,6 +35,7 @@ class DeliverySlotUpdate(BaseModel):
     start_time: Optional[time] = None
     end_time: Optional[time] = None
     time_text: Optional[str] = Field(None, max_length=120)
+    person_in_charge: Optional[str] = Field(None, max_length=100)
     note: Optional[str] = None
     is_active: Optional[bool] = None
 

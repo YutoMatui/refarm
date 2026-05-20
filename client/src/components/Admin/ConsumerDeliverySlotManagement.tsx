@@ -15,6 +15,7 @@ const ConsumerDeliverySlotManagement = () => {
     const [selectedDate, setSelectedDate] = useState<string>('')
     const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([{ startTime: '', endTime: '' }])
     const [note, setNote] = useState('')
+    const [personInCharge, setPersonInCharge] = useState('')
 
     // 受取枠一覧を取得
     const { data: slotsData } = useQuery({
@@ -49,6 +50,7 @@ const ConsumerDeliverySlotManagement = () => {
             queryClient.invalidateQueries({ queryKey: ['consumer-delivery-slots'] })
             setTimeSlots([{ startTime: '', endTime: '' }])
             setNote('')
+            setPersonInCharge('')
         },
         onError: (error: any) => {
             toast.error(error?.response?.data?.detail || '作成に失敗しました')
@@ -101,6 +103,7 @@ const ConsumerDeliverySlotManagement = () => {
                 end_time: slot.endTime || null,
                 time_text: timeText,
                 is_active: true,
+                person_in_charge: personInCharge.trim() || null,
                 note: note.trim() || null
             })
         }
@@ -145,6 +148,19 @@ const ConsumerDeliverySlotManagement = () => {
                         />
                     </div>
 
+                    {/* 担当者 */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            担当者
+                        </label>
+                        <input
+                            type="text"
+                            value={personInCharge}
+                            onChange={(e) => setPersonInCharge(e.target.value)}
+                            placeholder="例: 田中"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                    </div>
                     {/* 備考 */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -237,6 +253,9 @@ const ConsumerDeliverySlotManagement = () => {
                                             <div className="flex items-center gap-3">
                                                 <Clock className="text-emerald-500" size={16} />
                                                 <span className="font-medium text-gray-900">{slot.time_text}</span>
+                                                {slot.person_in_charge && (
+                                                    <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">担当: {slot.person_in_charge}</span>
+                                                )}
                                                 {slot.note && (
                                                     <span className="text-xs text-gray-400">({slot.note})</span>
                                                 )}

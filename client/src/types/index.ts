@@ -574,6 +574,7 @@ export interface DeliverySlot extends TimestampFields {
   is_active: boolean
   start_time?: string | null
   end_time?: string | null
+  person_in_charge?: string | null
   note?: string | null
 }
 
@@ -584,6 +585,7 @@ export interface DeliverySlotCreateRequest {
   end_time?: string | null
   time_text: string
   is_active?: boolean
+  person_in_charge?: string | null
   note?: string | null
 }
 

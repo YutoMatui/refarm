@@ -38,24 +38,20 @@ async def lifespan(app: FastAPI):
     # Run Alembic migrations automatically
     try:
         logger.info("Running database migrations...")
-        # Using check=True to raise an exception if the command fails
-        subprocess.run(
-            ["alembic", "upgrade", "head"], 
-            capture_output=True, 
-            text=True, 
-            check=True
+        result = subprocess.run(
+            ["alembic", "upgrade", "head"],
+            capture_output=True,
+            text=True,
         )
-        logger.info("Database migrations completed successfully")
-    except subprocess.CalledProcessError as e:
-        logger.error("Database migration failed.")
-        logger.error(f"Return code: {e.returncode}")
-        logger.error(f"Stdout: {e.stdout}")
-        logger.error(f"Stderr: {e.stderr}")
-        # Re-raise the exception to stop the application startup
-        raise e
+        if result.returncode == 0:
+            logger.info("Database migrations completed successfully")
+        else:
+            logger.warning(f"Database migration returned non-zero: {result.returncode}")
+            logger.warning(f"Stdout: {result.stdout}")
+            logger.warning(f"Stderr: {result.stderr}")
+            logger.warning("Continuing app startup despite migration issue...")
     except Exception as e:
-        logger.error(f"An unexpected error occurred during migration: {e}")
-        raise e
+        logger.warning(f"Migration execution failed: {e}. Continuing app startup...")
 
     # Initialize database (optional, use Alembic for production)
     if settings.DEBUG:

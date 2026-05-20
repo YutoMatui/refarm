@@ -5,6 +5,13 @@ import { toast } from 'sonner'
 import { adminConsumerApi } from '@/services/api'
 import type { Consumer } from '@/types'
 
+const formatDeliveryDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return null
+    const d = new Date(dateStr + 'T00:00:00')
+    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+    return `${d.getMonth() + 1}/${d.getDate()}(${weekdays[d.getDay()]})`
+}
+
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
     pending: { label: '確認中', color: 'bg-yellow-100 text-yellow-800' },
     confirmed: { label: '確認済', color: 'bg-blue-100 text-blue-800' },
@@ -144,9 +151,11 @@ const ConsumerOrderManagement = () => {
                                                 {order.delivery_date && (
                                                     <>
                                                         <Calendar size={11} />
-                                                        {order.delivery_date} {order.delivery_time_label}
+                                                        <span className="font-semibold text-gray-700">{formatDeliveryDate(order.delivery_date)}</span>
+                                                        {order.delivery_time_label && <span>{order.delivery_time_label}</span>}
                                                     </>
                                                 )}
+                                                {!order.delivery_date && <span className="text-gray-400">お届け日未定</span>}
                                             </p>
                                         </div>
                                         <div className="flex-shrink-0 text-right">
@@ -168,12 +177,16 @@ const ConsumerOrderManagement = () => {
                                             <div className="bg-gray-50 rounded-lg p-4 ml-20 space-y-3">
                                                 <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
                                                     <div>
-                                                        <span className="text-gray-400">注文日時: </span>
-                                                        {order.created_at ? new Date(order.created_at).toLocaleString('ja-JP') : '-'}
+                                                        <span className="text-gray-400">お届け日: </span>
+                                                        <span className="font-semibold text-gray-800">{formatDeliveryDate(order.delivery_date) || '未定'} {order.delivery_time_label || ''}</span>
                                                     </div>
                                                     <div>
-                                                        <span className="text-gray-400">受取: </span>
+                                                        <span className="text-gray-400">受取方法: </span>
                                                         {order.delivery_label || 'ユニバードーム付近'}
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-gray-400">注文日時: </span>
+                                                        {order.created_at ? new Date(order.created_at).toLocaleString('ja-JP') : '-'}
                                                     </div>
                                                     <div>
                                                         <span className="text-gray-400">電話: </span>
