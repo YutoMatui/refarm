@@ -5,10 +5,13 @@ import { Product, HarvestStatus } from '../../types';
 import { Plus, ChevronRight, Loader2 } from 'lucide-react';
 import ProductImageFrame from '../../components/ProductImageFrame';
 
+type FilterType = 'all' | 'active' | 'ended'
+
 export default function ProducerDashboard() {
     useOutletContext<{ farmerId: number; }>();
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
+    const [filter, setFilter] = useState<FilterType>('active');
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -42,6 +45,15 @@ export default function ProducerDashboard() {
         }
     };
 
+    const filteredProducts = products.filter(p => {
+        if (filter === 'active') return p.harvest_status !== HarvestStatus.ENDED;
+        if (filter === 'ended') return p.harvest_status === HarvestStatus.ENDED;
+        return true;
+    });
+
+    const activeCount = products.filter(p => p.harvest_status !== HarvestStatus.ENDED).length;
+    const endedCount = products.filter(p => p.harvest_status === HarvestStatus.ENDED).length;
+
     if (loading) {
         return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-green-600" /></div>;
     }
@@ -59,18 +71,48 @@ export default function ProducerDashboard() {
                 </Link>
             </div>
 
+            {/* フィルタタブ */}
+            <div className="flex gap-2 mb-4">
+                {([
+                    { id: 'active' as FilterType, label: '出品中', count: activeCount },
+                    { id: 'ended' as FilterType, label: '終了', count: endedCount },
+                    { id: 'all' as FilterType, label: 'すべて', count: products.length },
+                ]).map(tab => (
+                    <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setFilter(tab.id)}
+                        className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                            filter === tab.id
+                                ? 'bg-green-600 text-white'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                    >
+                        {tab.label} ({tab.count})
+                    </button>
+                ))}
+            </div>
+
             <div className="space-y-3">
-                {products.length === 0 ? (
+                {filteredProducts.length === 0 ? (
                     <div className="text-center py-10 bg-white rounded-lg border border-dashed border-gray-300">
-                        <p className="text-gray-500 mb-2">登録されている野菜はありません</p>
-                        <p className="text-sm text-gray-400">「新規登録」から出品しましょう</p>
+                        <p className="text-gray-500 mb-2">
+                            {filter === 'ended' ? '終了した野菜はありません' :
+                             filter === 'active' ? '出品中の野菜はありません' :
+                             '登録されている野菜はありません'}
+                        </p>
+                        {filter === 'active' && (
+                            <p className="text-sm text-gray-400">「新規登録」から出品しましょう</p>
+                        )}
                     </div>
                 ) : (
-                    products.map(product => (
+                    filteredProducts.map(product => (
                         <div
                             key={product.id}
                             onClick={() => navigate(`/producer/products/${product.id}/edit`)}
-                            className="bg-white rounded-lg shadow p-3 flex items-center border border-gray-100 active:bg-gray-50 transition-colors"
+                            className={`bg-white rounded-lg shadow p-3 flex items-center border border-gray-100 active:bg-gray-50 transition-colors ${
+                                product.harvest_status === HarvestStatus.ENDED ? 'opacity-60' : ''
+                            }`}
                         >
                             {/* Image Thumbnail */}
                             <div className="w-16 h-16 bg-gray-200 rounded-md flex-shrink-0 overflow-hidden">
