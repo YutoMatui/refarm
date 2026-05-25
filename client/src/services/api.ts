@@ -745,7 +745,7 @@ export const adminProcurementApi = {
     apiClient.post<any>(`/admin/procurement/${batchId}/order`),
 
   cancelOrder: (batchId: number) =>
-    apiClient.post<any>(`/admin/procurement/batches/${batchId}/cancel-order`),
+    apiClient.post<any>(`/admin/batches/${batchId}/cancel-order`),
 }
 
 export default apiClient
