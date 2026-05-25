@@ -108,6 +108,17 @@ export default function UnifiedProcurementManagement() {
     onError: (e: any) => toast.error(e?.response?.data?.detail || '発注に失敗しました'),
   })
 
+  // 発注取り消し mutation
+  const cancelOrderMutation = useMutation({
+    mutationFn: (batchId: number) => adminProcurementApi.cancelOrder(batchId),
+    onSuccess: (res) => {
+      toast.success(res.data?.message || '発注を取り消しました')
+      queryClient.invalidateQueries({ queryKey: ['admin', 'procurement-calendar'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'procurement-batch-by-date', selectedDate] })
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.detail || '取り消しに失敗しました'),
+  })
+
   const handleSaveItem = (item: ProcurementItem) => {
     const newQty = editingItems[item.id]
     if (newQty === undefined) return
@@ -265,6 +276,20 @@ export default function UnifiedProcurementManagement() {
                 >
                   <Truck className="w-4 h-4" />
                   農家へ発注する
+                </button>
+              )}
+              {/* 取り消しボタン */}
+              {(batchDetail?.status === ProcurementStatus.ORDERED || batchDetail?.status === ProcurementStatus.AGGREGATED) && (
+                <button
+                  onClick={() => {
+                    if (confirm('発注を取り消しますか？ステータスが「注文受付中」に戻ります。')) {
+                      cancelOrderMutation.mutate(batchDetail.id)
+                    }
+                  }}
+                  disabled={cancelOrderMutation.isPending}
+                  className="flex items-center gap-2 px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 text-sm font-medium disabled:opacity-50"
+                >
+                  発注を取り消す
                 </button>
               )}
             </div>
