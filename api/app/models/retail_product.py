@@ -114,6 +114,7 @@ class ProcurementItem(Base, TimestampMixin):
     b2b_direct_qty = Column(Integer, nullable=False, default=0, comment="B2B飲食店注文の直接数量")
     calculated_farmer_qty = Column(Numeric(10, 2), nullable=False, default=0, comment="計算上の農家単位数")
     ordered_farmer_qty = Column(Integer, nullable=False, default=0, comment="実際発注数")
+    previously_ordered_qty = Column(Integer, nullable=False, default=0, comment="前回発注済み数量（追加発注の差分計算用）")
     unit_cost = Column(Numeric(10, 2), nullable=True, comment="仕入値スナップショット")
     notes = Column(Text, nullable=True, comment="メモ")
 

@@ -264,6 +264,7 @@ export interface ProcurementItem extends TimestampFields {
   b2b_direct_qty: number
   calculated_farmer_qty: string
   ordered_farmer_qty: number
+  previously_ordered_qty: number
   unit_cost?: string | null
   notes?: string | null
   source_product_name?: string | null

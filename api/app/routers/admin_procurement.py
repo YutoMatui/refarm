@@ -46,6 +46,7 @@ def _format_batch_response(batch, total_orders=0):
             b2b_direct_qty=item.b2b_direct_qty or 0,
             calculated_farmer_qty=item.calculated_farmer_qty,
             ordered_farmer_qty=item.ordered_farmer_qty,
+            previously_ordered_qty=item.previously_ordered_qty or 0,
             unit_cost=item.unit_cost,
             notes=item.notes,
             created_at=item.created_at,
@@ -322,10 +323,14 @@ async def aggregate_unified_procurement(
     except ValueError:
         raise HTTPException(status_code=400, detail="日付の形式はYYYY-MM-DDである必要があります")
 
-    # 既存のCOLLECTINGまたはAGGREGATEDバッチを検索（delivery_date ベース）
+    # 既存バッチを検索（ORDERED含む＝追加発注に対応）
     stmt = select(ProcurementBatch).where(
         ProcurementBatch.delivery_date == target_date,
-        ProcurementBatch.status.in_([ProcurementStatus.COLLECTING, ProcurementStatus.AGGREGATED]),
+        ProcurementBatch.status.in_([
+            ProcurementStatus.COLLECTING,
+            ProcurementStatus.AGGREGATED,
+            ProcurementStatus.ORDERED,
+        ]),
     )
     result = await db.execute(stmt)
     batch = result.scalar_one_or_none()
@@ -434,14 +439,24 @@ async def order_from_farmers(
     if not batch.items:
         raise HTTPException(status_code=400, detail="発注明細がありません。先に集計を実行してください")
 
+    # 追加発注かどうか判定（前回発注済み数量があるか）
+    is_additional = any(item.previously_ordered_qty > 0 for item in batch.items)
+
     # 農家ごとにアイテムをグループ化
-    farmer_items = {}
+    farmer_items: dict = {}
     for item in batch.items:
         sp = item.source_product
         if not sp or not sp.farmer:
             continue
         farmer = sp.farmer
         fid = farmer.id
+
+        # 追加発注の場合、差分がないアイテムはスキップ
+        if is_additional:
+            diff = item.ordered_farmer_qty - item.previously_ordered_qty
+            if diff <= 0:
+                continue
+
         if fid not in farmer_items:
             farmer_items[fid] = {
                 "farmer": farmer,
@@ -449,30 +464,53 @@ async def order_from_farmers(
             }
         farmer_items[fid]["items"].append(item)
 
+    if is_additional and not farmer_items:
+        # 差分がない場合はステータスだけ更新して終了
+        now = datetime.now(ZoneInfo(settings.TZ))
+        batch.status = ProcurementStatus.ORDERED
+        batch.ordered_at = now
+        # previously_ordered_qtyを現在値に更新
+        for item in batch.items:
+            item.previously_ordered_qty = item.ordered_farmer_qty
+        await db.commit()
+        return ResponseMessage(
+            message="追加分はありません。ステータスを発注済みに更新しました",
+            success=True,
+        )
+
     # 各農家にLINE通知
     delivery_slot = batch.delivery_slot
     for fid, data in farmer_items.items():
         farmer = data["farmer"]
         items = data["items"]
         try:
-            await line_service.notify_farmer_procurement_order(
-                farmer=farmer,
-                items=items,
-                delivery_slot=delivery_slot,
-                delivery_date=batch.delivery_date,
-            )
+            if is_additional:
+                await line_service.notify_farmer_additional_order(
+                    farmer=farmer,
+                    items=items,
+                    delivery_slot=delivery_slot,
+                    delivery_date=batch.delivery_date,
+                )
+            else:
+                await line_service.notify_farmer_procurement_order(
+                    farmer=farmer,
+                    items=items,
+                    delivery_slot=delivery_slot,
+                    delivery_date=batch.delivery_date,
+                )
         except Exception as e:
             print(f"Failed to send procurement notification to farmer {fid}: {e}")
 
     now = datetime.now(ZoneInfo(settings.TZ))
     batch.status = ProcurementStatus.ORDERED
     batch.ordered_at = now
+    # previously_ordered_qtyを現在値に更新
+    for item in batch.items:
+        item.previously_ordered_qty = item.ordered_farmer_qty
     await db.commit()
 
-    return ResponseMessage(
-        message=f"{len(farmer_items)}件の農家へ発注通知を送信しました",
-        success=True,
-    )
+    msg = f"{len(farmer_items)}件の農家へ{'追加' if is_additional else ''}発注通知を送信しました"
+    return ResponseMessage(message=msg, success=True)
 
 
 @router.post("/batches/{batch_id}/cancel-order", response_model=ResponseMessage)

@@ -879,6 +879,54 @@ No. {order.id} の納品書をお送りします。
 
         await self.send_push_message(token, farmer.line_user_id, message)
 
+    async def notify_farmer_additional_order(self, farmer, items, delivery_slot=None, delivery_date=None):
+        """追加発注の通知（差分のみ）"""
+        if not farmer.line_user_id:
+            print(f"Farmer {farmer.id} has no LINE user ID, skipping additional order notification")
+            return
+
+        token = await self.get_access_token(
+            settings.LINE_PRODUCER_CHANNEL_ID,
+            settings.LINE_PRODUCER_CHANNEL_SECRET,
+            settings.LINE_PRODUCER_CHANNEL_ACCESS_TOKEN,
+        )
+        if not token:
+            print("Failed to get producer channel token for additional order notification")
+            return
+
+        delivery_info = ""
+        if delivery_slot and delivery_slot.date:
+            delivery_info = f"■ 出荷期限\n{self.format_date(delivery_slot.date)} 午前10時まで\n\n"
+        elif delivery_date:
+            delivery_info = f"■ 出荷期限\n{self.format_date(delivery_date)} 午前10時まで\n\n"
+
+        items_text = ""
+        total_additional_cost = 0
+        for item in items:
+            sp = item.source_product
+            product_name = sp.name if sp else "不明"
+            unit = sp.unit if sp else ""
+            diff = item.ordered_farmer_qty - item.previously_ordered_qty
+            if diff <= 0:
+                continue
+            items_text += f"📦 {product_name}\n   追加: +{diff}{unit}（合計: {item.ordered_farmer_qty}{unit}）\n"
+            if item.unit_cost:
+                total_additional_cost += int(item.unit_cost) * diff
+
+        message = f"""【📢 追加発注のお知らせ】
+{farmer.name}さん、お疲れ様です！
+追加の出荷をお願いいたします。
+
+{delivery_info}■ 追加出荷リスト
+{items_text}
+------------------------
+💰 追加分の売上予定: {self.format_currency(total_additional_cost)}
+------------------------
+
+お手数をおかけしますが、よろしくお願いいたします！🚛"""
+
+        await self.send_push_message(token, farmer.line_user_id, message)
+
     async def notify_farmer_item_deleted(self, order: Order, item: OrderItem):
         """注文明細が削除されたことを農家に通知"""
         # Ensure farmer info is available

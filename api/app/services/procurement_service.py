@@ -217,10 +217,18 @@ async def aggregate_unified_batch(batch_id: int, db: AsyncSession) -> Procuremen
                 "unit_cost": Decimal(str(source_product.cost_price)) if source_product.cost_price else None,
             }
 
-    # ===== 3. 既存の procurement_items を削除して再計算 =====
+    # ===== 3. 既存の procurement_items を保存してから削除 =====
     existing_items_stmt = select(ProcurementItem).where(ProcurementItem.batch_id == batch_id)
     existing_result = await db.execute(existing_items_stmt)
-    for item in existing_result.scalars().all():
+    existing_items = existing_result.scalars().all()
+
+    # ORDERED状態からの再集計時：前回発注数量を保持
+    prev_ordered_by_product: dict[int, int] = {}
+    if batch.status == ProcurementStatus.ORDERED:
+        for item in existing_items:
+            prev_ordered_by_product[item.source_product_id] = item.ordered_farmer_qty
+
+    for item in existing_items:
         await db.delete(item)
 
     # ===== 4. source_product_id でマージして ProcurementItem を作成 =====
@@ -251,6 +259,8 @@ async def aggregate_unified_batch(batch_id: int, db: AsyncSession) -> Procuremen
         b2c_ordered = math.ceil(with_margin_qty) if with_margin_qty > 0 else 0
         ordered_farmer_qty = b2b_qty + b2c_ordered
 
+        prev_qty = prev_ordered_by_product.get(product_id, 0)
+
         item = ProcurementItem(
             batch_id=batch_id,
             source_product_id=product_id,
@@ -259,6 +269,7 @@ async def aggregate_unified_batch(batch_id: int, db: AsyncSession) -> Procuremen
             total_retail_qty=total_retail_qty,
             calculated_farmer_qty=Decimal(str(round(raw_farmer_qty, 2))),
             ordered_farmer_qty=ordered_farmer_qty,
+            previously_ordered_qty=prev_qty,
             unit_cost=unit_cost,
         )
         db.add(item)

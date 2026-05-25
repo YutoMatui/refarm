@@ -162,6 +162,11 @@ export default function UnifiedProcurementManagement() {
     return Object.values(map).sort((a, b) => a.farmer_name.localeCompare(b.farmer_name))
   }, [batchDetail?.items])
 
+  // 追加発注モードかどうか
+  const hasAdditional = useMemo(() => {
+    return batchDetail?.items?.some(i => i.previously_ordered_qty > 0) ?? false
+  }, [batchDetail?.items])
+
   const weekDays = ['日', '月', '火', '水', '木', '金', '土']
 
   return (
@@ -256,16 +261,16 @@ export default function UnifiedProcurementManagement() {
                 B2B（飲食店）+ B2C（消費者）注文を統合して農家に発注
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              {/* 集計ボタン */}
-              {(!batchDetail || batchDetail.status === ProcurementStatus.COLLECTING || batchDetail.status === ProcurementStatus.AGGREGATED) && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* 集計ボタン（ORDERED状態でも再集計可能） */}
+              {(!batchDetail || batchDetail.status === ProcurementStatus.COLLECTING || batchDetail.status === ProcurementStatus.AGGREGATED || batchDetail.status === ProcurementStatus.ORDERED) && (
                 <button
                   onClick={() => aggregateMutation.mutate(selectedDate)}
                   disabled={aggregateMutation.isPending}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-50"
                 >
                   {aggregateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                  {batchDetail ? '再集計する' : '集計する'}
+                  {!batchDetail ? '集計する' : batchDetail.status === ProcurementStatus.ORDERED ? '再集計する（追加注文確認）' : '再集計する'}
                 </button>
               )}
               {/* 発注ボタン */}
@@ -275,7 +280,7 @@ export default function UnifiedProcurementManagement() {
                   className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
                 >
                   <Truck className="w-4 h-4" />
-                  農家へ発注する
+                  {batchDetail.items?.some(i => i.previously_ordered_qty > 0) ? '追加分を農家へ発注する' : '農家へ発注する'}
                 </button>
               )}
               {/* 取り消しボタン */}
@@ -331,7 +336,13 @@ export default function UnifiedProcurementManagement() {
                       <th className="px-4 py-3 text-right font-medium text-gray-600">B2B数量</th>
                       <th className="px-4 py-3 text-right font-medium text-gray-600">B2C小売数</th>
                       <th className="px-4 py-3 text-right font-medium text-gray-600">B2C換算</th>
+                      {hasAdditional && (
+                        <th className="px-4 py-3 text-right font-medium text-gray-600">前回発注</th>
+                      )}
                       <th className="px-4 py-3 text-right font-medium text-gray-600">発注数量</th>
+                      {hasAdditional && (
+                        <th className="px-4 py-3 text-right font-medium text-gray-600">追加分</th>
+                      )}
                       <th className="px-4 py-3 text-right font-medium text-gray-600">単価</th>
                       {batchDetail.status === ProcurementStatus.AGGREGATED && (
                         <th className="px-4 py-3 text-center font-medium text-gray-600 w-16"></th>
@@ -340,8 +351,10 @@ export default function UnifiedProcurementManagement() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {groupedByFarmer.map((group) =>
-                      group.items.map((item, idx) => (
-                        <tr key={item.id} className="hover:bg-gray-50">
+                      group.items.map((item, idx) => {
+                        const diff = item.ordered_farmer_qty - item.previously_ordered_qty
+                        return (
+                        <tr key={item.id} className={`hover:bg-gray-50 ${hasAdditional && diff > 0 ? 'bg-orange-50' : ''}`}>
                           {idx === 0 && (
                             <td className="px-4 py-3 font-bold text-gray-900 border-r align-top bg-white" rowSpan={group.items.length}>
                               {group.farmer_name}
@@ -370,6 +383,11 @@ export default function UnifiedProcurementManagement() {
                           <td className="px-4 py-3 text-right text-gray-600">
                             {Number(item.calculated_farmer_qty) > 0 ? item.calculated_farmer_qty : '-'}
                           </td>
+                          {hasAdditional && (
+                            <td className="px-4 py-3 text-right text-gray-500">
+                              {item.previously_ordered_qty > 0 ? item.previously_ordered_qty : '-'}
+                            </td>
+                          )}
                           <td className="px-4 py-3 text-right">
                             {batchDetail.status === ProcurementStatus.AGGREGATED ? (
                               <input
@@ -383,6 +401,17 @@ export default function UnifiedProcurementManagement() {
                               <span className="font-bold text-gray-900">{item.ordered_farmer_qty}</span>
                             )}
                           </td>
+                          {hasAdditional && (
+                            <td className="px-4 py-3 text-right">
+                              {diff > 0 ? (
+                                <span className="font-bold text-orange-600">+{diff}</span>
+                              ) : diff === 0 ? (
+                                <span className="text-gray-400">-</span>
+                              ) : (
+                                <span className="font-bold text-red-600">{diff}</span>
+                              )}
+                            </td>
+                          )}
                           <td className="px-4 py-3 text-right text-gray-600">
                             {item.unit_cost ? `${Number(item.unit_cost).toLocaleString()}円` : '-'}
                           </td>
@@ -401,7 +430,8 @@ export default function UnifiedProcurementManagement() {
                             </td>
                           )}
                         </tr>
-                      ))
+                        )
+                      })
                     )}
                   </tbody>
                 </table>
@@ -436,13 +466,18 @@ export default function UnifiedProcurementManagement() {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center gap-3 text-yellow-600">
               <AlertTriangle className="w-6 h-6" />
-              <h3 className="text-lg font-bold">農家への発注確認</h3>
+              <h3 className="text-lg font-bold">{hasAdditional ? '追加発注の確認' : '農家への発注確認'}</h3>
             </div>
             <p className="text-sm text-gray-600">
-              この操作を実行すると、集計された数量をもとに各農家へLINE通知が送信されます。
+              {hasAdditional
+                ? 'この操作を実行すると、追加分の数量のみ各農家へLINE通知が送信されます。'
+                : 'この操作を実行すると、集計された数量をもとに各農家へLINE通知が送信されます。'}
             </p>
             <div className="text-sm font-medium text-gray-800 space-y-1">
               <p>配送日: {formatDate(batchDetail.delivery_date)}</p>
+              {hasAdditional && (
+                <p className="text-orange-600">追加分がある農家にのみ通知されます</p>
+              )}
               <p>農家数: {groupedByFarmer.length} 件</p>
               <p>品目数: {batchDetail.items?.length || 0} 件</p>
             </div>
@@ -459,7 +494,7 @@ export default function UnifiedProcurementManagement() {
                 className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium disabled:opacity-60 flex items-center gap-2"
               >
                 {orderMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                発注を実行
+                {hasAdditional ? '追加発注を実行' : '発注を実行'}
               </button>
             </div>
           </div>

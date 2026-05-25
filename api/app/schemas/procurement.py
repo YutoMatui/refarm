@@ -18,6 +18,7 @@ class ProcurementItemResponse(BaseSchema, TimestampSchema):
     b2b_direct_qty: int = 0
     calculated_farmer_qty: Decimal
     ordered_farmer_qty: int
+    previously_ordered_qty: int = 0
     unit_cost: Optional[Decimal] = None
     notes: Optional[str] = None
     # Populated in router
