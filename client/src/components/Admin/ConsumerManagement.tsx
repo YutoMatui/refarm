@@ -118,6 +118,25 @@ const ConsumerManagement = () => {
         setEditForm({})
     }
 
+    const handleToggleActive = (consumer: Consumer) => {
+        const newValue = consumer.is_active === 1 ? 0 : 1
+        const action = newValue === 0 ? 'ブロック' : '有効化'
+        if (confirm(`${consumer.name || '(名前なし)'} さんを${action}してもよろしいですか？`)) {
+            updateMutation.mutate({
+                id: consumer.id,
+                payload: { is_active: newValue }
+            }, {
+                onSuccess: () => {
+                    toast.success(newValue === 0 ? 'アカウントをブロックしました' : 'アカウントを有効にしました')
+                    queryClient.invalidateQueries({ queryKey: ['admin-consumers'] })
+                    if (selectedConsumer?.id === consumer.id) {
+                        setSelectedConsumer({ ...consumer, is_active: newValue })
+                    }
+                }
+            })
+        }
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -185,7 +204,12 @@ const ConsumerManagement = () => {
                                                 )}
                                             </div>
                                             <div className="flex-1">
-                                                <h4 className="font-semibold text-gray-900">{consumer.name}</h4>
+                                                <h4 className="font-semibold text-gray-900">
+                                                    {consumer.name}
+                                                    {consumer.is_active === 0 && (
+                                                        <span className="ml-2 text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full">ブロック中</span>
+                                                    )}
+                                                </h4>
                                                 <div className="mt-1 space-y-1">
                                                     <p className="text-sm text-gray-600 flex items-center gap-1">
                                                         <Phone size={14} />
@@ -219,22 +243,43 @@ const ConsumerManagement = () => {
                     <div className="p-4 border-b border-gray-200 flex items-center justify-between">
                         <h3 className="font-semibold text-gray-900">詳細情報</h3>
                         {selectedConsumer && !isEditing && (
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={handleEdit}
-                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                                    title="編集"
-                                >
-                                    <Edit2 size={18} />
-                                </button>
-                                <button
-                                    onClick={handleDelete}
-                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
-                                    title="削除"
-                                    disabled={deleteMutation.isPending}
-                                >
-                                    <Trash2 size={18} />
-                                </button>
+                            <div className="flex items-center gap-3">
+                                {/* ブロックトグル */}
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => handleToggleActive(selectedConsumer)}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                                            selectedConsumer.is_active !== 0 ? 'bg-blue-600' : 'bg-gray-200'
+                                        }`}
+                                        title={selectedConsumer.is_active !== 0 ? 'ブロックする' : '有効にする'}
+                                    >
+                                        <span
+                                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                                selectedConsumer.is_active !== 0 ? 'translate-x-6' : 'translate-x-1'
+                                            }`}
+                                        />
+                                    </button>
+                                    <span className={`text-xs ${selectedConsumer.is_active !== 0 ? 'text-gray-500' : 'text-red-600 font-semibold'}`}>
+                                        {selectedConsumer.is_active !== 0 ? '有効' : 'ブロック中'}
+                                    </span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={handleEdit}
+                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                                        title="編集"
+                                    >
+                                        <Edit2 size={18} />
+                                    </button>
+                                    <button
+                                        onClick={handleDelete}
+                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                                        title="削除"
+                                        disabled={deleteMutation.isPending}
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                </div>
                             </div>
                         )}
                         {isEditing && (

@@ -65,6 +65,7 @@ class ConsumerResponse(ConsumerBase, TimestampSchema, BaseSchema):
     organization_id: Optional[int] = None
     stripe_customer_id: Optional[str] = None
     default_stripe_payment_method_id: Optional[str] = None
+    is_active: int = 1
     is_profile_complete: bool = False
 
     @model_validator(mode='after')

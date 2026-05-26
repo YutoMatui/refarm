@@ -1,7 +1,7 @@
 """
 Consumer model - B2C一般消費者
 """
-from sqlalchemy import Column, Integer, String, Index, ForeignKey
+from sqlalchemy import Column, Integer, String, Index, ForeignKey, text
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -81,6 +81,14 @@ class Consumer(Base, TimestampMixin):
         ForeignKey("organizations.id"),
         nullable=True,
         comment="所属組織ID"
+    )
+
+    is_active = Column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default=text("1"),
+        comment="アクティブフラグ (0: ブロック, 1: 有効)"
     )
 
     organization = relationship(

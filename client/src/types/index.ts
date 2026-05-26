@@ -121,6 +121,7 @@ export interface Consumer extends TimestampFields {
   organization_id?: number | null
   stripe_customer_id?: string | null
   default_stripe_payment_method_id?: string | null
+  is_active?: number
   is_profile_complete?: boolean
 }
 

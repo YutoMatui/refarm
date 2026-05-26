@@ -63,6 +63,12 @@ async def verify_consumer(
     result = await db.execute(stmt)
     consumer = result.scalar_one_or_none()
 
+    if consumer and consumer.is_active == 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="アカウントが無効になっています。管理者にお問い合わせください。"
+        )
+
     if not consumer:
         # 自動仮登録: LINE IDだけでConsumerレコードを作成
         consumer = Consumer(
@@ -96,6 +102,11 @@ async def register_consumer(
     existing = result.scalar_one_or_none()
 
     if existing:
+        if existing.is_active == 0:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="アカウントが無効になっています。管理者にお問い合わせください。"
+            )
         if register_request.name:
             existing.name = register_request.name
         if register_request.phone_number:
@@ -166,6 +177,12 @@ async def check_consumer_status(
     stmt = select(Consumer).where(Consumer.line_user_id == line_user_id)
     result = await db.execute(stmt)
     consumer = result.scalar_one_or_none()
+
+    if consumer and consumer.is_active == 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="アカウントが無効になっています。管理者にお問い合わせください。"
+        )
 
     return ConsumerAuthResponse(
         line_user_id=line_user_id,

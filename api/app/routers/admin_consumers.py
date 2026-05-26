@@ -4,7 +4,10 @@ Admin Consumer Management Router
 import stripe
 from datetime import datetime
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from typing import Optional
+
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func
 from sqlalchemy.orm import selectinload
@@ -66,7 +69,48 @@ async def get_consumer_detail(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="消費者が見つかりません"
         )
-    
+
+    return consumer
+
+
+class AdminConsumerUpdateRequest(BaseModel):
+    """管理者による消費者情報更新スキーマ."""
+
+    name: Optional[str] = Field(None, max_length=200)
+    phone_number: Optional[str] = Field(None, max_length=20)
+    postal_code: Optional[str] = Field(None, max_length=10)
+    address: Optional[str] = Field(None, max_length=500)
+    building: Optional[str] = None
+    profile_image_url: Optional[str] = None
+    is_active: Optional[int] = Field(None, ge=0, le=1)
+
+
+@router.put("/consumers/{consumer_id}")
+async def update_consumer(
+    consumer_id: int,
+    consumer_data: AdminConsumerUpdateRequest,
+    _: Admin = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    消費者情報を更新（管理者用）
+    """
+    query = select(Consumer).where(Consumer.id == consumer_id)
+    result = await db.execute(query)
+    consumer = result.scalar_one_or_none()
+
+    if not consumer:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="消費者が見つかりません"
+        )
+
+    update_data = consumer_data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(consumer, field, value)
+
+    await db.commit()
+    await db.refresh(consumer)
     return consumer
 
 

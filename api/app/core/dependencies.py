@@ -111,6 +111,12 @@ async def get_current_consumer(
             detail="会員登録が必要です"
         )
 
+    if consumer.is_active == 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="アカウントが無効になっています。管理者にお問い合わせください。"
+        )
+
     return consumer
 
 
