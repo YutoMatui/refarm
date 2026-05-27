@@ -33,13 +33,6 @@ class ProductBase(BaseModel):
     is_wakeari: int = Field(default=0, description="訳ありフラグ")
     display_order: int = Field(default=0, description="表示順序")
 
-    @field_validator('unit')
-    @classmethod
-    def validate_unit_no_digits(cls, v):
-        if v and re.search(r'\d', v):
-            raise ValueError('単位に数字を含めることはできません（例：袋、束、本）')
-        return v
-
     @field_validator('harvest_status', mode='before')
     @classmethod
     def validate_harvest_status(cls, v):
@@ -57,6 +50,13 @@ class ProductCreate(ProductBase):
     stock_type: Optional[StockType] = Field(None, description="種別(KOBE/OTHER)")
     farmer_id: Optional[int] = Field(None, description="生産者ID")
 
+    @field_validator('unit')
+    @classmethod
+    def validate_unit_no_digits(cls, v):
+        if v and re.search(r'\d', v):
+            raise ValueError('単位に数字を含めることはできません（例：袋、束、本）')
+        return v
+
 
 class ProductUpdate(BaseModel):
     """Schema for updating a product (all fields optional)."""
@@ -71,13 +71,6 @@ class ProductUpdate(BaseModel):
     harvest_status: Optional[HarvestStatus] = Field(None, description="収穫状況")
     tax_rate: Optional[TaxRate] = None
     unit: Optional[str] = Field(None, max_length=20)
-
-    @field_validator('unit')
-    @classmethod
-    def validate_unit_no_digits(cls, v):
-        if v and re.search(r'\d', v):
-            raise ValueError('単位に数字を含めることはできません（例：袋、束、本）')
-        return v
     stock_type: Optional[StockType] = None
     category: Optional[ProductCategory] = None
     stock_quantity: Optional[int] = Field(None, ge=0)
@@ -88,6 +81,13 @@ class ProductUpdate(BaseModel):
     is_wakeari: Optional[int] = None
     display_order: Optional[int] = None
     farmer_id: Optional[int] = None
+
+    @field_validator('unit')
+    @classmethod
+    def validate_unit_no_digits(cls, v):
+        if v and re.search(r'\d', v):
+            raise ValueError('単位に数字を含めることはできません（例：袋、束、本）')
+        return v
 
 
 class ProductResponse(ProductBase, TimestampSchema, BaseSchema):
