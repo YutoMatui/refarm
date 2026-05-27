@@ -1,6 +1,7 @@
 """
 Product Pydantic schemas.
 """
+import re
 from typing import Optional
 from decimal import Decimal, ROUND_HALF_UP
 from pydantic import BaseModel, Field, computed_field, field_validator
@@ -31,6 +32,13 @@ class ProductBase(BaseModel):
     is_featured: int = Field(default=0, description="おすすめフラグ")
     is_wakeari: int = Field(default=0, description="訳ありフラグ")
     display_order: int = Field(default=0, description="表示順序")
+
+    @field_validator('unit')
+    @classmethod
+    def validate_unit_no_digits(cls, v):
+        if v and re.search(r'\d', v):
+            raise ValueError('単位に数字を含めることはできません（例：袋、束、本）')
+        return v
 
     @field_validator('harvest_status', mode='before')
     @classmethod
@@ -63,6 +71,13 @@ class ProductUpdate(BaseModel):
     harvest_status: Optional[HarvestStatus] = Field(None, description="収穫状況")
     tax_rate: Optional[TaxRate] = None
     unit: Optional[str] = Field(None, max_length=20)
+
+    @field_validator('unit')
+    @classmethod
+    def validate_unit_no_digits(cls, v):
+        if v and re.search(r'\d', v):
+            raise ValueError('単位に数字を含めることはできません（例：袋、束、本）')
+        return v
     stock_type: Optional[StockType] = None
     category: Optional[ProductCategory] = None
     stock_quantity: Optional[int] = Field(None, ge=0)

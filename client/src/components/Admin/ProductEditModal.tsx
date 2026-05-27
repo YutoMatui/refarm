@@ -15,7 +15,7 @@ interface ProductEditModalProps {
 }
 
 export default function ProductEditModal({ product, onClose, onSaved }: ProductEditModalProps) {
-    const { register, handleSubmit, reset, watch, setValue } = useForm<Partial<Product>>();
+    const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<Partial<Product>>();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [cropperImage, setCropperImage] = useState<string | null>(null);
@@ -277,7 +277,14 @@ export default function ProductEditModal({ product, onClose, onSaved }: ProductE
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">単位</label>
-                            <input {...register('unit')} className="w-full border border-gray-300 rounded p-2" placeholder="袋, 個 etc" />
+                            <input
+                                {...register('unit', {
+                                    validate: (value) => !value || !/\d/.test(value) || '単位に数字は使用できません（例：袋、束、本）'
+                                })}
+                                className="w-full border border-gray-300 rounded p-2"
+                                placeholder="袋, 個 etc"
+                            />
+                            {errors.unit && <p className="text-red-500 text-xs mt-1">{errors.unit.message}</p>}
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">重量(g)</label>

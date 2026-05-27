@@ -241,11 +241,15 @@ export default function ProductForm() {
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-1">規格・単位 <span className="text-red-500">*</span></label>
                         <input
-                            {...register('unit', { required: '必須です' })}
+                            {...register('unit', {
+                                required: '必須です',
+                                validate: (value) => !/\d/.test(value) || '単位に数字は使用できません（例：袋、束、本）'
+                            })}
                             type="text"
-                            placeholder="例: 1袋, 1束"
+                            placeholder="例: 袋, 束, 本"
                             className="w-full border border-gray-300 rounded-lg p-3 text-lg"
                         />
+                        {errors.unit && <p className="text-red-500 text-sm">{errors.unit.message}</p>}
                     </div>
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-1">重量 (g) <span className="text-gray-400 text-xs">※数値のみ</span></label>
