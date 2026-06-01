@@ -23,6 +23,7 @@ def _product_to_retail_dict(product: Product) -> dict:
     farmer = product.farmer
     return {
         "id": product.id,
+        "source_type": "product",
         "source_product_id": product.id,
         "name": product.name,
         "description": product.description,
@@ -148,6 +149,7 @@ async def list_consumer_products(
         farmer = sp.farmer if sp else None
         data = {
             "id": rp.id,
+            "source_type": "retail",
             "source_product_id": rp.source_product_id,
             "name": rp.name,
             "description": rp.description,
@@ -192,17 +194,16 @@ async def list_consumer_products(
     return {"items": paginated, "total": total, "skip": skip, "limit": limit}
 
 
-@router.get("/{product_id}")
-async def get_consumer_product(product_id: int, db: AsyncSession = Depends(get_db)):
-    """消費者向け商品の詳細（小売商品 or 農家商品）"""
-    # まず小売商品を検索（非表示農家の商品は除外）
+@router.get("/retail/{retail_id}")
+async def get_retail_consumer_product(retail_id: int, db: AsyncSession = Depends(get_db)):
+    """消費者向け商品の詳細（小売商品 RetailProduct）"""
     stmt = (
         select(RetailProduct)
         .join(RetailProduct.source_product)
         .join(Product.farmer)
         .options(selectinload(RetailProduct.source_product).selectinload(Product.farmer))
         .where(
-            RetailProduct.id == product_id,
+            RetailProduct.id == retail_id,
             RetailProduct.deleted_at.is_(None),
             Farmer.is_active == 1,
         )
@@ -210,46 +211,52 @@ async def get_consumer_product(product_id: int, db: AsyncSession = Depends(get_d
     result = await db.execute(stmt)
     rp = result.scalar_one_or_none()
 
-    if rp:
-        sp = rp.source_product
-        farmer = sp.farmer if sp else None
-        return {
-            "id": rp.id,
-            "source_product_id": rp.source_product_id,
-            "name": rp.name,
-            "description": rp.description,
-            "retail_price": str(rp.retail_price),
-            "tax_rate": rp.tax_rate,
-            "retail_unit": rp.retail_unit,
-            "retail_quantity_label": rp.retail_quantity_label,
-            "conversion_factor": str(rp.conversion_factor),
-            "set_quantity": rp.set_quantity or 1,
-            "waste_margin_pct": rp.waste_margin_pct,
-            "image_url": rp.image_url,
-            "image_urls": rp.image_urls or ([rp.image_url] if rp.image_url else []),
-            "category": rp.category,
-            "is_active": rp.is_active,
-            "is_featured": rp.is_featured,
-            "is_wakeari": rp.is_wakeari,
-            "is_medama": rp.is_medama or 0,
-            "display_order": rp.display_order,
-            "created_at": rp.created_at,
-            "updated_at": rp.updated_at,
-            "farming_method": sp.farming_method if sp else None,
-            "weight": sp.weight if sp else None,
-            "stock_quantity": sp.stock_quantity if sp else None,
-            "info_confirmed_at": farmer.info_confirmed_at.isoformat() if farmer and farmer.info_confirmed_at else None,
-            "source_product": {
-                "id": sp.id,
-                "name": sp.name,
-                "unit": sp.unit,
-                "cost_price": sp.cost_price,
-                "farmer_id": sp.farmer_id,
-                "farmer_name": farmer.name if farmer else None,
-            } if sp else None,
-        }
+    if not rp:
+        raise HTTPException(status_code=404, detail="商品が見つかりません")
 
-    # 農家商品をフォールバック検索（非表示農家の商品は除外）
+    sp = rp.source_product
+    farmer = sp.farmer if sp else None
+    return {
+        "id": rp.id,
+        "source_type": "retail",
+        "source_product_id": rp.source_product_id,
+        "name": rp.name,
+        "description": rp.description,
+        "retail_price": str(rp.retail_price),
+        "tax_rate": rp.tax_rate,
+        "retail_unit": rp.retail_unit,
+        "retail_quantity_label": rp.retail_quantity_label,
+        "conversion_factor": str(rp.conversion_factor),
+        "set_quantity": rp.set_quantity or 1,
+        "waste_margin_pct": rp.waste_margin_pct,
+        "image_url": rp.image_url,
+        "image_urls": rp.image_urls or ([rp.image_url] if rp.image_url else []),
+        "category": rp.category,
+        "is_active": rp.is_active,
+        "is_featured": rp.is_featured,
+        "is_wakeari": rp.is_wakeari,
+        "is_medama": rp.is_medama or 0,
+        "display_order": rp.display_order,
+        "created_at": rp.created_at,
+        "updated_at": rp.updated_at,
+        "farming_method": sp.farming_method if sp else None,
+        "weight": sp.weight if sp else None,
+        "stock_quantity": sp.stock_quantity if sp else None,
+        "info_confirmed_at": farmer.info_confirmed_at.isoformat() if farmer and farmer.info_confirmed_at else None,
+        "source_product": {
+            "id": sp.id,
+            "name": sp.name,
+            "unit": sp.unit,
+            "cost_price": sp.cost_price,
+            "farmer_id": sp.farmer_id,
+            "farmer_name": farmer.name if farmer else None,
+        } if sp else None,
+    }
+
+
+@router.get("/product/{product_id}")
+async def get_product_consumer_product(product_id: int, db: AsyncSession = Depends(get_db)):
+    """消費者向け商品の詳細（農家商品 Product フォールバック）"""
     prod_stmt = (
         select(Product)
         .join(Product.farmer)
