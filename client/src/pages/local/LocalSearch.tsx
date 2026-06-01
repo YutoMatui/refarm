@@ -142,7 +142,7 @@ const LocalSearch = () => {
                         <div className="grid grid-cols-2 gap-3">
                             {products.map((product) => (
                                 <LocalProductCard
-                                    key={product.id}
+                                    key={`${product.source_type || 'retail'}-${product.id}`}
                                     product={product}
                                     onAddToCart={handleAddToCart}
                                 />

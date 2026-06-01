@@ -139,8 +139,8 @@ export default function LocalHome() {
                         <div className="flex overflow-x-auto space-x-3 pb-4 -mx-5 px-5 scrollbar-hide">
                             {wakeariData.items.map((rp: RetailProduct) => (
                                 <div
-                                    key={rp.id}
-                                    onClick={() => navigate(`/local/retail-products/${rp.id}`)}
+                                    key={`${rp.source_type || 'retail'}-${rp.id}`}
+                                    onClick={() => navigate(`/local/retail-products/${rp.source_type || 'retail'}/${rp.id}`)}
                                     className="flex-shrink-0 w-36 cursor-pointer active:scale-95 transition-transform"
                                 >
                                     <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 shadow-sm">
@@ -187,8 +187,8 @@ export default function LocalHome() {
                         <div className="flex overflow-x-auto space-x-3 pb-4 -mx-5 px-5 scrollbar-hide">
                             {featuredData.items.map((rp: RetailProduct) => (
                                 <div
-                                    key={rp.id}
-                                    onClick={() => navigate(`/local/retail-products/${rp.id}`)}
+                                    key={`${rp.source_type || 'retail'}-${rp.id}`}
+                                    onClick={() => navigate(`/local/retail-products/${rp.source_type || 'retail'}/${rp.id}`)}
                                     className="flex-shrink-0 w-36 cursor-pointer active:scale-95 transition-transform"
                                 >
                                     <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 shadow-sm">
@@ -229,8 +229,8 @@ export default function LocalHome() {
                         <div className="flex overflow-x-auto space-x-6 pb-2 -mx-5 px-5 scrollbar-hide">
                             {newProductsData.items.slice(0, 6).map((rp: RetailProduct) => (
                                 <div
-                                    key={rp.id}
-                                    onClick={() => navigate(`/local/retail-products/${rp.id}`)}
+                                    key={`${rp.source_type || 'retail'}-${rp.id}`}
+                                    onClick={() => navigate(`/local/retail-products/${rp.source_type || 'retail'}/${rp.id}`)}
                                     className="flex-shrink-0 flex flex-col items-center space-y-2 cursor-pointer w-20 active:opacity-80 transition-opacity"
                                 >
                                     <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 shadow-sm border border-gray-100">

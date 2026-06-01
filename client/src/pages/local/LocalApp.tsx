@@ -141,6 +141,8 @@ const LocalApp = () => {
                     <Route index element={<LocalHome />} />
                     <Route path="search" element={<LocalSearch />} />
                     <Route path="products/:id" element={<LocalProductDetail />} />
+                    <Route path="retail-products/:sourceType/:id" element={<LocalProductDetail />} />
+                    {/* 旧URL（テーブル種別なし）後方互換: retail_products を優先検索 */}
                     <Route path="retail-products/:id" element={<LocalProductDetail />} />
                     <Route path="farmers" element={<LocalFarmers />} />
                     <Route path="farmers/:id" element={<LocalFarmerDetail />} />

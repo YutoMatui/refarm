@@ -8,7 +8,8 @@ import { ArrowLeft, Minus, Plus, Loader2, Salad, User, ChevronRight, ShoppingCar
 import { toast } from 'sonner'
 
 const LocalProductDetail = () => {
-    const { id } = useParams()
+    // sourceType がURLに含まれていない（旧URL）場合は 'retail' をデフォルトに
+    const { sourceType, id } = useParams<{ sourceType?: string; id: string }>()
     const navigate = useNavigate()
     const addToRetailCart = useStore(state => state.addToRetailCart)
     const retailCart = useStore(state => state.retailCart)
@@ -19,14 +20,14 @@ const LocalProductDetail = () => {
     const scrollRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
-        if (id) {
-            loadProduct(parseInt(id))
-        }
-    }, [id])
+        if (!id) return
+        const resolvedType: 'retail' | 'product' = sourceType === 'product' ? 'product' : 'retail'
+        loadProduct(resolvedType, parseInt(id))
+    }, [sourceType, id])
 
-    const loadProduct = async (productId: number) => {
+    const loadProduct = async (st: 'retail' | 'product', productId: number) => {
         try {
-            const res = await retailProductApi.getById(productId)
+            const res = await retailProductApi.getById(st, productId)
             setProduct(res.data)
             trackProductView(res.data.id, res.data.name)
         } catch (e) {
@@ -72,7 +73,11 @@ const LocalProductDetail = () => {
         )
     }
 
-    const cartItem = retailCart.find(item => item.retailProduct.id === product.id)
+    const cartItem = retailCart.find(
+        item =>
+            (item.retailProduct.source_type || 'retail') === (product.source_type || 'retail') &&
+            item.retailProduct.id === product.id
+    )
     const cartItemCount = retailCart.reduce((sum, item) => sum + item.quantity, 0)
 
     return (

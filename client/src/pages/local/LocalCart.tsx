@@ -339,11 +339,15 @@ const LocalCart = () => {
     const handlePaymentSuccess = (paymentIntentId: string, paymentMethodId: string) => {
         if (!consumer) return
 
+        // retail カートでも、商品が「products テーブル由来（フォールバック）」の場合は
+        // retail_product_id ではなく product_id として送信する必要がある
         const items = useRetail
-            ? retailCart.map(item => ({
-                retail_product_id: item.retailProduct.id,
-                quantity: item.quantity,
-            }))
+            ? retailCart.map(item => {
+                const st = item.retailProduct.source_type || 'retail'
+                return st === 'product'
+                    ? { product_id: item.retailProduct.id, quantity: item.quantity }
+                    : { retail_product_id: item.retailProduct.id, quantity: item.quantity }
+            })
             : legacyCart.map(item => ({
                 product_id: item.product.id,
                 quantity: Number(item.quantity),
@@ -410,7 +414,8 @@ const LocalCart = () => {
         const store = useStore.getState()
         const idsToRemove = unavailableItems.map(item => item.productId)
         if (useRetail) {
-            idsToRemove.forEach(id => store.removeFromRetailCart(id))
+            // unavailable は現状常に空配列だが、互換目的で retail 由来として扱う
+            idsToRemove.forEach(id => store.removeFromRetailCart('retail', id))
         } else {
             idsToRemove.forEach(id => store.removeFromCart(id))
         }
@@ -464,7 +469,7 @@ const LocalCart = () => {
                         const itemTax = Math.round(itemSubtotal * (taxRate / 100))
                         const itemTotal = itemSubtotal + itemTax
                         return (
-                            <div key={item.retailProduct.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                            <div key={`${item.retailProduct.source_type || 'retail'}-${item.retailProduct.id}`} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
                                 {item.retailProduct.image_url ? (
                                     <img src={item.retailProduct.image_url} alt={item.retailProduct.name}
                                         className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
@@ -485,19 +490,19 @@ const LocalCart = () => {
                                 </div>
                                 <div className="flex items-center gap-1 flex-shrink-0">
                                     <button type="button"
-                                        onClick={() => updateRetailCartQuantity(item.retailProduct.id, quantity - 1)}
+                                        onClick={() => updateRetailCartQuantity(item.retailProduct.source_type || 'retail', item.retailProduct.id, quantity - 1)}
                                         className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition">
                                         <Minus size={14} className="text-gray-600" />
                                     </button>
                                     <span className="w-8 text-center font-bold text-gray-900 text-sm">{quantity}</span>
                                     <button type="button"
-                                        onClick={() => updateRetailCartQuantity(item.retailProduct.id, quantity + 1)}
+                                        onClick={() => updateRetailCartQuantity(item.retailProduct.source_type || 'retail', item.retailProduct.id, quantity + 1)}
                                         className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-300 bg-white hover:bg-gray-100 transition">
                                         <Plus size={14} className="text-gray-600" />
                                     </button>
                                 </div>
                                 <button type="button"
-                                    onClick={() => removeFromRetailCart(item.retailProduct.id)}
+                                    onClick={() => removeFromRetailCart(item.retailProduct.source_type || 'retail', item.retailProduct.id)}
                                     className="w-8 h-8 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition flex-shrink-0">
                                     <Trash2 size={16} />
                                 </button>
@@ -740,7 +745,7 @@ const LocalCart = () => {
                         const itemTax = Math.round(itemSubtotal * (taxRate / 100))
                         const itemTotal = itemSubtotal + itemTax
                         return (
-                            <div key={item.retailProduct.id} className="flex justify-between text-sm text-gray-700 py-2 border-b border-gray-100">
+                            <div key={`${item.retailProduct.source_type || 'retail'}-${item.retailProduct.id}`} className="flex justify-between text-sm text-gray-700 py-2 border-b border-gray-100">
                                 <span className="font-medium">{item.retailProduct.name} × {quantity}{item.retailProduct.retail_unit}</span>
                                 <span className="font-semibold">¥{itemTotal.toLocaleString()}</span>
                             </div>

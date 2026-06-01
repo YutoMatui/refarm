@@ -207,9 +207,15 @@ export interface Product extends TimestampFields {
   is_kobe_veggie: boolean
 }
 
+// Retail Product source type
+// 'retail' = retail_products テーブル由来
+// 'product' = products テーブル由来（小売商品が作られていない農家商品のフォールバック）
+export type RetailSourceType = 'retail' | 'product'
+
 // Retail Product (消費者向け小売商品)
 export interface RetailProduct extends TimestampFields {
   id: number
+  source_type: RetailSourceType
   source_product_id: number
   name: string
   description?: string | null

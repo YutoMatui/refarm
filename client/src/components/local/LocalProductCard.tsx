@@ -114,7 +114,7 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
     if (compact) {
         return (
             <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden flex">
-                <Link to={`/local/retail-products/${product.id}`} className="w-24 h-24 bg-gray-100 flex-shrink-0 relative">
+                <Link to={`/local/retail-products/${product.source_type || 'retail'}/${product.id}`} className="w-24 h-24 bg-gray-100 flex-shrink-0 relative">
                     {product.image_url ? (
                         <img
                             src={product.image_url}
@@ -136,7 +136,7 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                 </Link>
                 <div className="flex-1 p-3 flex flex-col justify-between">
                     <div>
-                        <Link to={`/local/retail-products/${product.id}`}>
+                        <Link to={`/local/retail-products/${product.source_type || 'retail'}/${product.id}`}>
                             <h3 className="text-sm font-bold text-gray-900 line-clamp-1 hover:text-emerald-600 transition-colors">
                                 {product.name}
                             </h3>
@@ -169,7 +169,7 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
     // 通常表示（グリッド）
     return (
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-            <Link to={`/local/retail-products/${product.id}`} className="block">
+            <Link to={`/local/retail-products/${product.source_type || 'retail'}/${product.id}`} className="block">
                 <div className="h-40 bg-gray-100 relative">
                     {product.image_url ? (
                         <img src={product.image_url} alt={product.name} className="h-full w-full object-cover hover:opacity-90 transition-opacity" loading="lazy" />
@@ -182,7 +182,7 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                 </div>
             </Link>
             <div className="p-4 space-y-2">
-                <Link to={`/local/retail-products/${product.id}`}>
+                <Link to={`/local/retail-products/${product.source_type || 'retail'}/${product.id}`}>
                     <h3 className="text-lg font-semibold text-gray-900 hover:text-emerald-600 transition-colors">
                         {product.name}
                     </h3>

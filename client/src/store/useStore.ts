@@ -34,10 +34,11 @@ interface AppState {
   isFavorite: (productId: number) => boolean
 
   // Retail Cart (消費者向け小売商品カート)
+  // retail_products と products の id が衝突するため、(source_type, id) ペアでカート要素を識別する
   retailCart: RetailCartItem[]
   addToRetailCart: (rp: RetailProduct, quantity: number) => void
-  removeFromRetailCart: (rpId: number) => void
-  updateRetailCartQuantity: (rpId: number, quantity: number) => void
+  removeFromRetailCart: (sourceType: 'retail' | 'product', rpId: number) => void
+  updateRetailCartQuantity: (sourceType: 'retail' | 'product', rpId: number, quantity: number) => void
   clearRetailCart: () => void
   getRetailCartTotal: () => number
   getRetailCartItemCount: () => number
@@ -136,11 +137,14 @@ export const useStore = create<AppState>()(
       retailCart: [],
       addToRetailCart: (rp, quantity) => {
         const { retailCart } = get()
-        const existing = retailCart.find(item => item.retailProduct.id === rp.id)
+        const rpType = rp.source_type || 'retail'
+        const existing = retailCart.find(
+          item => (item.retailProduct.source_type || 'retail') === rpType && item.retailProduct.id === rp.id
+        )
         if (existing) {
           set({
             retailCart: retailCart.map(item =>
-              item.retailProduct.id === rp.id
+              (item.retailProduct.source_type || 'retail') === rpType && item.retailProduct.id === rp.id
                 ? { ...item, quantity: item.quantity + quantity }
                 : item
             ),
@@ -149,16 +153,22 @@ export const useStore = create<AppState>()(
           set({ retailCart: [...retailCart, { retailProduct: rp, quantity }] })
         }
       },
-      removeFromRetailCart: (rpId) => {
-        set({ retailCart: get().retailCart.filter(item => item.retailProduct.id !== rpId) })
+      removeFromRetailCart: (sourceType, rpId) => {
+        set({
+          retailCart: get().retailCart.filter(
+            item => !((item.retailProduct.source_type || 'retail') === sourceType && item.retailProduct.id === rpId)
+          ),
+        })
       },
-      updateRetailCartQuantity: (rpId, quantity) => {
+      updateRetailCartQuantity: (sourceType, rpId, quantity) => {
         if (quantity <= 0) {
-          get().removeFromRetailCart(rpId)
+          get().removeFromRetailCart(sourceType, rpId)
         } else {
           set({
             retailCart: get().retailCart.map(item =>
-              item.retailProduct.id === rpId ? { ...item, quantity } : item
+              (item.retailProduct.source_type || 'retail') === sourceType && item.retailProduct.id === rpId
+                ? { ...item, quantity }
+                : item
             ),
           })
         }

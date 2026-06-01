@@ -699,8 +699,10 @@ export const retailProductApi = {
   }) =>
     apiClient.get<PaginatedResponse<any>>('/retail-products/', { params }),
 
-  getById: (id: number) =>
-    apiClient.get<any>(`/retail-products/${id}`),
+  // 詳細取得はテーブル種別をURLで明示する
+  // sourceType='retail' → retail_products テーブル, sourceType='product' → products テーブル
+  getById: (sourceType: 'retail' | 'product', id: number) =>
+    apiClient.get<any>(`/retail-products/${sourceType}/${id}`),
 }
 
 // Admin Retail Product API
