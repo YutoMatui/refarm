@@ -16,14 +16,6 @@ const calcPriceValidUntil = (infoConfirmedAt: string | null | undefined): string
     return `${validUntil.getMonth() + 1}/${validUntil.getDate()}`
 }
 
-/** 2週間以上未更新か判定 */
-const isStale = (infoConfirmedAt: string | null | undefined): boolean => {
-    if (!infoConfirmedAt) return true
-    const confirmed = new Date(infoConfirmedAt)
-    const now = new Date()
-    return (now.getTime() - confirmed.getTime()) / (1000 * 60 * 60 * 24) >= 14
-}
-
 /** 小売単位に換算した重量を取得（セット売りの場合はセット全体の重量） */
 const getRetailWeight = (product: RetailProduct): number | null => {
     if (product.weight == null || product.weight <= 0) return null
@@ -106,7 +98,6 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
     const basePrice = Math.round(parseFloat(product.retail_price))
     const isOrganic = product.farming_method === 'organic'
     const priceValidUntil = calcPriceValidUntil(product.info_confirmed_at)
-    const stale = isStale(product.info_confirmed_at)
     const retailWeight = getRetailWeight(product)
     const retailStock = getRetailStock(product)
 
@@ -201,9 +192,6 @@ const LocalProductCard = ({ product, onAddToCart, compact = false }: LocalProduc
                 )}
                 {product.description && (
                     <p className="text-sm text-gray-600 line-clamp-2">{product.description}</p>
-                )}
-                {stale && (
-                    <p className="text-xs text-amber-600 bg-amber-50 rounded px-2 py-1">在庫がなくなっている恐れがございます</p>
                 )}
                 <div className="flex items-center justify-center space-x-3 py-2">
                     <button type="button" onClick={decrease} className="p-2 rounded-full border-2 border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-emerald-500 transition-colors" aria-label="数量を減らす"><Minus size={18} /></button>

@@ -215,17 +215,6 @@ const LocalProductDetail = () => {
                     </div>
                 )}
 
-                {/* 2週間以上未更新の警告 */}
-                {(() => {
-                    const stale = !product.info_confirmed_at ||
-                        (new Date().getTime() - new Date(product.info_confirmed_at).getTime()) / (1000 * 60 * 60 * 24) >= 14
-                    return stale ? (
-                        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-                            <p className="text-sm text-amber-600 font-medium">在庫がなくなっている恐れがございます</p>
-                        </div>
-                    ) : null
-                })()}
-
                 {/* Description */}
                 {product.description && (
                     <div className="prose prose-sm text-gray-600">
