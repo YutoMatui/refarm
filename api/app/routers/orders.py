@@ -165,11 +165,11 @@ async def list_orders(
         count_stmt = count_stmt.where(Order.status == status_filter)
     
     total = await db.scalar(count_stmt)
-    
-    query = query.offset(skip).limit(limit)
+
+    query = query.order_by(Order.created_at.desc()).offset(skip).limit(limit)
     result = await db.execute(query)
     orders = result.scalars().all()
-    
+
     return OrderListResponse(items=orders, total=total or 0, skip=skip, limit=limit)
 
 
