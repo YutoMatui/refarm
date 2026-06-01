@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { farmerApi, invitationApi, uploadApi, adminApi } from '@/services/api';
 import { Farmer, ChefComment, Commitment, Achievement, SettlementStatus } from '@/types';
-import { Edit2, Loader2, X, Link as LinkIcon, Copy, Unlink, Trash2, Camera, CheckCircle } from 'lucide-react';
+import { Edit2, Loader2, X, Link as LinkIcon, Copy, Unlink, Trash2, Camera, CheckCircle, Wallet, AlertCircle } from 'lucide-react';
 import { format, subMonths, endOfMonth, subDays } from 'date-fns';
 import Loading from '@/components/Loading';
 import { toast } from 'sonner';
@@ -496,9 +496,18 @@ export default function FarmerManagement() {
                                         <td className="px-6 py-4 text-sm font-medium text-gray-900">
                                             {farmer.name}
                                             {farmer.bank_name ? (
-                                                <div className="text-[10px] text-gray-400 mt-0.5">{farmer.bank_name} {farmer.bank_branch}</div>
+                                                <div className="text-xs text-gray-600 mt-1 flex items-center gap-1">
+                                                    <Wallet size={12} className="text-emerald-600" />
+                                                    <span>{farmer.bank_name} {farmer.bank_branch}</span>
+                                                    {farmer.bank_account_number && (
+                                                        <span className="text-gray-400">／{farmer.bank_account_type || '普通'} {farmer.bank_account_number}</span>
+                                                    )}
+                                                </div>
                                             ) : (
-                                                <div className="text-[10px] text-red-400 mt-0.5">口座未登録</div>
+                                                <div className="text-xs text-red-600 mt-1 flex items-center gap-1 font-bold">
+                                                    <AlertCircle size={12} />
+                                                    <span>口座未登録</span>
+                                                </div>
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-500">
@@ -667,6 +676,75 @@ export default function FarmerManagement() {
                             <p className="text-xs text-gray-500 mt-2">クリックしてプロフィール画像を変更</p>
                         </div>
 
+                        {/* Bank Account Info (highlighted, top-of-form) */}
+                        <div className={`border-2 rounded-xl p-5 ${editingFarmer.bank_name ? 'border-emerald-300 bg-emerald-50' : 'border-red-200 bg-red-50'}`}>
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                    <Wallet size={18} className={editingFarmer.bank_name ? 'text-emerald-600' : 'text-red-500'} />
+                                    振込先口座情報
+                                </h3>
+                                {editingFarmer.bank_name ? (
+                                    <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                        <CheckCircle size={12} /> 登録済み
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700 border border-red-200">
+                                        <AlertCircle size={12} /> 未登録
+                                    </span>
+                                )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 mb-1">銀行名</label>
+                                    <input
+                                        value={editingFarmer.bank_name || ''}
+                                        onChange={(e) => setEditingFarmer({ ...editingFarmer, bank_name: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-lg p-2 text-sm bg-white"
+                                        placeholder="例: 三井住友銀行"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 mb-1">支店名</label>
+                                    <input
+                                        value={editingFarmer.bank_branch || ''}
+                                        onChange={(e) => setEditingFarmer({ ...editingFarmer, bank_branch: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-lg p-2 text-sm bg-white"
+                                        placeholder="例: 板宿支店"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 mb-1">口座種別</label>
+                                    <select
+                                        value={editingFarmer.bank_account_type || ''}
+                                        onChange={(e) => setEditingFarmer({ ...editingFarmer, bank_account_type: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-lg p-2 text-sm bg-white"
+                                    >
+                                        <option value="">選択してください</option>
+                                        <option value="普通">普通</option>
+                                        <option value="当座">当座</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 mb-1">口座番号</label>
+                                    <input
+                                        value={editingFarmer.bank_account_number || ''}
+                                        onChange={(e) => setEditingFarmer({ ...editingFarmer, bank_account_number: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-lg p-2 text-sm bg-white"
+                                        placeholder="例: 1234567"
+                                    />
+                                </div>
+                                <div className="col-span-2">
+                                    <label className="block text-xs font-bold text-gray-600 mb-1">口座名義（カナ）</label>
+                                    <input
+                                        value={editingFarmer.bank_account_holder || ''}
+                                        onChange={(e) => setEditingFarmer({ ...editingFarmer, bank_account_holder: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-lg p-2 text-sm bg-white"
+                                        placeholder="例: ヤマダ タロウ"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Basic Info */}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
@@ -756,61 +834,6 @@ export default function FarmerManagement() {
                                 className="w-full border border-gray-300 rounded-lg p-2"
                                 rows={3}
                             />
-                        </div>
-
-                        {/* Bank Account Info */}
-                        <div className="border-t pt-6">
-                            <h3 className="text-sm font-bold text-gray-700 mb-3">振込先口座情報</h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs text-gray-500 mb-1">銀行名</label>
-                                    <input
-                                        value={editingFarmer.bank_name || ''}
-                                        onChange={(e) => setEditingFarmer({ ...editingFarmer, bank_name: e.target.value })}
-                                        className="w-full border border-gray-300 rounded-lg p-2 text-sm"
-                                        placeholder="例: 三井住友銀行"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs text-gray-500 mb-1">支店名</label>
-                                    <input
-                                        value={editingFarmer.bank_branch || ''}
-                                        onChange={(e) => setEditingFarmer({ ...editingFarmer, bank_branch: e.target.value })}
-                                        className="w-full border border-gray-300 rounded-lg p-2 text-sm"
-                                        placeholder="例: 板宿支店"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs text-gray-500 mb-1">口座種別</label>
-                                    <select
-                                        value={editingFarmer.bank_account_type || ''}
-                                        onChange={(e) => setEditingFarmer({ ...editingFarmer, bank_account_type: e.target.value })}
-                                        className="w-full border border-gray-300 rounded-lg p-2 text-sm bg-white"
-                                    >
-                                        <option value="">選択してください</option>
-                                        <option value="普通">普通</option>
-                                        <option value="当座">当座</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs text-gray-500 mb-1">口座番号</label>
-                                    <input
-                                        value={editingFarmer.bank_account_number || ''}
-                                        onChange={(e) => setEditingFarmer({ ...editingFarmer, bank_account_number: e.target.value })}
-                                        className="w-full border border-gray-300 rounded-lg p-2 text-sm"
-                                        placeholder="例: 1234567"
-                                    />
-                                </div>
-                                <div className="col-span-2">
-                                    <label className="block text-xs text-gray-500 mb-1">口座名義</label>
-                                    <input
-                                        value={editingFarmer.bank_account_holder || ''}
-                                        onChange={(e) => setEditingFarmer({ ...editingFarmer, bank_account_holder: e.target.value })}
-                                        className="w-full border border-gray-300 rounded-lg p-2 text-sm"
-                                        placeholder="例: ヤマダ タロウ"
-                                    />
-                                </div>
-                            </div>
                         </div>
 
                         {/* Chef Comments Editor */}
