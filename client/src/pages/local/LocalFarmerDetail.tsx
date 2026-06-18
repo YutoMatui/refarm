@@ -10,7 +10,6 @@ import {
     MessageCircle,
     Send,
     Award,
-    MapPin,
     Heart
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -216,12 +215,6 @@ const LocalFarmerDetail = () => {
                         <div className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-semibold">
                             {farmer.main_crop}
                         </div>
-                    </div>
-                )}
-                {farmer.address && (
-                    <div className="flex items-center gap-1 text-sm text-gray-600 mb-2">
-                        <MapPin size={14} />
-                        <span>{farmer.address}</span>
                     </div>
                 )}
                 {farmer.bio && (
